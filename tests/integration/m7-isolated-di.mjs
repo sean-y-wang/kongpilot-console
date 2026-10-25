@@ -1,0 +1,38 @@
+import{execFileSync,spawn}from'node:child_process';
+import{createHash,randomBytes,randomUUID}from'node:crypto';
+import{cpSync,mkdirSync,mkdtempSync,readFileSync,rmSync,writeFileSync}from'node:fs';
+import{tmpdir}from'node:os';
+import{join,resolve}from'node:path';
+const ROOT=resolve('.');
+const SETUP=`const fs=require('node:fs');let raw='';process.stdin.on('data',b=>raw+=b);process.stdin.on('end',async()=>{let db;try{const input=JSON.parse(raw);Object.assign(process.env,input.env);const{DbService}=require(input.dist+'/infrastructure/db.service.js'),{provisionRuntimeRole}=require(input.dist+'/infrastructure/migrate.js');db=new DbService();for(let i=0;;i++){try{await db.one('SELECT 1');break;}catch{if(i>=80)throw new Error('ISOLATED_DB_UNAVAILABLE');await new Promise(r=>setTimeout(r,100));}}await db.migrateAndSeed();await provisionRuntimeRole(db);console.log(JSON.stringify({kind:'setup',migrated:true}));}catch{console.log(JSON.stringify({kind:'failure',code:'ISOLATED_SETUP_FAILED'}));process.exitCode=1;}finally{await db?.onModuleDestroy();}});`;
+const BOOT=`require('reflect-metadata');let raw='',app;const safe=e=>{const message=String(e?.message??'');const provider=message.match(/dependencies of the ([A-Za-z][A-Za-z0-9_]{0,95})/)?.[1];console.log(JSON.stringify({kind:'failure',code:'ISOLATED_DI_FAILED',...(provider?{provider}:{})}));process.exitCode=1;};process.stdin.on('data',b=>raw+=b);process.stdin.on('end',async()=>{try{const input=JSON.parse(raw);Object.assign(process.env,input.env);const{NestFactory}=require('@nestjs/core'),{AppModule}=require(input.dist+'/app.module.js');app=await NestFactory.create(AppModule,{logger:false,abortOnError:false});app.setGlobalPrefix('api/v1');await app.listen(0,'127.0.0.1');console.log(JSON.stringify({kind:'ready',port:app.getHttpServer().address().port}));}catch(e){safe(e);}});process.once('SIGTERM',async()=>{await app?.close();process.exit(0);});`;
+const hash=b=>createHash('sha256').update(b).digest('hex');
+export async function isolatedDi(){
+ const runId=randomUUID(),directory=mkdtempSync(join(tmpdir(),'kongos-m7-di-')),dist=join(directory,'dist'),containers=[],checks=[];let child,phase='compile';
+ const env={PATH:process.env.PATH??'/usr/bin:/bin',NODE_PATH:[resolve('apps/console-api/node_modules'),resolve('node_modules')].join(':')};
+ const docker=args=>execFileSync('docker',['--host=unix:///var/run/docker.sock',...args],{env,stdio:['ignore','pipe','pipe'],encoding:'utf8',timeout:20000});
+ const pass=(name,condition)=>{checks.push({name,passed:!!condition});if(!condition)throw new Error('ISOLATED_DI_CHECK_FAILED');};
+ let result;
+ try{
+  execFileSync('node',[resolve('node_modules/typescript/bin/tsc'),'-p','apps/console-api/tsconfig.json','--outDir',dist],{env,stdio:['ignore','pipe','pipe'],timeout:60000});
+  cpSync('apps/console-api/src/infrastructure/migrations',join(dist,'infrastructure/migrations'),{recursive:true});
+  phase='isolated-storage';const pg='kongos-m7-di-pg-'+runId.slice(0,8),redis='kongos-m7-di-redis-'+runId.slice(0,8);
+  for(const[name,image,port,extra]of[[pg,'postgres:16-alpine','5432',['-e','POSTGRES_HOST_AUTH_METHOD=trust']],[redis,'redis:7-alpine','6379',[]]]){containers.push(name);docker(['run','-d','--pull=never','--name',name,'-p',`127.0.0.1::${port}`,...extra,image]);}
+  const pgPort=docker(['port',pg,'5432']).trim().split(':').pop(),redisPort=docker(['port',redis,'6379']).trim().split(':').pop(),runtimePassword=randomBytes(32).toString('hex');
+  const synthetic={NODE_ENV:'development',APP_SECRET:randomBytes(32).toString('hex'),CONSOLE_ENCRYPTION_KEY:randomBytes(32).toString('hex'),PORTAL_SECRET:randomBytes(32).toString('hex'),PORTAL_PUBLIC_ORIGINS:'http://127.0.0.1:18082',PUBLIC_ORIGINS:'http://127.0.0.1:18080',COOKIE_SECURE:'false',REDIS_URL:`redis://127.0.0.1:${redisPort}`,EVENT_DELIVERY_WORKER_ENABLED:'false',EVENT_DELIVERY_ALLOWED_HOSTS:'',DEFAULT_KONG_ADMIN_URL:'',METRICS_BRIDGE_ENABLED:'false',AUTH_PROVIDERS_JSON:'[]'};
+  phase='isolated-migrations';const setup={dist,env:{...synthetic,DATABASE_URL:`postgres://postgres@127.0.0.1:${pgPort}/postgres`,BOOTSTRAP_ADMIN_USERNAME:'m7-di-bootstrap',BOOTSTRAP_ADMIN_PASSWORD:'Synthetic!M7OnlyBootstrap2026Password',CONSOLE_DB_RUNTIME_USER:'m7_di_runtime',CONSOLE_DB_RUNTIME_PASSWORD:runtimePassword}};
+  const setupOutput=execFileSync('node',['-e',SETUP],{env,input:JSON.stringify(setup),encoding:'utf8',stdio:['pipe','pipe','pipe'],maxBuffer:65536,timeout:60000});
+  pass('fresh owner migrations and distinct nonowner provision complete',setupOutput.split('\n').some(line=>{try{return JSON.parse(line).kind==='setup';}catch{return false;}}));
+  phase='isolated-nest';child=spawn('node',['-e',BOOT],{env,stdio:['pipe','pipe','pipe']});child.stdin.end(JSON.stringify({dist,env:{...synthetic,SKIP_MIGRATIONS:'true',DATABASE_URL:`postgres://m7_di_runtime:${runtimePassword}@127.0.0.1:${pgPort}/postgres`}}));
+  const ready=await new Promise((resolveReady,reject)=>{let buffer='',size=0;const timeout=setTimeout(()=>reject(new Error('ISOLATED_DI_TIMEOUT')),45000);child.stderr.on('data',()=>undefined);child.stdout.on('data',bytes=>{size+=bytes.length;if(size>65536){clearTimeout(timeout);reject(new Error('ISOLATED_DI_OUTPUT_LIMIT'));return;}buffer+=bytes.toString();for(;;){const newline=buffer.indexOf('\n');if(newline<0)break;const line=buffer.slice(0,newline);buffer=buffer.slice(newline+1);let item;try{item=JSON.parse(line);}catch{continue;}if(item.kind==='ready'){clearTimeout(timeout);resolveReady(item);return;}if(item.kind==='failure'){clearTimeout(timeout);reject(Object.assign(new Error('ISOLATED_DI_FAILED'),{provider:item.provider}));return;}}});child.once('exit',()=>{clearTimeout(timeout);reject(new Error('ISOLATED_DI_EXITED'));});});
+  pass('actual Nest provider graph initialized',Number.isInteger(ready.port)&&ready.port>0&&ready.port<65536);
+  phase='isolated-health';for(const path of['health/live','health/ready']){const response=await fetch(`http://127.0.0.1:${ready.port}/api/v1/${path}`,{signal:AbortSignal.timeout(5000)});await response.body?.cancel();pass('isolated '+path+' responds200',response.status===200);}
+  result={status:'PASS',allPassed:true,checks,phase,source:{appModuleSHA256:hash(readFileSync('apps/console-api/src/app.module.ts'))},compiledOutsideRepository:true,existingRuntimeAccess:0,nativeCalls:0,externalDeliveries:0};
+ }catch(error){result={status:'FAIL',allPassed:false,phase,checks,errorCode:'ISOLATED_DI_CHECK_FAILED',...(typeof error?.provider==='string'&&/^[A-Za-z][A-Za-z0-9_]{0,95}$/.test(error.provider)?{provider:error.provider}:{}),compiledOutsideRepository:true,existingRuntimeAccess:0,nativeCalls:0,externalDeliveries:0};}
+ finally{if(child){child.kill('SIGTERM');await Promise.race([new Promise(r=>child.once('exit',r)),new Promise(r=>setTimeout(r,3000))]);if(child.exitCode===null)child.kill('SIGKILL');}for(const name of containers.reverse())try{docker(['rm','-f','-v',name]);}catch{}rmSync(directory,{recursive:true,force:true});}
+ mkdirSync('artifacts/M7',{recursive:true});const path=`artifacts/M7/isolated-nest-di-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;writeFileSync(path,JSON.stringify(result,null,2)+'\n',{flag:'wx'});return{...result,path};
+}
+if(process.argv[1]===resolve('tests/integration/m7-isolated-di.mjs')){
+ if(!process.argv.includes('--isolated')){process.stderr.write('Only an explicitly isolated fresh-storage run is supported.\n');process.exitCode=2;}
+ else{const result=await isolatedDi();process.stdout.write(JSON.stringify({status:result.status,phase:result.phase,checks:result.checks.length,path:result.path,...(result.provider?{provider:result.provider}:{})})+'\n');if(!result.allPassed)process.exitCode=1;}
+}

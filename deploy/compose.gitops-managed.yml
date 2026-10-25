@@ -1,0 +1,10 @@
+# Build-only trust for the managed environment. No runtime CA or token mount.
+services:
+  console-deck-runner:
+    build:
+      secrets:
+        - source: proxy_ca
+          target: proxy_ca
+secrets:
+  proxy_ca:
+    file: ${DECK_BUILD_PROXY_CA_FILE:?Set the managed build CA path}

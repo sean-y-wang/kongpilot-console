@@ -1,0 +1,30 @@
+import{readFileSync}from'node:fs';
+import{M8Harness,readM8Reference,sha256,scope,entity}from'./lib/m8-harness.mjs';
+import{retainM8History}from'./lib/m8-private-history.mjs';
+import{configurationRead,configurationWrite,assertConfigurationReceipt}from'./lib/m8-configuration-acceptance.mjs';
+import{finishM8ObservedApprovalImport}from'./lib/m8-transfer-acceptance.mjs';
+import{M8_RECIPROCAL_BINDING_STOPPED,assertM8ReciprocalBindingRepairCheckpoint,m8ReciprocalBindingStoppedProof}from'./lib/m8-reciprocal-binding-repair.mjs';
+if(process.env.M8_DEPLOYMENT_READY!=='true'||process.env.M8_RUNTIME_READY!=='true'||process.env.M8_RECIPROCAL_BINDING_REPAIR_READY!=='true')throw Error('M8_RECIPROCAL_BINDING_REPAIR_RELEASE_REQUIRED');
+const failurePath='artifacts/M8/security-live-null-create-before-repair.json',diagnosisPath='artifacts/M8/v2-native-binding-readonly-diagnosis.json';
+const failureBytes=readFileSync(failurePath),diagnosisBytes=readFileSync(diagnosisPath),r=readM8Reference();
+const original=assertM8ReciprocalBindingRepairCheckpoint(r,failureBytes,diagnosisBytes),c=M8_RECIPROCAL_BINDING_STOPPED,h=new M8Harness({resume:true,reference:r});let failure;
+try{
+ const history=retainM8History(r,'reciprocalBindingRepairTailHistory');r.reciprocalBindingRepairTail={version:1,state:'original-failed-read',history,originalPacketCount:c.count,originalPrefixSha256:c.prefix,failurePath,failureSha256:sha256(failureBytes),diagnosisPath,diagnosisSha256:sha256(diagnosisBytes),originalApprovalReplayed:false,originalExecutionReplayed:false,originalFailurePreserved:true};
+ h.checks=original.failed.checks.filter(v=>v.passed);h.save({phase:'reciprocal-binding-independent-validation',inFlight:null});
+ const actors={...r.sessions,direct:r.scopes.direct,approval:r.scopes.approval,foreign:r.scopes.foreign},area=actors.approval;
+ const prior=await configurationRead(h,actors.admin,area,`workflows/receipts/by-key/${c.key}`);
+ h.check(prior.workflowId===c.workflowId&&prior.executionId===c.workflowExecutionId&&prior.clusterId===area.cid&&prior.workspaceId===area.wid&&prior.idempotencyKey===c.key&&prior.state==='failed'&&prior.steps?.length===1&&prior.steps[0].id===c.workflowStepId&&prior.steps[0].state==='failed','original failed workflow receipt is retained without replay');
+ const oldJob=await configurationRead(h,actors.admin,area,`configuration/jobs/by-key/${original.submission.key}`);assertConfigurationReceipt(h,oldJob,{actor:actors.admin,area,key:original.submission.key,jobId:c.jobId,kind:'apply'});
+ h.check(oldJob.state==='failed'&&oldJob.workflowId===c.workflowId&&oldJob.executionId===c.configurationExecutionId&&oldJob.completedSteps===0&&oldJob.errorCode==='CONFIGURATION_NATIVE_BINDING_CHANGED','original configuration failure remains terminal with no completed step');
+ const oldMode=entity(h.data(await h.request(actors.admin,`/clusters/${area.cid}`)));h.check(oldMode.id===area.cid&&oldMode.execution_mode==='approval','reciprocal-binding validation preserves canonical approval mode');
+ const objects=h.data(await h.request(actors.admin,scope(area.cid,area.wid,'entities/services',{size:100})));
+ h.check(Array.isArray(objects.items)&&objects.items.length===0&&objects.nextCursor===null,'exact current approval workspace has empty service EOF before independent validation');
+ const proof=await m8ReciprocalBindingStoppedProof(h,actors.admin,area);r.reciprocalBindingRepairTail.originalStoppedProof=proof;r.reciprocalBindingRepairTail.state='new-explicit-independent-validation';h.save();
+ h.public={actualM8Complete:false,originalFailuresRetained:[{path:failurePath,sha256:sha256(failureBytes)}],directTransfer:r.directTransfer,fiveClassRecovery:r.fiveClassRecovery,naturalTimer:r.naturalTimerProven,originalApprovalReplayed:false,originalExecutionReplayed:false,originalFailurePreserved:true,originalApprovalNoNativeProven:true,recoveredCommittedHTTPFailures:1,nativeAdminBypassRequests:0,remaining:['fixed-deck11-cli','current-RBAC-IDOR-session','full-audit-events','browser','soft-cleanup-secret-scan']};
+ const imported=await configurationWrite(h,actors.admin,area,'configuration/imports',structuredClone(original.source.body),{kind:'import'});
+ h.check(imported.jobId!==original.source.responseData.jobId&&imported.counts?.create===17,'independent reciprocal-binding validation imports the unchanged seventeen-object intent under a new explicit key');
+ await finishM8ObservedApprovalImport(h,actors,imported);
+ h.check(sha256(JSON.stringify(r.requests.slice(0,c.count)))===c.prefix,'all one hundred fifteen original packets remain byte-equivalent');
+ r.reciprocalBindingRepairTail.state='completed';r.nullCreateBeforeRepairTail.state='completed';r.currentApproverRepairTail.state='completed';r.v2PreparationRepairTail.state='completed';r.v2WrapperUnusedTail.state='completed';h.save();
+}catch(error){failure=error;}
+process.exitCode=h.finish(failure,'artifacts/M8/security-live-reciprocal-binding-repair.json');

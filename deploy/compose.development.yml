@@ -1,0 +1,29 @@
+# Stage-by-stage local verification only. Production uses docker-compose.yml alone.
+# Relative paths resolve against the first Compose file in the command (repository root).
+services:
+  console-api:
+    environment:
+      # Explicit local HTTP demo only. Base production keeps strict TLS origins.
+      NODE_ENV: development
+      COOKIE_SECURE: "false"
+    volumes:
+      - ./apps/console-api/dist:/app/apps/console-api/dist:ro
+      - ./apps/console-api/src/infrastructure/migrations:/app/apps/console-api/dist/infrastructure/migrations:ro
+  console-migrations:
+    volumes:
+      - ./apps/console-api/dist:/app/apps/console-api/dist:ro
+      - ./apps/console-api/src/infrastructure/migrations:/app/apps/console-api/dist/infrastructure/migrations:ro
+  console-web:
+    volumes:
+      - ./apps/console-web/dist:/usr/share/nginx/html:ro
+      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+  portal-web:
+    # Use the already trusted Nginx runtime for incremental stage verification.
+    # Final production verification builds the Portal Dockerfile independently.
+    image: nginx:1.27-alpine
+    entrypoint: [nginx]
+    command: ["-g", "daemon off;"]
+    volumes:
+      - ./apps/portal-web/dist:/usr/share/nginx/html:ro
+      - ./deploy/nginx/portal.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx/portal-nginx.conf:/etc/nginx/nginx.conf:ro

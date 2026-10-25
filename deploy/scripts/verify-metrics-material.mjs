@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { createMetricsMaterial, materialFromEnrollment, prometheusConfiguration, digest } from './metrics-material.mjs';
+const checks = [];
+function check(name, callback) { try { callback(); checks.push({ name, passed: true }); } catch { checks.push({ name, passed: false }); } }
+const material = createMetricsMaterial(randomUUID(), 1);
+check('four random independent43char tokens', () => { assert.equal(new Set(material.enrollment.credentials.map(row => row.token)).size, 4); assert(material.enrollment.credentials.every(row => /^[A-Za-z0-9_-]{43}$/.test(row.token))); });
+check('correct audience per purpose', () => { assert(material.enrollment.credentials.every(row => row.audience === (['native_scrape', 'collector_catalog'].includes(row.purpose) ? 'bff' : 'collector'))); });
+check('fingerprints hash ASCII UTF8 token not decoded bytes', () => { assert.equal(material.collector.ingestFingerprint, digest(material.enrollment.credentials.find(row => row.purpose === 'collector_ingest').token)); });
+const ingest = material.enrollment.credentials.find(row => row.purpose === 'collector_ingest').token;
+check('host material has no raw ingest key', () => { assert(!JSON.stringify({ collector: material.collector, prometheus: material.prometheus, fingerprints: material.fingerprints }).includes(ingest)); });
+check('collector has no native scrape raw key', () => { assert(!JSON.stringify(material.collector).includes(material.prometheus.native)); });
+check('collector has no collector scrape raw key', () => { assert(!JSON.stringify(material.collector).includes(material.prometheus.collector)); });
+check('confirmed provided bundle roundtrip', () => { assert.deepEqual(materialFromEnrollment(material.enrollment), material); });
+check('provided token duplicate is rejected', () => { const row = structuredClone(material.enrollment); row.credentials[3].token = row.credentials[0].token; assert.throws(() => materialFromEnrollment(row)); });
+check('provided purpose confusion rejected', () => { const row = structuredClone(material.enrollment); row.credentials[0].audience = 'collector'; assert.throws(() => materialFromEnrollment(row)); });
+check('provided arbitrary secret field rejected', () => { const row = structuredClone(material.enrollment); row.password = 'synthetic'; assert.throws(() => materialFromEnrollment(row)); });
+check('CID injection rejected', () => { assert.throws(() => createMetricsMaterial('x\nquery', 1)); });
+check('invalid generation rejected', () => { assert.throws(() => createMetricsMaterial(randomUUID(), 0)); });
+const config = prometheusConfiguration([{ clusterId: material.enrollment.clusterId, nodeId: digest('offline-safe-node') }]);
+check('Prom config contains only secret filepaths', () => { assert(material.enrollment.credentials.every(row => !config.includes(row.token))); assert(config.includes('bearer_token_file:')); });
+check('Prom gets only two fixed scrape targets', () => { assert(config.includes("'metrics-bff:9092'")); assert(config.includes("'telemetry-collector:9093'")); assert(!config.includes(':8001')); });
+check('Prom up has trusted stable node label and job_kind', () => { assert(config.includes("job_kind: 'kongos-native'")); assert(config.includes(`node_id: '${digest('offline-safe-node')}'`)); });
+const result = { stage: 'M5', observedAt: new Date().toISOString(), kind: 'offline random-token material verification; no enrollment or runtime changed', checks, allPassed: checks.every(row => row.passed), generatedSecretsPersisted: false };
+mkdirSync('artifacts/M5', { recursive: true }); writeFileSync('artifacts/M5/metrics-material-verification.json', JSON.stringify(result, null, 2) + '\n');
+console.log(`${checks.filter(row => row.passed).length}/${checks.length} offline metrics material checks passed; no secrets printed or persisted.`);
+if (!result.allPassed) process.exitCode = 1;

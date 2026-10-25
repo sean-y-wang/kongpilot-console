@@ -1,0 +1,88 @@
+# Opt-in M5 telemetry. Prepare/enroll credentials before starting this overlay.
+# Directory mounts preserve atomic token rotation; no secret enters image layers.
+services:
+  console-api:
+    environment:
+      METRICS_BRIDGE_ENABLED: "true"
+      METRICS_BRIDGE_HOST: ${CONSOLE_TELEMETRY_IP:-172.28.31.10}
+      METRICS_BRIDGE_PORT: "9092"
+      COLLECTOR_TELEMETRY_IP: ${COLLECTOR_TELEMETRY_IP:-172.28.31.30}
+      # Enumerate every interface: Docker DNS may select any shared network.
+      COLLECTOR_SELF_IPS: ${COLLECTOR_TELEMETRY_IP:-172.28.31.30},${COLLECTOR_PROXY_IP:-172.21.0.5},${COLLECTOR_OBSERVABILITY_IP:-172.22.0.5}
+      PROTECTED_DESTINATION_HOSTS: ${PROTECTED_DESTINATION_HOSTS:-},${KONG_DB_IP:-172.28.21.20},${KONG_SECONDARY_DB_IP:-172.28.22.20},${PROMETHEUS_TELEMETRY_IP:-172.28.31.20},${COLLECTOR_TELEMETRY_IP:-172.28.31.30},${COLLECTOR_PROXY_IP:-172.21.0.5},${COLLECTOR_OBSERVABILITY_IP:-172.22.0.5},telemetry-collector,${PORTAL_WEB_IP:-172.28.41.20},${PORTAL_ENTRY_IP:-172.28.42.20},portal-web
+    expose: ["3000", "9092"]
+    networks:
+      telemetry:
+        ipv4_address: ${CONSOLE_TELEMETRY_IP:-172.28.31.10}
+        aliases: [metrics-bff]
+
+  prometheus:
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.path=/prometheus, --storage.tsdb.retention.time=8d, --storage.tsdb.retention.size=1GB, --web.enable-lifecycle]
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+    # Replace the M0 individual config bind so rotation sees new file inodes.
+    volumes: !override
+      - ./deploy/private/metrics/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    networks:
+      observability: {}
+      telemetry:
+        ipv4_address: ${PROMETHEUS_TELEMETRY_IP:-172.28.31.20}
+
+  telemetry-collector:
+    profiles: [observability]
+    image: node:22-bookworm-slim
+    user: "1000:1000"
+    init: true
+    restart: unless-stopped
+    working_dir: /opt/kongos-collector
+    command: [node, server.mjs]
+    environment:
+      NODE_ENV: production
+      COLLECTOR_LOKI_ENABLED: ${COLLECTOR_LOKI_ENABLED:-true}
+      COLLECTOR_LOKI_AUTH_FILE: ${COLLECTOR_LOKI_AUTH_FILE:-}
+      COLLECTOR_LOKI_URL: ${COLLECTOR_LOKI_URL:-http://loki:3100}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    volumes:
+      - ./deploy/metrics-collector:/opt/kongos-collector:ro
+      - ./deploy/private/metrics/collector:/run/kongos-metrics:ro
+    expose: ["9093"]
+    networks:
+      telemetry:
+        ipv4_address: ${COLLECTOR_TELEMETRY_IP:-172.28.31.30}
+        aliases: [metrics-collector]
+      proxy-edge:
+        ipv4_address: ${COLLECTOR_PROXY_IP:-172.21.0.5}
+      observability:
+        ipv4_address: ${COLLECTOR_OBSERVABILITY_IP:-172.22.0.5}
+    depends_on:
+      console-api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:9093/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+
+networks:
+  # Match the initial demo allocation, but declare it explicitly for fresh installs.
+  # Change each subnet and corresponding collector IP together if it conflicts.
+  proxy-edge:
+    ipam:
+      config:
+        - subnet: ${PROXY_EDGE_SUBNET:-172.21.0.0/16}
+  observability:
+    ipam:
+      config:
+        - subnet: ${OBSERVABILITY_SUBNET:-172.22.0.0/16}
+  telemetry:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${TELEMETRY_SUBNET:-172.28.31.0/24}

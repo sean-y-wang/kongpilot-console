@@ -1,0 +1,101 @@
+{
+  "fields": [
+    {
+      "scopes": {
+        "elements": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "mandatory_scope": {
+        "required": true,
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "provision_key": {
+        "unique": true,
+        "required": true,
+        "auto": true,
+        "type": "string"
+      }
+    },
+    {
+      "token_expiration": {
+        "required": true,
+        "default": 7200,
+        "type": "number"
+      }
+    },
+    {
+      "enable_authorization_code": {
+        "required": true,
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "enable_implicit_grant": {
+        "required": true,
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "enable_client_credentials": {
+        "required": true,
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "enable_password_grant": {
+        "required": true,
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "hide_credentials": {
+        "required": true,
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "accept_http_if_already_terminated": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "anonymous": {
+        "legacy": true,
+        "uuid": true,
+        "type": "string"
+      }
+    },
+    {
+      "global_credentials": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "auth_header_name": {
+        "default": "authorization",
+        "type": "string"
+      }
+    },
+    {
+      "refresh_token_ttl": {
+        "required": true,
+        "default": 1209600,
+        "type": "number"
+      }
+    }
+  ]
+}

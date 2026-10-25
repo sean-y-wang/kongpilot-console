@@ -1,0 +1,8 @@
+{
+  "version": "1.2.4",
+  "commit": "8e68931",
+  "goKongVersion": "0.13.0",
+  "archive": "https://github.com/Kong/deck/releases/download/v1.2.4/deck_1.2.4_linux_amd64.tar.gz",
+  "archiveSha256": "6eef6dc36a8c251f10f0e3ffa40ec5289d42de131ad043f76ad45d2de390beae",
+  "binarySha256": "642f49fd64e83aff867939705dbd927c5e750b241a99e8539ab22d18930427ed"
+}

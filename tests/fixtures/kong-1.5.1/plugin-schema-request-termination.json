@@ -1,0 +1,29 @@
+{
+  "fields": [
+    {
+      "status_code": {
+        "between": [
+          100,
+          599
+        ],
+        "default": 503,
+        "type": "integer"
+      }
+    },
+    {
+      "message": {
+        "type": "string"
+      }
+    },
+    {
+      "content_type": {
+        "type": "string"
+      }
+    },
+    {
+      "body": {
+        "type": "string"
+      }
+    }
+  ]
+}

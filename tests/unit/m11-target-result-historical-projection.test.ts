@@ -1,0 +1,68 @@
+import 'reflect-metadata';
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+import {createHash,randomUUID} from 'node:crypto';
+import {ForbiddenException} from '@nestjs/common';
+import {canonicalJson} from '../../apps/console-api/src/infrastructure/secret.service';
+import {KongExecutionContextService} from '../../apps/console-api/src/infrastructure/kong/execution-context.service';
+import {eventAuditScopeDigest,scopeFromHints} from '../../apps/console-api/src/modules/event-core/event-utils';
+import {TargetResultReconciliationService} from '../../apps/console-api/src/modules/workflows/target-result-reconciliation.service';
+import {EntityChangeExecutionService} from '../../apps/console-api/src/modules/workflows/entity-change-execution.service';
+import {attestTargetOriginalProducer} from '../../apps/console-api/src/modules/workflows/entity-change-target-producer-contract';
+import {certifyTargetReconciliationHistory,targetResultObservationAad,targetResultObservationBinding} from '../../apps/console-api/src/modules/workflows/entity-change-target-reconciliation-proof';
+import {targetReconciliationFixture} from './helpers/target-reconciliation-fixture';
+
+/** Real crypto/history certifier and current private HTTP read frame. The
+ * observation below is an explicitly synthetic completed-ledger fixture,
+ * not a native receipt, actual SQL transition or runtime reconciliation. */
+async function fixture(){
+ const f=targetReconciliationFixture(),{rows,tx:db,secrets,source}=f,plan=f.input.plan,h=(v:any)=>secrets.fingerprint(v),proof=await certifyTargetReconciliationHistory(f.input),producer=attestTargetOriginalProducer(proof,secrets);
+ const w=rows.workflows[0],e=rows.workflow_executions[0],step=rows.workflow_steps[0],observedAt=new Date().toISOString(),sid=randomUUID(),id=randomUUID(),key='old-original-key';
+ e.idempotency_key=key;w.state=e.state=step.state=f.mutation.state='succeeded';w.revision=8;e.revision=4;step.revision=5;
+ const currentObservation={version:2,contract:'kong-1.5-disabled-target-two-eof-readback-v2',sourceId:source.id,operationId:f.op,parentHmac:h(f.capture.objects[0].before),originalResultHmac:proof.resultHmac,historyRetention:'native-pruned',observedHistoryHmac:null,historyAddressAbsent:true,currentEffectiveAbsent:true,historySnapshotHmac:h([]),effectiveSnapshotHmac:h([]),budget:{pages:4,records:0,bytes:8},observedAt};
+ const row:any={id,version:1,proof_kind:'target-weight-zero-original-response-v1',cluster_id:source.clusterId,workspace_id:source.workspaceId,transport_scope:plan.scope.transportScope,cluster_revision:plan.scope.clusterRevision,workspace_revision:plan.scope.workspaceRevision,
+  source_id:source.id,source_hmac:proof.sourceHmac,intent_id:source.intentId,intent_revision:source.intentRevision,material_hmac:source.materialHmac,change_digest:source.changeDigest,packet_manifest_hmac:source.packetManifestHmac,workflow_id:plan.workflowId,workflow_plan_revision:plan.planRevision,workflow_plan_hash:source.workflowPlanHash,workflow_execution_id:e.id,workflow_step_id:step.id,
+  execution_actor_id:source.executionActorId,credential_epoch:source.credentialEpoch,metadata_session_id:randomUUID(),permission_version_hmac:source.permissionVersionHmac,original_execution_key:key,operation_key:proof.operationKey,request_hmac:h('original-metadata-request'),workflow_revision_before:7,execution_revision_before:3,step_revision_before:4,
+  baseline_id:proof.baselineId,baseline_hmac:proof.baselineHmac,object_manifest_hmac:proof.objectManifestHmac,pin_id:proof.pinId,attempt_id:proof.attemptId,packet_key:proof.packetKey,packet_order:1,operation_id:f.op,method:'POST',native_type:'targets',permission_action:'write',mutation_action:'update',parent_id:f.upstream,original_native_id:f.oldId,native_id:f.newId,weight:0,
+  path_hmac:h(f.packet.canonicalPath),body_hmac:proof.bodyHmac,before_hmac:proof.beforeHmac,target_address_hmac:proof.targetAddressHmac,result_hmac:proof.resultHmac,send_event_id:proof.sendEventId,send_fact_hmac:proof.sendFactHmac,outcome_event_id:proof.outcomeEventId,outcome_fact_hmac:proof.outcomeFactHmac,approval_set_id:proof.approvalSetId,approval_set_hmac:proof.approvalSetHmac,
+  history_proof_hmac:proof.proofHmac,producer_attestation_hmac:producer.evidenceHmac,current_observation_hmac:h(currentObservation),certified_native_status:201,current_observed_at:observedAt,observed_at:observedAt};
+ const material={version:1,binding:targetResultObservationBinding(row),historyCertificate:proof,producer,currentObservation};row.observation_hmac=h(material);row.observation_ciphertext=secrets.encrypt(material,targetResultObservationAad(source.clusterId,source.workspaceId,id));
+ const after={observationId:id,observationHmac:row.observation_hmac,requestHmac:row.request_hmac,executionId:e.id,sourceId:source.id,attemptId:proof.attemptId,operationId:f.op,proofHmac:proof.proofHmac,producerAttestationHmac:producer.evidenceHmac,currentObservationHmac:row.current_observation_hmac,resultHmac:proof.resultHmac,originalOutcome:'sent-unknown',nativeStatusRecorded:null,certifiedNativeStatus:201,nativeRequestsSent:0,metadataReconciled:true,workflowState:'succeeded',executionState:'succeeded',operationState:'succeeded',stepState:'succeeded'};
+ const audit:any={id:randomUUID(),chain_scope:'cluster:'+source.clusterId,sequence:'1',actor_id:source.executionActorId,actor_type:'user',source_ip:null,cluster_id:source.clusterId,workspace_id:source.workspaceId,entity_type:'workflows',entity_id:plan.workflowId,action:'workflow.execute.target-result-reconciled',before:{state:'uncertain'},after,json_patch:[],workflow_id:plan.workflowId,result:'success',request_id:randomUUID(),prev_hash:'0'.repeat(64),occurred_at:observedAt};audit.event_hash=createHash('sha256').update(canonicalJson(audit)).digest('hex');row.audit_id=audit.id;row.audit_event_hash=audit.event_hash;
+ const scope=scopeFromHints({quality:'verified',module:'workflows',subject:{type:'workflows',id:plan.workflowId},beforeExists:true,afterExists:true,beforeTags:[],afterTags:[],beforeWorkspaceId:source.workspaceId,afterWorkspaceId:source.workspaceId});
+ rows.entity_change_target_result_observations=[row];rows.audit_events=[audit];rows.audit_event_scopes=[{audit_event_id:audit.id,audit_event_hash:audit.event_hash,cluster_id:source.clusterId,workspace_id:source.workspaceId,scope,scope_hmac:eventAuditScopeDigest(secrets,{auditEventId:audit.id,auditEventHash:audit.event_hash,clusterId:source.clusterId,workspaceId:source.workspaceId,scope})}];
+ const context=new KongExecutionContextService(),actor:any={user:{id:randomUUID(),username:'readonly-current',superAdmin:false},workspaceId:source.workspaceId},state={session:true,permission:'current-reader-version',grant:true,migration:true};
+ const original=db.one.getMockImplementation()!;
+ db.one.mockImplementation(async(sql:string,p:any[]=[])=>{if(sql.includes('FROM schema_migrations'))return state.migration?{checksum:'a'.repeat(64)}:null;
+  if(sql.includes('FROM auth_sessions')){expect(p).toEqual([sid,actor.user.id]);return state.session?{credential_epoch:'7',user_epoch:'7'}:null;}
+  if(sql.includes('FROM entity_change_target_result_observations'))return structuredClone(rows.entity_change_target_result_observations.find((r:any)=>sql.includes('WHERE source_id')?r.source_id===p[0]&&r.cluster_id===p[1]&&r.workspace_id===p[2]:r.id===p[0])??null);
+  return original(sql,p);});
+ db.transaction.mockImplementation(async(fn:any)=>fn(db));
+ const intents:any={assertSubject:vi.fn(async(_plan:any,uid:string,action:string)=>{expect(uid).toBe(actor.user.id);expect(action).toBe('read');if(!state.grant)throw new ForbiddenException();}),executionMaterial:vi.fn(()=>{throw Error('No write-owner material access');})},authz:any={permissionVersion:vi.fn(async()=>state.permission)},kong:any={request:vi.fn(),list:vi.fn()},redis:any={withLock:vi.fn()},writer:any={execute:vi.fn()},bridge:any={assertNoActiveSource:vi.fn(),attestProducer:vi.fn()};
+ const service=new TargetResultReconciliationService(db,redis,secrets,context,kong,authz,{}as any,{}as any,intents,{}as any);service.installFixedBridge(bridge,'a'.repeat(64));
+ const run=(requestedSource=source.id)=>context.runHttp({requestId:randomUUID()},()=>{context.bindHttpActor(actor.user,sid);return context.runActor({actor:actor.user,clusterId:source.clusterId,workspaceId:actor.workspaceId,module:'workflows',action:'read'},()=>service.authenticatedHistoricalProjection(plan,actor,requestedSource));});
+ return{...f,plan,row,audit,db,context,actor,state,intents,authz,kong,redis,writer,bridge,service,run};
+}
+
+describe('M11 authenticated Target observation historical projection',()=>{
+ beforeEach(()=>vi.stubEnv('CONSOLE_ENCRYPTION_KEY','c3'.repeat(32)));afterEach(()=>vi.unstubAllEnvs());
+ it('allows a current authorized readonly user with a different SID/epoch and no original key, returning only a safe separate observation',async()=>{
+  const f=await fixture(),old=structuredClone(f.rows),value=await f.run();expect(value).toEqual({id:f.row.id,auditId:f.audit.id,eventHash:f.audit.event_hash,observedAt:f.row.observed_at,kind:'target-weight-zero-original-response-v1',nativeRequestsSent:0,originalNativeStatus:null,workflowStepId:f.row.workflow_step_id,operationId:f.op,operationState:'succeeded'});
+  expect(Object.isFrozen(value)).toBe(true);expect(f.actor.user.id).not.toBe(f.source.executionActorId);expect(f.rows).toEqual(old);expect(f.db.exec).not.toHaveBeenCalled();expect(f.kong.request).not.toHaveBeenCalled();expect(f.kong.list).not.toHaveBeenCalled();expect(f.redis.withLock).not.toHaveBeenCalled();expect(f.intents.executionMaterial).not.toHaveBeenCalled();expect(f.bridge.attestProducer).not.toHaveBeenCalled();
+ });
+ it('returns no observation for absent verified storage/record/source without minting a capability',async()=>{const f=await fixture();f.state.migration=false;expect(await f.run()).toBeNull();f.state.migration=true;expect(await f.run(randomUUID())).toBeNull();f.rows.entity_change_target_result_observations=[];expect(await f.run()).toBeNull();expect(f.db.exec).not.toHaveBeenCalled();});
+ it.each(['session','grant'])('denies current %s revocation despite authenticated historical evidence',async field=>{const f=await fixture();f.state[field as 'session'|'grant']=false;await expect(f.run()).rejects.toThrow();expect(f.db.exec).not.toHaveBeenCalled();});
+ it('denies a borrowed actor frame and permission changes across the read',async()=>{const f=await fixture();await expect(f.service.authenticatedHistoricalProjection(f.plan,f.actor,f.source.id)).rejects.toThrow();let n=0;f.authz.permissionVersion.mockImplementation(async()=>++n===1?'before':'after');await expect(f.run()).rejects.toThrow();});
+ it.each(['workflows','workflow_executions','workflow_steps','mutation_operations'])('rejects a false succeeded observation when actual %s remains uncertain',async table=>{const f=await fixture();f.rows[table][0].state='uncertain';await expect(f.run()).rejects.toThrow();expect(f.db.exec).not.toHaveBeenCalled();});
+ it.each(['cluster_id','workspace_id'])('excludes foreign %s at the scoped SQL selector',async field=>{const f=await fixture();f.row[field]=randomUUID();expect(await f.run()).toBeNull();expect(f.db.exec).not.toHaveBeenCalled();});
+ it.each(['workflow_id','workflow_plan_hash','attempt_id','operation_id','source_hmac','audit_event_hash'])('rejects altered %s instead of exposing an unverified SQL row',async field=>{const f=await fixture();f.row[field]=field.endsWith('hash')||field.endsWith('hmac')?'0'.repeat(64):randomUUID();await expect(f.run()).rejects.toThrow();expect(f.db.exec).not.toHaveBeenCalled();});
+ it('rejects raw AES or immutable original unknown fact corruption even after observation authentication',async()=>{const f=await fixture();f.mutation.result_secret=f.secrets.encrypt({...f.raw,weight:80},'mutation:'+f.op+':result');await expect(f.run()).rejects.toThrow();});
+ it('keeps original packet unknown/status/error and adds a separate authenticated projection only to the exact operation',async()=>{
+  const f=await fixture(),dto=await f.run(),originalQuery=f.db.query.getMockImplementation()!,originalOne=f.db.one.getMockImplementation()!;
+  f.db.one.mockImplementation(async(sql:string,p:any[])=>sql.startsWith('SELECT id,workflow_execution_id FROM entity_change_execution_sources')?{id:f.source.id,workflow_execution_id:f.source.workflowExecutionId}:sql.startsWith('SELECT id FROM entity_change_baselines')?null:originalOne(sql,p));
+  const packets=[{packet_key:f.packet.key,packet_order:1,native_type:'targets',native_id:f.newId,operation_id:f.op,outcome:'sent-unknown',native_status:null,error_code:'MUTATION_RESULT_UNCERTAIN',send_intent:true}];
+  f.db.query.mockImplementation(async(sql:string,p:any[])=>sql.startsWith('SELECT a.packet_key')?structuredClone(packets):originalQuery(sql,p));
+  const target:any={authenticatedHistoricalProjection:vi.fn(async()=>dto),canReconcile:vi.fn(async()=>false)},args:any[]=[f.db,f.redis,f.secrets,f.context,f.kong,f.authz,{}as any,{}as any,{}as any,f.intents,{}as any,{}as any,f.writer,{}as any,undefined,undefined,undefined,undefined,undefined,undefined,target];
+  const kernel=new(EntityChangeExecutionService as any)(...args),result:any=await kernel.historical(f.plan,f.actor);expect(result.packets).toEqual([{key:f.packet.key,order:1,entityType:'targets',entityId:f.newId,operationId:f.op,state:'sent-unknown',nativeStatus:null,errorCode:'MUTATION_RESULT_UNCERTAIN',targetResultObservation:dto}]);
+  packets[0].operation_id=randomUUID();await expect(kernel.historical(f.plan,f.actor)).rejects.toThrow();expect(f.writer.execute).not.toHaveBeenCalled();expect(f.db.exec).not.toHaveBeenCalled();
+ });
+});

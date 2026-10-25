@@ -1,0 +1,34 @@
+# Apply after compose.metrics.yml. Prepare this project's private materials
+# with the production metrics helper before enabling the observability profile.
+services:
+  prometheus:
+    volumes: !override
+      - ${KONGOS_METRICS_DIRECTORY:?Set this project's dedicated metrics directory}/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    mem_limit: 512m
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  telemetry-collector:
+    build:
+      context: .
+      dockerfile: deploy/metrics-collector/Dockerfile
+    image: ${KONGOS_COLLECTOR_IMAGE:?Set the frozen metrics collector release image}
+    volumes: !override
+      - ${KONGOS_METRICS_DIRECTORY:?Set this project's dedicated metrics directory}/collector:/run/kongos-metrics:ro
+    mem_limit: 256m
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  loki:
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777"]
+    mem_limit: 512m
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}

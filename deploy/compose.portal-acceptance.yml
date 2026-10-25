@@ -1,0 +1,99 @@
+# Optional, isolated M6 genuine Kong 1.5.1 acceptance node (C3).
+# Last overlay after compose.metrics.yml; never enabled by production base alone.
+# Use .env, .env.multicluster and .env.portal-acceptance, profile portal-acceptance.
+x-portal-kong-environment: &portal-kong-environment
+  KONG_DATABASE: postgres
+  KONG_PG_HOST: kong-portal-db
+  KONG_PG_PORT: 5432
+  KONG_PG_DATABASE: kong_portal
+  KONG_PG_USER: kong_portal
+  KONG_PG_PASSWORD: ${KONG_PORTAL_DATABASE_PASSWORD:?Generate .env.portal-acceptance privately first}
+
+services:
+  console-api:
+    environment:
+      OUTBOUND_ALLOWED_HOSTS: ${OUTBOUND_ALLOWED_HOSTS:-kong,prometheus,loki,mock-kong,localhost,127.0.0.1},kong-secondary,kong-portal-admin-endpoint:8001
+      PROTECTED_DESTINATION_HOSTS: ${PROTECTED_DESTINATION_HOSTS:-},${KONG_DB_IP:-172.28.21.20},${KONG_SECONDARY_DB_IP:-172.28.22.20},${PROMETHEUS_TELEMETRY_IP:-172.28.31.20},${COLLECTOR_TELEMETRY_IP:-172.28.31.30},${COLLECTOR_PROXY_IP:-172.21.0.5},${COLLECTOR_OBSERVABILITY_IP:-172.22.0.5},telemetry-collector,${PORTAL_WEB_IP:-172.28.41.20},${PORTAL_ENTRY_IP:-172.28.42.20},portal-web,kong-portal-db,172.28.23.20,kong-portal-admin-endpoint,172.28.13.20,172.28.13.10
+    networks:
+      kong-portal-admin:
+        ipv4_address: 172.28.13.10
+
+  kong-portal-db:
+    profiles: [portal-acceptance]
+    image: postgres:11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kong_portal
+      POSTGRES_USER: kong_portal
+      POSTGRES_PASSWORD: ${KONG_PORTAL_DATABASE_PASSWORD:?Generate .env.portal-acceptance privately first}
+    volumes: [kong_portal_db_data:/var/lib/postgresql/data]
+    networks:
+      kong-portal-storage:
+        ipv4_address: 172.28.23.20
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready --host=127.0.0.1 --timeout=1 -U kong_portal -d kong_portal && PGCONNECT_TIMEOUT=2 psql -X --set=ON_ERROR_STOP=1 -U kong_portal -d kong_portal -Atqc 'SELECT 1'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kong-portal-migrations:
+    profiles: [portal-acceptance]
+    image: kong:1.5.1
+    environment: *portal-kong-environment
+    entrypoint: [/bin/sh, /opt/kongos/kong-migrate.sh]
+    volumes:
+      - ./deploy/scripts/kong-migrate.sh:/opt/kongos/kong-migrate.sh:ro
+    networks: [kong-portal-storage]
+    depends_on:
+      kong-portal-db: {condition: service_healthy}
+    restart: "no"
+
+  kong-portal:
+    profiles: [portal-acceptance]
+    image: kong:1.5.1
+    user: kong
+    restart: unless-stopped
+    entrypoint: [/bin/sh, /opt/kongos/kong-secure-start.sh]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      <<: *portal-kong-environment
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONGOS_ADMIN_BIND_IP: 172.28.13.20
+      KONGOS_BFF_ADMIN_IP: 172.28.13.10
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/null
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/null
+    ports: ["127.0.0.1:10000:8000"]
+    volumes:
+      - ./deploy/scripts/kong-secure-start.sh:/opt/kongos/kong-secure-start.sh:ro
+    networks:
+      kong-portal-admin:
+        ipv4_address: 172.28.13.20
+        aliases: [kong-portal-admin-endpoint]
+      kong-portal-storage:
+        ipv4_address: 172.28.23.10
+      proxy-edge: {}
+    depends_on:
+      kong-portal-db: {condition: service_healthy}
+      kong-portal-migrations: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, kong, health]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+networks:
+  kong-portal-admin:
+    internal: true
+    ipam:
+      config: [{subnet: 172.28.13.0/24}]
+  kong-portal-storage:
+    internal: true
+    ipam:
+      config: [{subnet: 172.28.23.0/24}]
+
+volumes:
+  kong_portal_db_data: {}

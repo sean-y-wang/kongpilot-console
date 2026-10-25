@@ -1,0 +1,53 @@
+# Isolated M10/M11 acceptance overlay. Never use this RAM-backed lab for production.
+# Run together with compose.release-validation.yml, retaining its private env file.
+services:
+  stage-kong-db:
+    image: postgres:11-alpine
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: ${LAB_KONG_DB_PASSWORD:?}
+    tmpfs: ["/var/lib/postgresql/data:rw,size=268435456"]
+    networks: [stage-kong-store]
+    healthcheck: {test: [CMD-SHELL, "pg_isready --host=127.0.0.1 --timeout=1 -U kong -d kong && PGCONNECT_TIMEOUT=2 psql -X --set=ON_ERROR_STOP=1 -U kong -d kong -Atqc 'SELECT 1'"], interval: 2s, timeout: 2s, retries: 30}
+  stage-kong-migrations:
+    image: kong:1.5.1
+    command: kong migrations bootstrap
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: stage-kong-db
+      KONG_PG_DATABASE: kong
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: ${LAB_KONG_DB_PASSWORD:?}
+    networks: [stage-kong-store]
+    depends_on: {stage-kong-db: {condition: service_healthy}}
+    restart: "no"
+  stage-kong:
+    image: kong:1.5.1
+    pids_limit: 256
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: stage-kong-db
+      KONG_PG_DATABASE: kong
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: ${LAB_KONG_DB_PASSWORD:?}
+      KONG_ADMIN_LISTEN: 172.31.96.2:8001
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_NGINX_WORKER_PROCESSES: "1"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+    networks:
+      stage-kong-store: {}
+      stage-kong-admin: {ipv4_address: 172.31.96.2, aliases: [stage-kong-admin]}
+      gateway-proxy: {}
+    depends_on: {stage-kong-migrations: {condition: service_completed_successfully}, stage-kong-db: {condition: service_healthy}}
+    healthcheck: {test: [CMD-SHELL, "wget -q -O /dev/null http://172.31.96.2:8001/status"], interval: 2s, timeout: 2s, retries: 40}
+  console-api:
+    environment:
+      OUTBOUND_ALLOWED_HOSTS: kong-admin,kong,stage-kong-admin,stage-kong,echo
+    networks: [stage-kong-admin]
+networks:
+  stage-kong-store: {internal: true, ipam: {config: [{subnet: 172.31.97.0/28}]}}
+  stage-kong-admin: {internal: true, ipam: {config: [{subnet: 172.31.96.0/28}]}}

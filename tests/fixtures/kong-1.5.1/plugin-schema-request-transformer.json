@@ -1,0 +1,194 @@
+{
+  "fields": [
+    {
+      "http_method": {
+        "match": "^%u+$",
+        "type": "string"
+      }
+    },
+    {
+      "remove": {
+        "fields": [
+          {
+            "body": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "headers": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "querystring": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          }
+        ],
+        "required": true,
+        "type": "record"
+      }
+    },
+    {
+      "rename": {
+        "fields": [
+          {
+            "body": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "headers": {
+              "elements": {
+                "type": "string",
+                "match": "^[^:]+:.*$"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "querystring": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          }
+        ],
+        "required": true,
+        "type": "record"
+      }
+    },
+    {
+      "replace": {
+        "fields": [
+          {
+            "body": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "headers": {
+              "elements": {
+                "match": "^[^:]+:.*$",
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "querystring": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "uri": {
+              "type": "string"
+            }
+          }
+        ],
+        "required": true,
+        "type": "record"
+      }
+    },
+    {
+      "add": {
+        "fields": [
+          {
+            "body": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "headers": {
+              "elements": {
+                "type": "string",
+                "match": "^[^:]+:.*$"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "querystring": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          }
+        ],
+        "required": true,
+        "type": "record"
+      }
+    },
+    {
+      "append": {
+        "fields": [
+          {
+            "body": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "headers": {
+              "elements": {
+                "type": "string",
+                "match": "^[^:]+:.*$"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "querystring": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          }
+        ],
+        "required": true,
+        "type": "record"
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+scrape_configs:
+  - job_name: kongos-console
+    metrics_path: /api/v1/metrics
+    static_configs:
+      - targets: [console-api:3000]
+# Gateway metrics use the BFF's authenticated internal proxy introduced in M5.
+# Prometheus is deliberately not attached to the Kong Admin network.

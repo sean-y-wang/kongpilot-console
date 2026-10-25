@@ -1,0 +1,14 @@
+import {spawnSync} from 'node:child_process';
+import {readFileSync,existsSync} from 'node:fs';
+import {browserSha,FIRST_BROWSER_FAILURE_SHA} from './lib/m6-browser-remaining.mjs';
+import {privateReference,M6_REFERENCE} from './lib/m6-reference.mjs';
+if(process.env.M6_DEPLOYMENT_READY!=='true'||process.env.M6_BROWSER_REMAINING_READY!=='true')throw new Error('explicit remaining-only browser release required');
+const path='artifacts/M6/browser-first-masked-credential-attempt.json';
+if(browserSha(readFileSync(path))!==FIRST_BROWSER_FAILURE_SHA)throw new Error('original browser failure changed');
+const before=privateReference(M6_REFERENCE,true);
+const result=spawnSync('npx',['playwright','test','tests/e2e/m6-browser-remaining.spec.ts'],{encoding:'utf8',stdio:['ignore','pipe','pipe'],maxBuffer:16*1024*1024});
+const after=existsSync(M6_REFERENCE)?privateReference(M6_REFERENCE,true):{};
+const secrets=[...new Set([...(before.secrets??[]),...(after.secrets??[]),...(after.tokens??[]).map(v=>v.token)].filter(v=>typeof v==='string'&&v.length>=8))];
+let output=`${result.stdout??''}${result.stderr??''}`;for(const value of secrets.sort((a,b)=>b.length-a.length))for(const form of[value,JSON.stringify(value).slice(1,-1),encodeURIComponent(value),Buffer.from(value).toString('base64')])output=output.split(form).join('[REDACTED]');
+if(result.status!==0)process.stderr.write(output);
+console.log(JSON.stringify({remainingBrowserExitCode:result.status,passed:result.status===0,firstFailurePreserved:browserSha(readFileSync(path))===FIRST_BROWSER_FAILURE_SHA,originalLoginNotReplayed:true,rawDiagnosticsPublished:false}));process.exitCode=result.status??1;

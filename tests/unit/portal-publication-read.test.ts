@@ -1,0 +1,28 @@
+import 'reflect-metadata';
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+import {randomUUID} from 'node:crypto';
+import {SecretService} from '../../apps/console-api/src/infrastructure/secret.service';
+import {PortalPublicService} from '../../apps/console-api/src/modules/portal/portal-public.service';
+import {publicationProofAad} from '../../apps/console-api/src/modules/portal/portal-proof';
+
+// Actual public projection and encrypted proof verification. SQL visibility is
+// an explicit fixture; deferred terminal-state constraints have a separate PG gate.
+function fixture(){
+  const cid=randomUUID(),wid=randomUUID(),id=randomUUID(),workflow=randomUUID(),execution=randomUUID(),secrets=new SecretService();let visible=true;
+  const proof:any={version:1,clusterId:cid,workspaceId:wid,publicationId:id,publicationRevision:2,transportScope:'a'.repeat(64),workflowId:workflow,executionId:execution,planRevision:1,planHash:'b'.repeat(64),publicationInfo:{name:'Published API',slug:'public-api',description:'Published description',category:'Payments'},keyAuthPlugin:{config:{key_names:['X-Partner-Key']}},service:{host:'private.service.internal'},schemas:{private:true}};
+  const row:any={id,cluster_id:cid,workspace_id:wid,name:'UNPUBLISHED DRAFT NAME',description:'UNPUBLISHED DESCRIPTION',category:'Private draft category',slug:'public-api',revision:9,published_revision:2,published_name:'Published API',published_description:'Published description',cursor_created_at:'2026-10-11T01:00:00.123456Z',candidate_count:'1',row_bytes:4096,byte_exhausted:false,openapi_document:{openapi:'3.0.3',info:{title:'Published API'},paths:{}},publication_proof:{cluster_id:cid,workspace_id:wid,publication_id:id,publication_revision:2,transport_scope:proof.transportScope,workflow_id:workflow,workflow_execution_id:execution,workflow_plan_revision:1,workflow_plan_hash:proof.planHash}};
+  const seal=()=>{row.publication_proof.publication_proof_secret=secrets.encrypt(proof,publicationProofAad(cid,wid,id,2));row.publication_proof.publication_proof_hmac=secrets.fingerprint(proof);};seal();
+  const page={id:randomUUID(),slug:'guide',title:'Unpublished draft title',published_title:'Published guide',revision:4,published_revision:2,markdown:'Published markdown'};
+  const db:any={one:vi.fn(async(sql:string)=>sql.includes('FROM portal_settings')?(visible?{id:randomUUID()}:null):sql.includes('FROM portal_publications')?row:page),query:vi.fn(async(sql:string)=>sql.includes('FROM portal_publications')?[row]:[page])};
+  return{service:new PortalPublicService(db,secrets),db,cid,wid,id,row,proof,page,seal,setVisible:(value:boolean)=>visible=value,query:{clusterId:cid,workspaceId:wid}};
+}
+beforeEach(()=>vi.stubEnv('CONSOLE_ENCRYPTION_KEY','df'.repeat(32)));afterEach(()=>vi.unstubAllEnvs());
+describe('M6 public immutable publication projection',()=>{
+  it('shows approved published descriptors and actual key header names while later drafts stay private',async()=>{const f=fixture(),result=await f.service.publication(f.id,f.query);expect(result.entity).toMatchObject({name:'Published API',description:'Published description',category:'Payments',auth:{keyNames:['X-Partner-Key']}});const output=JSON.stringify(result);for(const hidden of ['UNPUBLISHED','Private draft','private.service.internal','schemas'])expect(output).not.toContain(hidden);});
+  it('filters category using immutable published proof and reports the sole candidate at EOF',async()=>{const f=fixture(),published=await f.service.publications({...f.query,size:1,category:'Payments'});expect(published.items).toHaveLength(1);expect(published.nextCursor).toBeNull();const draft=await f.service.publications({...f.query,category:'Private draft category'});expect(draft.items).toEqual([]);expect(draft).toMatchObject({nextCursor:null,scanIncomplete:false,searchedRows:1});});
+  it('does not silently replace a preserved custom key header with apikey',async()=>{const f=fixture();f.proof.keyAuthPlugin.config.key_names=[];f.seal();await expect(f.service.publication(f.id,f.query)).rejects.toMatchObject({response:{code:'PORTAL_PUBLICATION_NOT_FOUND'}});});
+  it('rejects tampered proof rather than exposing draft or private fallback state',async()=>{const f=fixture();f.row.publication_proof.publication_proof_hmac='0'.repeat(64);await expect(f.service.publication(f.id,f.query)).rejects.toMatchObject({response:{code:'PORTAL_PUBLICATION_PROOF_INVALID'}});});
+  it('shows only published page title and markdown after a newer draft is saved',async()=>{const f=fixture(),list=await f.service.pages(f.query),detail=await f.service.page('guide',f.query);expect(list.items[0].title).toBe('Published guide');expect(detail).toMatchObject({entity:{title:'Published guide'},markdown:'Published markdown'});expect(JSON.stringify({list,detail})).not.toContain('Unpublished draft title');});
+  it('rechecks tenant publication after awaited detail lookup before returning document',async()=>{const f=fixture(),one=f.db.one.getMockImplementation()!;f.db.one.mockImplementation(async(sql:string)=>{const row=await one(sql);if(sql.includes('FROM portal_publications'))f.setVisible(false);return row;});await expect(f.service.publication(f.id,f.query,true)).rejects.toMatchObject({response:{code:'PORTAL_NOT_FOUND'}});});
+  it('rechecks tenant publication before returning awaited Markdown',async()=>{const f=fixture(),one=f.db.one.getMockImplementation()!;f.db.one.mockImplementation(async(sql:string)=>{const row=await one(sql);if(sql.includes('FROM portal_content'))f.setVisible(false);return row;});await expect(f.service.page('guide',f.query)).rejects.toMatchObject({response:{code:'PORTAL_NOT_FOUND'}});});
+});

@@ -1,0 +1,63 @@
+import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { ProductionHarness, productionDigest } from './lib/production-http-harness.mjs';
+import { cookieMerge } from './lib/m8-harness.mjs';
+import { productionProxy } from './lib/production-proxy.mjs';
+import { durableProductionJson } from './lib/production-ui-storage.mjs';
+
+const output='artifacts/Production/root-production-portal-issue-rotation-revocation-actual.json';
+if(process.env.PRODUCTION_PORTAL_EXCLUSIVE_READY!=='true'||existsSync(output))throw Error('PRODUCTION_PORTAL_EXCLUSIVE_REQUIRED');
+const h=new ProductionHarness({resume:true});if(!h.state.productionCoreComplete||h.state.productionPortalStarted&&!h.state.productionPortalKnownBoundaryClosed)throw Error('PRODUCTION_FRESH_PORTAL_FIXTURE_REQUIRED');
+const actor=h.state.sessions.bootstrap,area=h.state.scope,tenant={clusterId:area.cid,workspaceId:area.wid},portalOrigin='https://127.0.0.1:19443',tag=h.state.testTag;
+h.state.productionPortalStarted=true;h.state.portalChecks??=[];h.save();await h.refresh(actor);
+const path=s=>`/api/v1/clusters/${area.cid}/${s}?workspaceId=${area.wid}`;
+const portal=async(session,suffix,method='GET',body,expected=[200,201])=>{
+ if(h.state.portalChecks.some(p=>p.state!=='response_observed'))throw Error('PRODUCTION_PORTAL_UNKNOWN_NO_REPLAY');
+ const url=portalOrigin+'/api/v1/portal'+suffix,key=randomUUID(),headers={...(session?.cookie?{Cookie:session.cookie}:{}),Origin:portalOrigin,...(method!=='GET'?{'Content-Type':'application/json','X-Idempotency-Key':key,'X-Portal-CSRF':session?.csrf??''}:{})};
+ const packet={key,path:suffix,method,body:body??null,bodySha256:productionDigest(body??null),headers,state:'prepared'};h.state.portalChecks.push(packet);h.remember(body);h.save();
+ let r,bytes;try{r=await fetch(url,{method,headers,redirect:'manual',signal:AbortSignal.timeout(120000),...(body?{body:JSON.stringify(body)}:{})});bytes=await r.text();}catch{packet.state='response_unknown';h.save();throw Error('PRODUCTION_PORTAL_UNKNOWN_NO_REPLAY');}
+ const payload=JSON.parse(bytes),data=payload.data;Object.assign(packet,{state:'response_observed',status:r.status,requestId:payload.meta?.requestId,responseData:data??null,responseSha256:productionDigest(bytes)});
+ if(session){session.cookie=cookieMerge(session.cookie??'',r.headers.getSetCookie());if(data?.csrfToken)session.csrf=data.csrfToken;for(const part of session.cookie.split('; '))h.state.secrets.push(part.slice(part.indexOf('=')+1));}
+ h.remember(data,true);h.save();h.check(expected.includes(r.status),'actual independent production Portal response',{status:r.status,method,path:suffix,requestId:packet.requestId});return data;
+};
+const scoped=s=>s+(s.includes('?')?'&':'?')+new URLSearchParams(tenant);
+const entity=d=>d.entity??d;
+const service=h.state.productionPortalPreviousFixture?.services??entity((await h.request(actor,path('entities/services'),'POST',{name:tag+'-portal-service',host:'echo-upstream',port:8081,protocol:'http',tags:[tag]})).data);
+const proxyPath=`/m8/${tag}/portal`,route=h.state.productionPortalPreviousFixture?.routes??entity((await h.request(actor,path('entities/routes'),'POST',{name:tag+'-portal-route',paths:[proxyPath],protocols:['http'],service:{id:service.id},tags:[tag]})).data);
+const settings=h.state.productionPortalPreviousFixture?.['portal/settings']??entity((await h.request(actor,path('portal/settings'),'POST',{slug:tag+'-portal',name:tag+' Production Portal',published:true,registrationEnabled:true,publicProxyOrigin:'http://127.0.0.1:18000'})).data);
+let publication=h.state.productionPortalPreviousFixture?.['portal/publications']??entity((await h.request(actor,path('portal/publications'),'POST',{slug:tag+'-portal-api',name:tag+' Production API',category:'验收',serviceId:service.id,document:{openapi:'3.0.3',info:{title:'Production API',version:'1.0.0'},paths:{[proxyPath]:{get:{responses:{200:{description:'Success'}}}}}}})).data);
+publication=entity((await h.request(actor,path(`portal/publications/${publication.id}`))).data);
+await h.request(actor,path(`portal/publications/${publication.id}/publish`),'POST',{revision:publication.revision,confirmed:true,confirm_name:publication.name});
+publication=entity((await h.request(actor,path(`portal/publications/${publication.id}`))).data);h.check(publication.status==='published','actual production Portal OpenAPI publication completed');
+const session={cookie:'',csrf:''};await portal(session,scoped('/auth/csrf'));
+const username=tag+'-developer',password='Prod!'+randomUUID()+'aA7';h.state.secrets.push(password);h.save();
+await portal(session,'/auth/register','POST',{...tenant,username,password,email:username+'@example.invalid',displayName:'生产验收开发者'},[202]);
+const developers=(await h.request(actor,`/api/v1/clusters/${area.cid}/portal/developers?${new URLSearchParams({workspaceId:area.wid,search:username,status:'pending'})}`)).data;
+const developer=developers.items.find(d=>d.username===username);if(!developer)throw Error('PRODUCTION_PENDING_DEVELOPER_REQUIRED');
+await portal(session,'/auth/login','POST',{...tenant,username,password},[401,403]);
+await h.request(actor,path(`portal/developers/${developer.id}/review`),'POST',{revision:developer.revision,status:'active',confirmed:true,confirm_name:username});
+await portal(session,scoped('/auth/csrf'));await portal(session,'/auth/login','POST',{...tenant,username,password});await portal(session,scoped('/auth/me'));
+const app=entity(await portal(session,'/applications','POST',{...tenant,name:tag+' Production App'}));
+const approveExecute=async id=>{
+ let view=entity((await h.request(actor,path(`workflows/${id}`))).data);
+ if(view.state!=='pending'||!view.approvalRequired)throw Error('PRODUCTION_PORTAL_APPROVAL_REQUIRED');
+ await h.request(actor,path(`workflows/${id}/approve`),'POST',{revision:view.revision,planHash:view.planHash,confirmed:true,confirm_name:view.kind,execute:false});
+ view=entity((await h.request(actor,path(`workflows/${id}`))).data);if(view.state!=='approved')throw Error('PRODUCTION_CURRENT_APPROVAL_REQUIRED');
+ const r=await h.request(actor,path(`workflows/${id}/execute`),'POST',{revision:view.revision,planHash:view.planHash,confirmed:true,confirm_name:view.kind});
+ const receipt=(await h.request(actor,path(`workflows/receipts/by-key/${r.packet.key}`))).data;
+ if(receipt.state!=='succeeded'||receipt.steps.some(s=>!['succeeded','skipped_verified'].includes(s.state)))throw Error('PRODUCTION_ALL_PORTAL_STEPS_REQUIRED');return receipt;
+};
+const request=await portal(session,'/requests','POST',{...tenant,applicationId:app.id,publicationId:publication.id,reason:'Production acceptance'});
+await approveExecute(request.workflowId??request.id);
+const grants=await portal(session,scoped(`/applications/${app.id}/grants`)),grant=grants.items.find(g=>g.publicationId===publication.id&&g.state==='active');if(!grant)throw Error('PRODUCTION_ACTIVE_PORTAL_GRANT_REQUIRED');
+const list=async()=> (await portal(session,scoped(`/applications/${app.id}/grants/${grant.id}/credentials`))).items;
+const reveal=async c=>{const r=await portal(session,`/applications/${app.id}/grants/${grant.id}/credentials/${c.id}/reveal`,'POST',{...tenant,revision:c.revision});if(typeof r.key!=='string')throw Error('PRODUCTION_PORTAL_CURRENT_KEY_REQUIRED');h.state.secrets.push(r.key);h.save();return r.key;};
+let credential=(await list()).find(c=>c.state==='active'),key=await reveal(credential);
+const proxy=async(key,expected)=>{const end=Date.now()+20000;let r;do{r=await productionProxy(h,h.state.nativeFixture,proxyPath+'/echo',{headers:{apikey:key}});if(r.status===expected)break;await new Promise(resolve=>setTimeout(resolve,500));}while(Date.now()<end);h.check(r.status===expected,'actual production Portal key proxy behavior',{expected,status:r.status});return r;};
+const authenticated=await proxy(key,200);if(!authenticated.payload?.consumerId)throw Error('PRODUCTION_PORTAL_ACTUAL_CONSUMER_REQUIRED');
+const rotation=await portal(session,`/applications/${app.id}/grants/${grant.id}/credentials/${credential.id}/rotate`,'POST',{...tenant,revision:credential.revision,confirmed:true,confirm_name:`轮换 ${credential.id}`});await approveExecute(rotation.workflowId??rotation.id);
+credential=(await list()).find(c=>c.state==='active');const newKey=await reveal(credential);if(newKey===key)throw Error('PRODUCTION_PORTAL_FRESH_KEY_REQUIRED');await proxy(key,401);await proxy(newKey,200);
+const revoke=await portal(session,`/applications/${app.id}/grants/${grant.id}/credentials/${credential.id}/revoke`,'POST',{...tenant,revision:credential.revision,confirmed:true,confirm_name:`吊销 ${credential.id}`,retireConsumer:true});await approveExecute(revoke.workflowId??revoke.id);await proxy(newKey,401);
+h.state.productionPortalComplete=true;h.state.productionPortalFixture={settingsId:settings.id,serviceId:service.id,routeId:route.id,publicationId:publication.id,developerId:developer.id,applicationId:app.id,grantId:grant.id};h.save();
+durableProductionJson(output,{performedAt:new Date().toISOString(),allPassed:true,independentProductionTlsPortal:true,developerReview:true,openApiPublished:true,originalRequestApproved:true,actualIssueRotationRevocation:true,retiredKeysDenied:true,approval:'existing M6 single-level; M11 deferred',fixture:h.state.productionPortalFixture,portalRequests:h.state.portalChecks.map(p=>({method:p.method,path:p.path,status:p.status,requestId:p.requestId})),secretsPublished:false},true,0o644);
+console.log(JSON.stringify({allPassed:true,actualPortalIssueRotateRevoke:true,retiredKeysDenied:true}));

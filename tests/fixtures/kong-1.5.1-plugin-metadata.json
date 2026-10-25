@@ -1,0 +1,631 @@
+{
+  "observed_at": "2026-10-10T14:17:09.411871+00:00",
+  "source": "docker image kong:1.5.1 installed Lua sources",
+  "plugins": [
+    {
+      "name": "acl",
+      "priority": 950,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/acl/schema.lua",
+          "sha256": "e0da4380119a450614db782a22847e782efa8cbaee6d1ec13e5c28bcc375c833"
+        },
+        {
+          "path": "kong/plugins/acl/handler.lua",
+          "sha256": "05b40fe8265197a0f04072085e97ab3d66246b4cd6d74d00e725528f7600111e"
+        }
+      ]
+    },
+    {
+      "name": "aws-lambda",
+      "priority": 750,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/aws-lambda/schema.lua",
+          "sha256": "e506305e4e7913442c6376a837de98498d6d6dd6209a99cd4897b274f814b6a6"
+        },
+        {
+          "path": "kong/plugins/aws-lambda/handler.lua",
+          "sha256": "30c111fc04883c7afe919bf6571f932f3e81abb0162c78fa6d8f9b6dd8a037c3"
+        }
+      ]
+    },
+    {
+      "name": "azure-functions",
+      "priority": 749,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": false,
+      "source_files": [
+        {
+          "path": "kong/plugins/azure-functions/schema.lua",
+          "sha256": "e4aea9d6e395919bbee6cd7a2100eb53aa0c0ea578011f220100129db087b82c"
+        },
+        {
+          "path": "kong/plugins/azure-functions/handler.lua",
+          "sha256": "aa27613aedf888781cd51f4d2825b20d300470e7a56f8590d87b0e7e23de304c"
+        }
+      ]
+    },
+    {
+      "name": "basic-auth",
+      "priority": 1001,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/basic-auth/schema.lua",
+          "sha256": "a7ac9bbe6eff0711270dfc6f6fa94ed5b552a17021c5e01b1d9063f3e9857ed4"
+        },
+        {
+          "path": "kong/plugins/basic-auth/handler.lua",
+          "sha256": "033658d31bf698b82da2ec340e910e1f26911b91b14bf4309ce0e2b313215d16"
+        }
+      ]
+    },
+    {
+      "name": "bot-detection",
+      "priority": 2500,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/bot-detection/schema.lua",
+          "sha256": "1025f249f13ac0b6c5a5ae08b8575baf8458a617b76b46c94b9d34bdd35f5fd3"
+        },
+        {
+          "path": "kong/plugins/bot-detection/handler.lua",
+          "sha256": "2c08160c6d0512ecbc584f61f35e8939ef2c269ef06b791cfb821fed62aa370b"
+        }
+      ]
+    },
+    {
+      "name": "correlation-id",
+      "priority": 1,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/correlation-id/schema.lua",
+          "sha256": "1492f4bb7900e82e0bd130557ad009429871b3672d9fe4b789298a77ca899435"
+        },
+        {
+          "path": "kong/plugins/correlation-id/handler.lua",
+          "sha256": "7da9a981aae6f3f99f1896c1e8f696799f9e11342eb6f18ce9a0e761ff3d36de"
+        }
+      ]
+    },
+    {
+      "name": "cors",
+      "priority": 2000,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/cors/schema.lua",
+          "sha256": "13b21f4c8c57a8c362ab2d1378ca1552b35dbc3b661d9a95269b69ac181c6db0"
+        },
+        {
+          "path": "kong/plugins/cors/handler.lua",
+          "sha256": "ac730c2f446a3ed2508c6cbbd34c6a631e8f1f42d4ec4caab305b642742225f9"
+        }
+      ]
+    },
+    {
+      "name": "datadog",
+      "priority": 10,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/datadog/schema.lua",
+          "sha256": "ce66dd19caab13921aad67d456e1373c2f2503094c1cbda13e32bb2543d72d77"
+        },
+        {
+          "path": "kong/plugins/datadog/handler.lua",
+          "sha256": "d02aef684af7ac23ae5d309bdefb79ac3575460274b42cf1c90d9782333baf38"
+        }
+      ]
+    },
+    {
+      "name": "file-log",
+      "priority": 9,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/file-log/schema.lua",
+          "sha256": "34b2279dff3dfbc303a86dccf7b57417b2b78a80ee7efd4727f82f7c7e2f5839"
+        },
+        {
+          "path": "kong/plugins/file-log/handler.lua",
+          "sha256": "45dfcb24a6d174209a3fa86e8147c4d14f84faa5bf7a6b1c7f170be044d0125a"
+        }
+      ]
+    },
+    {
+      "name": "hmac-auth",
+      "priority": 1000,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/hmac-auth/schema.lua",
+          "sha256": "f1d4c2f7cb054e0b3cab1eb87508faac15105967ed93048191febd9ba1374e7b"
+        },
+        {
+          "path": "kong/plugins/hmac-auth/handler.lua",
+          "sha256": "bf649c76cfa6a73d6b8e739e3c49ea1334f1a4453eacabf0f996f51564911cff"
+        }
+      ]
+    },
+    {
+      "name": "http-log",
+      "priority": 12,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/http-log/schema.lua",
+          "sha256": "a6ae0f59240bf58da4b49a3112f800cb8556f02023dcd298c612c134a5cff105"
+        },
+        {
+          "path": "kong/plugins/http-log/handler.lua",
+          "sha256": "1d7d1ce4840d777d7a38b4422b369797f501ee20e040ae5799f8a7f4d1923687"
+        }
+      ]
+    },
+    {
+      "name": "ip-restriction",
+      "priority": 990,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/ip-restriction/schema.lua",
+          "sha256": "d082d1266880e2bb0b480b1036070cf4fc98805adaccab4d8cb1904100f384af"
+        },
+        {
+          "path": "kong/plugins/ip-restriction/handler.lua",
+          "sha256": "beb36e000d5a7addb6534f4a0292ae8081700b855327cf636640bb9c51cfa8fd"
+        }
+      ]
+    },
+    {
+      "name": "jwt",
+      "priority": 1005,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/jwt/schema.lua",
+          "sha256": "d2944051b833ac6dc3d2f6bec15dcdb5e6ccb5e54d26d769c2627a96e5af9460"
+        },
+        {
+          "path": "kong/plugins/jwt/handler.lua",
+          "sha256": "d88af26fa538f0610b8979622b9b562536115fc0d73ee62050bb8f1e2441d44c"
+        }
+      ]
+    },
+    {
+      "name": "key-auth",
+      "priority": 1003,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/key-auth/schema.lua",
+          "sha256": "8287aa39787c477fe6bd34d8e6c443169ca72d0e63d1e943dc882f797e16bab8"
+        },
+        {
+          "path": "kong/plugins/key-auth/handler.lua",
+          "sha256": "b44ed3cdfeada7b300933c9dc74c146b625536cd7b3bff3d305fd3e73957d385"
+        }
+      ]
+    },
+    {
+      "name": "kubernetes-sidecar-injector",
+      "priority": 1006,
+      "consumer": false,
+      "route": false,
+      "service": false,
+      "http_only": false,
+      "source_files": [
+        {
+          "path": "kong/plugins/kubernetes-sidecar-injector/schema.lua",
+          "sha256": "0e048d013c4cd70ce56f56aea1953f3df8e65ba422b2c049eb016540224816f0"
+        },
+        {
+          "path": "kong/plugins/kubernetes-sidecar-injector/handler.lua",
+          "sha256": "12a43d1e906ec53aa2723bce25878d5fc984ee8f292f914a1f8afb5583ea20f6"
+        }
+      ]
+    },
+    {
+      "name": "ldap-auth",
+      "priority": 1002,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/ldap-auth/schema.lua",
+          "sha256": "a412bb69bd3a91fa5024e397519d9631034fcb54dfa4d5c91f645d4a5f299da3"
+        },
+        {
+          "path": "kong/plugins/ldap-auth/handler.lua",
+          "sha256": "8f98c3f62a8b4ed2b485c476d4b2106070dd3bbb4e4b0945a58cf5280305db84"
+        }
+      ]
+    },
+    {
+      "name": "loggly",
+      "priority": 6,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/loggly/schema.lua",
+          "sha256": "fab5b107106a46128c0f42aade228f64a3716256ae93b02cef7f644d3cb36d9d"
+        },
+        {
+          "path": "kong/plugins/loggly/handler.lua",
+          "sha256": "51238db5c3fed098f85395c17957c699a8f820511743d4f3735c0917c59ccb23"
+        }
+      ]
+    },
+    {
+      "name": "oauth2",
+      "priority": 1004,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/oauth2/schema.lua",
+          "sha256": "8d9094bb5948f8194295c14c925602e09751942023369cee4c6f2aaf830d2b6c"
+        },
+        {
+          "path": "kong/plugins/oauth2/handler.lua",
+          "sha256": "8784ce66a14f59b39476ab24a6d944d2823e757b3d64f8e2ad251049683cbadc"
+        }
+      ]
+    },
+    {
+      "name": "post-function",
+      "priority": -1000,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": false,
+      "source_files": [
+        {
+          "path": "kong/plugins/post-function/schema.lua",
+          "sha256": "53d0e2c6aab50f8bebe0a4044cba880e9b5d1c2d8ad5304bfbb162ad2b55500f"
+        },
+        {
+          "path": "kong/plugins/post-function/handler.lua",
+          "sha256": "3eece0ee939e4328e499a23ca90e4e6eaac56b99c63c65da30ed6c659312a5a2"
+        },
+        {
+          "path": "kong/plugins/pre-function/_schema.lua",
+          "sha256": "474f7eb04a2a5d2860dde01fe53c5659b1c63b94298ec1990c4f884e7460a9eb"
+        }
+      ]
+    },
+    {
+      "name": "pre-function",
+      "priority": "Infinity",
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": false,
+      "source_files": [
+        {
+          "path": "kong/plugins/pre-function/schema.lua",
+          "sha256": "29b9f45122be034fe20813cdbd5fdbd9db1fcd00edeca00e504ca16706cce684"
+        },
+        {
+          "path": "kong/plugins/pre-function/handler.lua",
+          "sha256": "8ca0deaf4d85635a04a0e85c5b379a45db004964e792410900e06a20cc7a68c0"
+        },
+        {
+          "path": "kong/plugins/pre-function/_schema.lua",
+          "sha256": "474f7eb04a2a5d2860dde01fe53c5659b1c63b94298ec1990c4f884e7460a9eb"
+        }
+      ]
+    },
+    {
+      "name": "prometheus",
+      "priority": 13,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": false,
+      "source_files": [
+        {
+          "path": "kong/plugins/prometheus/schema.lua",
+          "sha256": "3361a56051fee150bc0d88d08d4d43f69a8cec192c4eacf97644e99f194f97c4"
+        },
+        {
+          "path": "kong/plugins/prometheus/handler.lua",
+          "sha256": "98bb4e2a39840483eccef6c385b44bfcba366208bb1c20e5c089819e6164a4a7"
+        }
+      ]
+    },
+    {
+      "name": "proxy-cache",
+      "priority": 100,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": false,
+      "source_files": [
+        {
+          "path": "kong/plugins/proxy-cache/schema.lua",
+          "sha256": "8dabfba5000f10aa8e9954f65555ea4b70c242c1d9ce7b1a0b54bcca8f189443"
+        },
+        {
+          "path": "kong/plugins/proxy-cache/handler.lua",
+          "sha256": "d243c31d76aa921976b4fde8821b7f451d02b7ba7aa29e2afc8dcd8ede83d79d"
+        }
+      ]
+    },
+    {
+      "name": "rate-limiting",
+      "priority": 901,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/rate-limiting/schema.lua",
+          "sha256": "e7fe8ab2a4869b855fea7756014daff316d2dde308c955580348d4c1754d72f0"
+        },
+        {
+          "path": "kong/plugins/rate-limiting/handler.lua",
+          "sha256": "b51584bedafbacd8adbdafc71b75975d30ddad35a6aca7449ee15e55888cc3e8"
+        }
+      ]
+    },
+    {
+      "name": "request-size-limiting",
+      "priority": 951,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/request-size-limiting/schema.lua",
+          "sha256": "1c35c38d887038299ab1d745c2f94e58d2048c468b7318fae7588347b6c6cf27"
+        },
+        {
+          "path": "kong/plugins/request-size-limiting/handler.lua",
+          "sha256": "aa327fd73b826b3f82189f1f098133ab1920734d00c8a52a52a369171f1bbd99"
+        }
+      ]
+    },
+    {
+      "name": "request-termination",
+      "priority": 2,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/request-termination/schema.lua",
+          "sha256": "792fb6fb575cd7e768b10ab29c5ec929eea874f0da06e5ec7afafa69adafa6ac"
+        },
+        {
+          "path": "kong/plugins/request-termination/handler.lua",
+          "sha256": "25371da372951fd42e772a51d3c6eac3a7a8abdcd5edf316558757d7635b1e69"
+        }
+      ]
+    },
+    {
+      "name": "request-transformer",
+      "priority": 801,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": false,
+      "source_files": [
+        {
+          "path": "kong/plugins/request-transformer/schema.lua",
+          "sha256": "2f4d8c547b782efc72f3725131827bf5e6f482baf116adc2a6fdd5f5031cba7a"
+        },
+        {
+          "path": "kong/plugins/request-transformer/handler.lua",
+          "sha256": "019b38bcbf064a67a2cd8cb4366de65df39c146ad81759ddc73002a0f0385d96"
+        }
+      ]
+    },
+    {
+      "name": "response-ratelimiting",
+      "priority": 900,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/response-ratelimiting/schema.lua",
+          "sha256": "db05ed4b0b2c0670272adf24c5682f295b4725c5a562bb59992f66823ed4777d"
+        },
+        {
+          "path": "kong/plugins/response-ratelimiting/handler.lua",
+          "sha256": "0549d101521c27c7f1007c859bbd48560d2cb55bd551b8cd7175cd004b1f0a47"
+        }
+      ]
+    },
+    {
+      "name": "response-transformer",
+      "priority": 800,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/response-transformer/schema.lua",
+          "sha256": "dcbf046783bc4dd39731f27b0c6d82c75f3335806502ef4cb5cca4b180b49317"
+        },
+        {
+          "path": "kong/plugins/response-transformer/handler.lua",
+          "sha256": "d8ef6815eb93bb2396d4726102d2ae9934e51dad374c6de58f9e00fe38bb8549"
+        }
+      ]
+    },
+    {
+      "name": "session",
+      "priority": 1900,
+      "consumer": false,
+      "route": true,
+      "service": true,
+      "http_only": false,
+      "source_files": [
+        {
+          "path": "kong/plugins/session/schema.lua",
+          "sha256": "0ec74c7c8d49a651321e44725087110a8879bcc44a0d19ddd76853dcbd7bdf43"
+        },
+        {
+          "path": "kong/plugins/session/handler.lua",
+          "sha256": "1c0804a7509f4d84df725198e9c5b34417a9259251e0ebbd7f0040d6feab0ce4"
+        }
+      ]
+    },
+    {
+      "name": "statsd",
+      "priority": 11,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/statsd/schema.lua",
+          "sha256": "3ca591dee71248ab69969917203e69f8eb5ff5ff7b7bfeee712ea3dc6d888a22"
+        },
+        {
+          "path": "kong/plugins/statsd/handler.lua",
+          "sha256": "2a3d4460eed574d11a559d4b11aa68a4d018b97a218bfb6abee4d0fbbb7b51ef"
+        }
+      ]
+    },
+    {
+      "name": "syslog",
+      "priority": 4,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/syslog/schema.lua",
+          "sha256": "5d386cd5e0e9bd28ec8cc88c6329153260622815386449c81ad07682b5076a45"
+        },
+        {
+          "path": "kong/plugins/syslog/handler.lua",
+          "sha256": "bc71e7596e32d7fd845adade6404fee190c573bc0aa96115c832df060e10d5a7"
+        }
+      ]
+    },
+    {
+      "name": "tcp-log",
+      "priority": 7,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/tcp-log/schema.lua",
+          "sha256": "350cbedb16d22249a0960740f85de04e638f662a467e5cea1809bcc2012dad85"
+        },
+        {
+          "path": "kong/plugins/tcp-log/handler.lua",
+          "sha256": "c65083fa5312359254f73fda9975fd0c03ebef19dbbd1be359019a8fc22ef6b0"
+        }
+      ]
+    },
+    {
+      "name": "udp-log",
+      "priority": 8,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": true,
+      "source_files": [
+        {
+          "path": "kong/plugins/udp-log/schema.lua",
+          "sha256": "8932a1788c7bb1183827d7bc426557f1dcccec052900ee8e190844513c03dfaa"
+        },
+        {
+          "path": "kong/plugins/udp-log/handler.lua",
+          "sha256": "944a88c3ba9e453f49998806de3539b0d04d0b9823ffaf1f520da7024206f2d6"
+        }
+      ]
+    },
+    {
+      "name": "zipkin",
+      "priority": 100000,
+      "consumer": true,
+      "route": true,
+      "service": true,
+      "http_only": false,
+      "source_files": [
+        {
+          "path": "kong/plugins/zipkin/schema.lua",
+          "sha256": "8a4a02edaea77b9dc657b90706570c4aad0ced4807d55502104d37aaf8af5c42"
+        },
+        {
+          "path": "kong/plugins/zipkin/handler.lua",
+          "sha256": "3d1fcf937f622415e91f77ffd461e414d91c6bbc4b2b3c5610d25b505999e42b"
+        },
+        {
+          "path": "kong/plugins/zipkin/opentracing.lua",
+          "sha256": "ab8b7c684540b4eda149a6d2615ec5c1d333db89449434e8f41a8ce0cd825f6b"
+        }
+      ]
+    }
+  ],
+  "count": 34
+}

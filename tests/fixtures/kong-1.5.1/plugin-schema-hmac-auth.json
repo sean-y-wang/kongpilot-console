@@ -1,0 +1,59 @@
+{
+  "fields": [
+    {
+      "hide_credentials": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "clock_skew": {
+        "gt": 0,
+        "default": 300,
+        "type": "number"
+      }
+    },
+    {
+      "anonymous": {
+        "legacy": true,
+        "uuid": true,
+        "type": "string"
+      }
+    },
+    {
+      "validate_request_body": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "enforce_headers": {
+        "elements": {
+          "type": "string"
+        },
+        "default": [],
+        "type": "array"
+      }
+    },
+    {
+      "algorithms": {
+        "elements": {
+          "one_of": [
+            "hmac-sha1",
+            "hmac-sha256",
+            "hmac-sha384",
+            "hmac-sha512"
+          ],
+          "type": "string"
+        },
+        "default": [
+          "hmac-sha1",
+          "hmac-sha256",
+          "hmac-sha384",
+          "hmac-sha512"
+        ],
+        "type": "array"
+      }
+    }
+  ]
+}

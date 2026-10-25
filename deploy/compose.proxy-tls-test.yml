@@ -1,0 +1,6 @@
+# Test-only host entry for a real TLS handshake. Production base does not
+# publish8443; terminate TLS on the deployment's chosen public ingress.
+services:
+  kong:
+    ports:
+      - "127.0.0.1:8443:8443"

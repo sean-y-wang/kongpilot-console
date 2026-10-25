@@ -1,0 +1,66 @@
+import {describe,it,expect,vi} from 'vitest';
+import {randomBytes,randomUUID} from 'node:crypto';
+import {createRequire} from 'node:module';
+import {RequestMethod} from '@nestjs/common';
+import {EntitiesController} from '../../apps/console-api/src/modules/entities/entities.controller';
+import {WorkflowController} from '../../apps/console-api/src/modules/workflows/workflow.controller';
+import {failedIssueContinuationCheckpoint,assertFailedIssueReceipt,guardFailedIssueContinuation,abandonOriginalRejectedIssue,FAILED_ISSUE_DATABASE_SQL} from './lib/m6-failed-issue-continuation.mjs';
+import {FAILED_ISSUE_TUPLE as T} from './lib/m6-failed-issue-key-capture.mjs';
+import {PENDING_KEY_TUPLE as FIRST} from './lib/m6-pending-key-capture.mjs';
+import {checkpointSha} from './lib/m6-isolated-transition.mjs';
+import {M6_C1,M6_C2} from './lib/m6-harness.mjs';
+import {firstM6Grant,secondM6Grant} from './live-m6.mjs';
+import {certifiedAbandonedReservation} from './lib/m6-abandoned-reservation-proof.mjs';
+
+const apiRequire=createRequire(new URL('../../apps/console-api/package.json',import.meta.url));
+const {PATH_METADATA,METHOD_METADATA}=apiRequire('@nestjs/common/constants');
+function actualRoute(controller:any,method:string,params:any){const member=controller.prototype[method];return`/${Reflect.getMetadata(PATH_METADATA,controller)}/${Reflect.getMetadata(PATH_METADATA,member)}`.replace(/:([A-Za-z]+)/g,(_all,key)=>params[key]);}
+
+import {fixture,harness,receipt} from './m6-failed-issue-continuation-fixture';
+
+describe('M6 exact knownfailed issue closure and new-request continuation (offline)',()=>{
+ it('accepts only the complete settled-first/failed-second checkpoint and preserves historical SHA/materials',()=>{
+  const {reference}=fixture(),saved=structuredClone(reference);expect(failedIssueContinuationCheckpoint(reference).oldExecute.key).toBe(T.executionKey);expect(reference).toEqual(saved);
+  for(const change of[(r:any)=>r.failedIssueContinuation={phase:'abandonment-request-started'},(r:any)=>r.metadataRecovery.phase='reconcile-request-started',(r:any)=>r.grants.push({}),(r:any)=>r.tokens[0].generation=5,(r:any)=>r.writeAttempts.at(-1).key=randomUUID(),(r:any)=>r.secondCredentialExecutionFailure.native[0].remote_completed=true,(r:any)=>r.failedIssueCredentialScanCaptures=[],(r:any)=>r.priorFixtureRuns[0].checkpoint.secrets.push('tamper')]){const copy=structuredClone(reference);change(copy);expect(()=>failedIssueContinuationCheckpoint(copy)).toThrow();}
+ });
+ it('guards all current fixtures, exact receipts, unused identities and first immutable key using only GET and SELECT before journaling',async()=>{
+  const {h}=harness(),context=await guardFailedIssueContinuation(h);expect(h.request.mock.calls.every((c:any)=>!c[2]||c[2]==='GET')).toBe(true);expect(h.portal.mock.calls.every((c:any)=>!c[2]||c[2]==='GET')).toBe(true);expect(h.consoleRead.mock.calls.every((c:any)=>c[0].startsWith('SELECT'))).toBe(true);expect(context.abandonmentBody).toMatchObject({executionId:T.executionId,confirmed:true,confirm_name:'portal-credential-issue'});expect(h.referenceData.failedIssueContinuation.originalExecutionKey).toBe(T.executionKey);await expect(guardFailedIssueContinuation(h)).rejects.toThrow();
+ });
+ it('uses actual Nest method/path metadata for new formal closure and all three absence reads',async()=>{
+  const {h}=harness(),context=await guardFailedIssueContinuation(h),params={clusterId:T.clusterId,entityType:'consumers',entityId:T.consumerId,consumerId:T.consumerId};
+  expect(h.request.mock.calls.map((c:any)=>new URL(c[1],'http://unit.invalid').pathname)).toContain(actualRoute(EntitiesController,'get',params));
+  for(const[kind,credentialId]of[['acls',T.aclId],['key-auth',T.nativeId]])expect(h.request.mock.calls.map((c:any)=>new URL(c[1],'http://unit.invalid').pathname)).toContain(actualRoute(EntitiesController,'getCredential',{...params,kind,credentialId}));
+  await abandonOriginalRejectedIssue(h,context);const posts=h.request.mock.calls.filter((c:any)=>c[2]==='POST');expect(posts).toHaveLength(1);expect(new URL(posts[0][1],'http://unit.invalid').pathname).toBe(actualRoute(WorkflowController,'abandonRejectedIssue',{clusterId:T.clusterId,id:T.workflowId}));expect(Reflect.getMetadata(METHOD_METADATA,WorkflowController.prototype.abandonRejectedIssue)).toBe(RequestMethod.POST);
+ });
+ it('rejects changed first key, fresh native/unknown effects, substituted allocated identity or native object presence before any journal/POST',async()=>{
+  for(const failure of['first-cipher','native-count','native-unknown','identity','presence','eligibility']){const {h,before,firstDatabase}=harness();if(failure==='first-cipher')firstDatabase.immutable_key_cipher_sha='d'.repeat(64);else if(failure==='native-count')before.native_operation_count=2;else if(failure==='native-unknown')before.native_unresolved=1;else if(failure==='identity')before.kong_id=randomUUID();else{const base=h.request.getMockImplementation();h.request.mockImplementation(async(...args:any[])=>{const r=await base(...args);if(failure==='presence'&&r.status===404)return{status:200,payload:{data:{entity:{id:T.consumerId}}}};if(failure==='eligibility'&&args[1].includes(`/receipts/by-key/${T.executionKey}`))r.payload.data.issueAbandonment.eligible=false;return r;});}await expect(guardFailedIssueContinuation(h)).rejects.toThrow();expect(h.referenceData.failedIssueContinuation).toBeUndefined();expect(h.request.mock.calls.every((c:any)=>!c[2]||c[2]==='GET')).toBe(true);}
+ });
+ it('keeps null/unknown native results failclosed in fixed SQL and wrong original step/certificate metadata rejected',()=>{
+  expect(FAILED_ISSUE_DATABASE_SQL).toContain("m.error_code IS DISTINCT FROM 'KONG_VALIDATION_ERROR'");expect(FAILED_ISSUE_DATABASE_SQL).toContain('m.remote_completed IS DISTINCT FROM false');const {h}=harness();for(const change of[(r:any)=>r.steps[0].operationId=randomUUID(),(r:any)=>r.steps[1].remoteStarted=true,(r:any)=>r.issueAbandonment.executionId=randomUUID(),(r:any)=>r.issueAbandonment.reservationReleased=true]){const r=receipt();change(r);expect(()=>assertFailedIssueReceipt(h,r)).toThrow();}
+ });
+ it('stops on changed original application revision or disabled application before any closure journal',async()=>{
+  for(const failure of['revision','disabled']){const {h}=harness(),base=h.portal.getMockImplementation();h.portal.mockImplementation(async(...args:any[])=>{const result=await base(...args);if(result.payload.data.entity?.state==='active')result.payload.data={entity:{...result.payload.data.entity,...(failure==='revision'?{revision:99}:{state:'archived'})}};return result;});await expect(guardFailedIssueContinuation(h)).rejects.toThrow();expect(h.referenceData.failedIssueContinuation).toBeUndefined();expect(h.request.mock.calls.every((c:any)=>!c[2]||c[2]==='GET')).toBe(true);}
+ });
+ it('posts the original execution key exactly once and independently proves certified release with original failed metadata/key untouched',async()=>{
+  const {h,reference}=harness(),oldKeys=reference.writeAttempts.map((a:any)=>a.key),context=await guardFailedIssueContinuation(h),next=await abandonOriginalRejectedIssue(h,context);const posts=h.request.mock.calls.filter((c:any)=>c[2]==='POST');expect(posts).toHaveLength(1);expect(posts[0][4].key).toBe(T.executionKey);expect(h.referenceData.failedIssueContinuation.phase).toBe('reservation-abandoned');expect(h.referenceData.failedIssueContinuation.newRequest.idempotencyKey).toBe(next.secondInitialRequest.key);expect(oldKeys).not.toContain(next.secondInitialRequest.key);expect(h.referenceData.writeAttempts.map((a:any)=>a.key)).toEqual(oldKeys);expect(h.portal.mock.calls.every((c:any)=>c[2]!=='POST')).toBe(true);await expect(abandonOriginalRejectedIssue(h,context)).rejects.toThrow();expect(h.request.mock.calls.filter((c:any)=>c[2]==='POST')).toHaveLength(1);
+ });
+ it('does not unlock a new request on unknown closure response or changed post-closure facts, and never resends closure',async()=>{
+  for(const failure of['unknown','cipher','first-effects','certificate']){const {h}=harness(),context=await guardFailedIssueContinuation(h);if(failure==='unknown'){const base=h.request.getMockImplementation();h.request.mockImplementation(async(...args:any[])=>{if(args[2]==='POST')throw new TypeError('synthetic unknown response');return base(...args);});}else{const read=h.consoleRead.getMockImplementation();h.consoleRead.mockImplementation((sql:string,...args:any[])=>{const result=read(sql,...args);if(failure==='cipher'&&sql===FAILED_ISSUE_DATABASE_SQL)result[0].cipher_sha='e'.repeat(64);if(failure==='first-effects'&&sql.includes('immutable_key_cipher_sha'))result[0].native_operation_count=4;if(failure==='certificate'&&sql.includes('SELECT id,failed_step_id'))result[0].failed_operation_id=randomUUID();return result;});}await expect(abandonOriginalRejectedIssue(h,context)).rejects.toThrow();expect(h.referenceData.failedIssueContinuation.phase).toBe('abandonment-request-started');expect(h.referenceData.failedIssueContinuation.newRequest).toBeUndefined();await expect(abandonOriginalRejectedIssue(h,context)).rejects.toThrow();expect(h.request.mock.calls.filter((c:any)=>c[2]==='POST')).toHaveLength(1);}
+ });
+ it('continues the existing first grant without request/reveal/approval/metadata replay',async()=>{
+  const {h}=harness(),context=await guardFailedIssueContinuation(h);h.request.mockClear();h.portal.mockClear();expect(await firstM6Grant(h,context)).toBe(context.recoveredFirstGrant);expect(h.request).not.toHaveBeenCalled();expect(h.portal).not.toHaveBeenCalled();
+ });
+ it('journals the single new request before packet, preserves it on lost response and forbids duplicate/fallback request',async()=>{
+  const {h}=harness(),context=await guardFailedIssueContinuation(h),next=await abandonOriginalRejectedIssue(h,context);h.portal.mockClear();h.portal.mockImplementation(async(_session:any,_path:any,method='GET')=>{if(method==='POST'){expect(h.referenceData.failedIssueContinuation.phase).toBe('new-second-request-started');throw new TypeError('synthetic lost new-request response');}throw new Error('unplanned request');});await expect(secondM6Grant(h,next)).rejects.toThrow();expect(h.referenceData.failedIssueContinuation.newRequest.state).toBe('started');await expect(secondM6Grant(h,next)).rejects.toThrow();await expect(secondM6Grant(h,{...next,secondInitialRequest:undefined})).rejects.toThrow();expect(h.portal.mock.calls.filter((c:any)=>c[2]==='POST')).toHaveLength(1);
+ });
+ it('rejects altered certificate/context/new body before a new Portal POST',async()=>{
+  for(const change of[(h:any,next:any)=>next.failedIssueRecoveryVerified=false,(h:any)=>h.referenceData.failedIssueContinuation.certificateId=null,(h:any,next:any)=>next.secondInitialRequest.key=T.executionKey,(h:any,next:any)=>next.secondInitialRequest.body={...next.secondInitialRequest.body,publicationId:randomUUID()}]){const {h}=harness(),context=await guardFailedIssueContinuation(h),next=await abandonOriginalRejectedIssue(h,context);h.portal.mockClear();change(h,next);await expect(secondM6Grant(h,next)).rejects.toThrow();expect(h.portal).not.toHaveBeenCalled();}
+ });
+ it('retains certified failed reservation history during cleanup using original-key GET, SELECT and absence reads only',async()=>{
+  const {h}=harness(),context=await guardFailedIssueContinuation(h);await abandonOriginalRejectedIssue(h,context);h.request.mockClear();h.portal.mockClear();h.consoleRead.mockClear();
+  const result=await certifiedAbandonedReservation(h,context.admin,context.primary,{id:T.grantId,state:'disabled',generation:0,reservationReleased:true});expect(result.certificateId).toBe(h.referenceData.failedIssueContinuation.certificateId);expect(h.request.mock.calls[0][1]).toContain(`/receipts/by-key/${T.executionKey}`);expect(h.request.mock.calls.every((c:any)=>!c[2]||c[2]==='GET')).toBe(true);expect(h.consoleRead.mock.calls.every((c:any)=>c[0].startsWith('SELECT'))).toBe(true);expect(h.portal).not.toHaveBeenCalled();
+ });
+ it('never equates arbitrary disabled/failed state, changed ciphertext or another certificate with retired/issued credentials during cleanup',async()=>{
+  for(const failure of['foreign-grant','certificate','cipher','issued','native-result','reveal']){const {h}=harness(),context=await guardFailedIssueContinuation(h);await abandonOriginalRejectedIssue(h,context);const grant={id:T.grantId,state:'disabled',generation:0,reservationReleased:true};h.request.mockClear();if(failure==='foreign-grant')grant.id=randomUUID();else if(failure==='certificate')h.referenceData.failedIssueContinuation.certificateId=randomUUID();else{const read=h.consoleRead.getMockImplementation();h.consoleRead.mockImplementation((sql:string,...args:any[])=>{const result=read(sql,...args);if(sql===FAILED_ISSUE_DATABASE_SQL){if(failure==='cipher')result[0].cipher_sha='f'.repeat(64);if(failure==='issued')result[0].credential_state='revoked';if(failure==='native-result')result[0].unexpected_native_results=1;if(failure==='reveal')result[0].last_revealed_at='2026-10-11T00:00:00Z';}return result;});}await expect(certifiedAbandonedReservation(h,context.admin,context.primary,grant)).rejects.toThrow();expect(h.request.mock.calls.every((c:any)=>!c[2]||c[2]==='GET')).toBe(true);}
+ });
+});

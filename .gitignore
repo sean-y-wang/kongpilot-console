@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/
+.vitest/
+artifacts/playwright-results/
+artifacts/playwright-html/
+*.log
+artifacts/**/raw/
+deploy/private/
+
+# Build this fixed native helper from source; never ship local executables.
+apps/console-api/native-bin/
+
+# Release candidate source tarballs are pinned by SHA256SUMS; keep blobs off-repo
+deploy/releases/candidates/**/*.tar.gz
+
+# Local evidence output is never published
+artifacts/

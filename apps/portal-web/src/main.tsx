@@ -1,0 +1,40 @@
+import { PILOT_ACCENT } from '../../../packages/contracts/src/pilot-theme';
+import { AppearanceToggle, PilotThemeProvider, usePilotAppearance } from '../../../packages/contracts/src/PilotAppearance';
+import { BrandMark, PRODUCT_BRAND } from './components/BrandIdentity';
+import React, { useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom/client';
+import { Alert, App, Button, Card, ConfigProvider, Input, Select, Space, Spin, Typography } from 'antd';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { clearPortalSession, portalRequest, setPortalScope } from './api/portal-client';
+import type { PageData, Tenant } from './api/types';
+import { PortalProvider, usePortal } from './app/PortalContext';
+import { ApiDocumentPage, AuthPage, CatalogPage, MarkdownPage } from './features/PublicPages';
+import { ApplicationDetailPage, ApplicationsPage } from './features/Applications';
+import { RequestDetailPage, RequestsPage } from './features/Requests';
+import { PortalErrorView, ProfileForm, Protected, RecoveryBanner } from './components/Shared';
+import { clearPortalSelectionStorage, initialPortalTenantSlug, matchedPortalTenant, rememberResolvedPortalTenant, validPortalTenantSlug } from './app/tenant-selection';
+import './app/i18n';
+import './styles.css';
+import '../../../packages/contracts/src/pilot-visual.css';
+import '../../../packages/contracts/src/pilot-appearance.css';
+const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: false } } });
+function TenantPicker({ onSelect }: { onSelect: (slug: string) => void }) { const [search, setSearch] = useState(''), [cursor, setCursor] = useState<string>(); const query = useQuery({ queryKey: ['portal-tenants', search, cursor], queryFn: ({ signal }) => portalRequest<PageData<Tenant>>(`/tenants?size=20&search=${encodeURIComponent(search)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, undefined, { signal }, false) }); return <div className="tenant-picker"><div className="portal-appearance-control"><AppearanceToggle /></div><div className="portal-picker-brand"><BrandMark /><div><strong>{PRODUCT_BRAND.name}</strong><small>{PRODUCT_BRAND.chineseName}</small></div></div><Typography.Title>开发者门户</Typography.Title><Typography.Paragraph type="secondary">选择已发布的 API 空间，阅读文档并申请访问凭证。</Typography.Paragraph><Input.Search aria-label="搜索门户" placeholder="搜索门户名称" onSearch={value => { setSearch(value); setCursor(undefined); }} /><PortalErrorView error={query.error} />{query.isFetching && <Spin />}{query.data?.items.map(tenant => <Card key={tenant.slug} hoverable onClick={() => onSelect(tenant.slug)} className="tenant-card"><Typography.Title level={4}>{tenant.name}</Typography.Title><p>{tenant.branding?.welcomeText ?? '查看 API 目录与开发者文档'}</p><Button type="link">进入门户 →</Button></Card>)}{query.data?.items.length === 0 && <Alert type="info" message="暂时没有已发布的门户" />}{query.data?.nextCursor && <Button block onClick={() => setCursor(query.data!.nextCursor!)}>下一页</Button>}</div>; }
+function PortalLayout({ changeTenant }: { changeTenant: () => void }) { const { mode } = usePilotAppearance(); const { tenant, developer, busy, loading, logout, error } = usePortal(), navigate = useNavigate(), location = useLocation(); const pages = useQuery({ queryKey: ['portal-navigation-pages', tenant.clusterId, tenant.workspaceId], queryFn: ({ signal }) => portalRequest<PageData<{ slug: string; title: string }>>('/pages?size=20', tenant, { signal }, false) }); const color = /^#[0-9a-f]{6}$/i.test(tenant.branding?.primaryColor ?? '') ? tenant.branding.primaryColor : PILOT_ACCENT[mode]; return <ConfigProvider theme={{ token: { colorPrimary: color } }}><div className="portal-shell" style={{ '--kp-blue': color } as React.CSSProperties}><header className="portal-header"><Link className="portal-brand" to="/apis"><BrandMark small /><span>{tenant.branding?.logoText || tenant.name}<small>{PRODUCT_BRAND.name} · DEVELOPER PORTAL</small></span></Link><nav><Link className={location.pathname.startsWith('/apis') ? 'active' : ''} to="/apis">API 目录</Link>{developer && <><Link className={location.pathname.startsWith('/applications') ? 'active' : ''} to="/applications">我的应用</Link><Link className={location.pathname.startsWith('/requests') ? 'active' : ''} to="/requests">我的申请</Link></>}</nav><Space wrap><AppearanceToggle /><Button aria-label="切换门户" disabled={busy || loading} onClick={async () => { if (developer) { try { await logout(); } catch { return; } } changeTenant(); }}>切换门户</Button>{developer ? <><Button onClick={() => navigate('/profile')}>{developer.displayName || developer.username}</Button><Button disabled={busy} onClick={() => void logout()}>退出</Button></> : <Button type="primary" disabled={loading} onClick={() => navigate('/login')}>开发者登录</Button>}</Space></header><main className="portal-content"><PortalErrorView error={error} />{developer && <RecoveryBanner />}{developer?.mustChangePassword && <Alert showIcon type="warning" message="请先修改密码" description={<Link to="/profile">进入个人账号修改密码后继续。</Link>} style={{ marginBottom: 20 }} />}<Routes><Route index element={<Navigate to="/apis" replace />} /><Route path="apis" element={<CatalogPage />} /><Route path="apis/:id" element={<ApiDocumentPage />} /><Route path="pages/:slug" element={<MarkdownPage />} /><Route path="login" element={<AuthPage />} /><Route path="register" element={<AuthPage register />} /><Route path="applications" element={<Protected><ApplicationsPage /></Protected>} /><Route path="applications/:id" element={<Protected><ApplicationDetailPage /></Protected>} /><Route path="requests" element={<Protected><RequestsPage /></Protected>} /><Route path="requests/:id" element={<Protected><RequestDetailPage /></Protected>} /><Route path="profile" element={<Protected allowPasswordChange><ProfileForm /></Protected>} /><Route path="*" element={<Navigate to="/apis" replace />} /></Routes></main>{((pages.data?.items.length ?? 0) > 0 || !!pages.data?.nextCursor || !!tenant.branding?.welcomeText) && <footer className="portal-footer"><span>{tenant.branding?.welcomeText}</span><Space wrap>{pages.data?.items.map(page => <Link key={page.slug} to={`/pages/${page.slug}`}>{page.title}</Link>)}{pages.data?.nextCursor && <Typography.Text type="secondary">更多页面可通过门户页面链接访问</Typography.Text>}</Space></footer>}</div></ConfigProvider>; }
+function PortalRoot() {
+  const [slug, setSlug] = useState<string | undefined>(() => initialPortalTenantSlug(location.search));
+  const selection = useRef(slug);
+  const query = useQuery({ queryKey: ['public-portal-tenant', slug], queryFn: ({ signal }) => portalRequest<Tenant>(`/tenants/${encodeURIComponent(slug!)}`, undefined, { signal }, false), enabled: !!slug });
+  const tenant = slug === selection.current ? matchedPortalTenant(slug, query.data) : undefined;
+  useEffect(() => { rememberResolvedPortalTenant(selection.current, tenant); }, [slug, tenant]);
+  function select(value?: string) {
+    const next = validPortalTenantSlug(value) ? value : undefined;
+    selection.current = next;
+    clearPortalSession(); setPortalScope(undefined); client.clear(); clearPortalSelectionStorage(); setSlug(next);
+  }
+  if (!slug) return <TenantPicker onSelect={select} />;
+  if (query.isFetching && !query.data) return <div className="tenant-picker"><Spin /><p>正在读取已发布门户…</p></div>;
+  if (!tenant) return <div className="tenant-picker"><PortalErrorView error={query.error} />{query.data && <Alert type="info" message="当前门户不可用，请重新选择。" />}<Button onClick={() => select(undefined)}>重新选择门户</Button></div>;
+  return <PortalProvider key={`${tenant.clusterId}:${tenant.workspaceId}`} tenant={tenant}><PortalLayout changeTenant={() => select(undefined)} /></PortalProvider>;
+}
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><PilotThemeProvider><App><QueryClientProvider client={client}><BrowserRouter><PortalRoot /></BrowserRouter></QueryClientProvider></App></PilotThemeProvider></React.StrictMode>);

@@ -1,0 +1,2 @@
+# Preserve the exact public trust bundle used by TLS verification.
+artifacts/Production/root-production-node-public-ca-bundle.pem -whitespace

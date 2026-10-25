@@ -1,0 +1,26 @@
+{
+  "fields": [
+    {
+      "whitelist": {
+        "elements": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "blacklist": {
+        "elements": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "hide_groups_header": {
+        "default": false,
+        "type": "boolean"
+      }
+    }
+  ]
+}

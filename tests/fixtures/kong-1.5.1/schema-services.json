@@ -1,0 +1,131 @@
+{
+  "fields": [
+    {
+      "id": {
+        "auto": true,
+        "uuid": true,
+        "type": "string"
+      }
+    },
+    {
+      "created_at": {
+        "timestamp": true,
+        "auto": true,
+        "type": "integer"
+      }
+    },
+    {
+      "updated_at": {
+        "timestamp": true,
+        "auto": true,
+        "type": "integer"
+      }
+    },
+    {
+      "name": {
+        "unique": true,
+        "type": "string"
+      }
+    },
+    {
+      "retries": {
+        "between": [
+          0,
+          32767
+        ],
+        "default": 5,
+        "type": "integer"
+      }
+    },
+    {
+      "protocol": {
+        "type": "string",
+        "one_of": [
+          "grpc",
+          "grpcs",
+          "http",
+          "https",
+          "tcp",
+          "tls"
+        ],
+        "default": "http",
+        "required": true
+      }
+    },
+    {
+      "host": {
+        "type": "string",
+        "required": true
+      }
+    },
+    {
+      "port": {
+        "type": "integer",
+        "between": [
+          0,
+          65535
+        ],
+        "default": 80,
+        "required": true
+      }
+    },
+    {
+      "path": {
+        "starts_with": "/",
+        "match_none": [
+          {
+            "err": "must not have empty segments",
+            "pattern": "//"
+          }
+        ],
+        "type": "string"
+      }
+    },
+    {
+      "connect_timeout": {
+        "between": [
+          1,
+          2147483646
+        ],
+        "default": 60000,
+        "type": "integer"
+      }
+    },
+    {
+      "write_timeout": {
+        "between": [
+          1,
+          2147483646
+        ],
+        "default": 60000,
+        "type": "integer"
+      }
+    },
+    {
+      "read_timeout": {
+        "between": [
+          1,
+          2147483646
+        ],
+        "default": 60000,
+        "type": "integer"
+      }
+    },
+    {
+      "tags": {
+        "elements": {
+          "type": "string",
+          "required": true,
+          "match": "^[%w%.%-%_~]+$"
+        },
+        "type": "set"
+      }
+    },
+    {
+      "client_certificate": {
+        "reference": "certificates",
+        "type": "foreign"
+      }
+    }
+  ]
+}

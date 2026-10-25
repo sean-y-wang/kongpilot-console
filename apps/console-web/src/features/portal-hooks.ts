@@ -1,0 +1,11 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api, getApiActorId } from '../api/client';
+import { scopeQuery } from '../api/workspace-scope';
+import { useCluster } from '../app/ClusterContext';
+import { useWorkspace } from '../app/WorkspaceContext';
+import { usePermissions } from '../app/Permissions';
+import { useAuth } from '../app/AuthContext';
+export interface PortalPageData<T> { items: T[]; nextCursor: string | null; size: number; total: null; }
+export function usePortalScope() { const { clusterId } = useCluster(), workspace = useWorkspace(), permission = usePermissions(), { user } = useAuth(); const cid = clusterId, wid = workspace.workspaceId, actor = user?.id, version = permission.version; return { cid, wid, actor, version, permission, workspace, ready: !!cid && !!wid, path: (resource: string) => scopeQuery(`/clusters/${cid}/${resource}`, cid, wid), assertCurrent: () => { if (getApiActorId() !== actor) throw new Error('账号已切换，请重新发起操作。'); } }; }
+export function usePortalPage<T>(resource: string, filters: Record<string, string> = {}, enabled = true) { const scope = usePortalScope(), key = JSON.stringify([scope.cid, scope.wid, scope.actor, scope.version, resource, filters]), [state, setState] = useState<{ key: string; cursors: Array<string | undefined>; page: number }>({ key, cursors: [undefined], page: 0 }), active = state.key === key ? state : { key, cursors: [undefined], page: 0 }; const params = new URLSearchParams({ size: '20', ...filters }); if (active.cursors[active.page]) params.set('cursor', active.cursors[active.page]!); const query = useQuery({ queryKey: ['portal-console-list', scope.cid, scope.wid, scope.actor, scope.version, resource, filters, active.cursors[active.page]], queryFn: ({ signal }) => api<PortalPageData<T>>(scope.path(`${resource}?${params}`), { signal }), enabled: scope.ready && enabled, retry: false, staleTime: 0, gcTime: 0 }); return { ...query, page: active.page + 1, previous: active.page > 0 ? () => setState({ ...active, page: active.page - 1 }) : undefined, next: query.data?.nextCursor ? () => setState({ key, cursors: [...active.cursors.slice(0, active.page + 1), query.data!.nextCursor!], page: active.page + 1 }) : undefined }; }

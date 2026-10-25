@@ -1,0 +1,5 @@
+services:
+  console-deck-runner:
+    build: !reset null
+    image: kongos/deck-runner:1.2.4
+    pull_policy: never

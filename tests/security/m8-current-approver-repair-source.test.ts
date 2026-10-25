@@ -1,0 +1,15 @@
+import{describe,it,expect}from'vitest';
+import{M8_APPROVER_STOPPED as c,assertM8CurrentApproverNoNative,assertM8CurrentApproverRepairCheckpoint}from'./lib/m8-current-approver-repair.mjs';
+function original(){return{workflow_id:c.workflowId,job_id:c.jobId,plan_id:c.planId,workflow_execution_id:c.workflowExecutionId,workflow_step_id:c.workflowStepId,configuration_execution_id:c.configurationExecutionId,
+ workflow_state:'failed',workflow_execution_state:'failed',workflow_step_state:'failed',snapshot_state:'ready',job_state:'failed',job_error_code:'PERMISSION_DENIED',plan_state:'approved',configuration_execution_state:'failed',configuration_execution_completed:true,workflow_execution_completed:true,
+ remote_started:false,remote_completed:false,same_request:true,same_key:true,same_actor:true,same_sid:true,same_plan_hash:true,same_workflow_tuple:true,handler:'configuration_v2',kind:'metadata',native_request_count:0,operation_id:null,configuration_execution_count:1,configuration_step_count:17,pending_unstarted_step_count:17,native_operation_count:0};}
+describe('M8 exact terminal current-approver failure checkpoint',()=>{
+ it('retains known terminal failure and requires all seventeen native steps unstarted',()=>{const row=original();expect(assertM8CurrentApproverNoNative(row)).toBe(row);expect(row.job_state).toBe('failed');});
+ for(const[field,value]of[
+  ['workflow_id','foreign'],['job_id','foreign'],['plan_id','foreign'],['workflow_execution_id','foreign'],['workflow_step_id','foreign'],['configuration_execution_id','foreign'],
+  ['workflow_state','uncertain'],['workflow_execution_state','executing'],['workflow_step_state','succeeded'],['snapshot_state','pending'],['job_state','running'],['job_error_code','ANOTHER_ERROR'],['plan_state','pending_approval'],['configuration_execution_state','executing'],['configuration_execution_completed',false],['workflow_execution_completed',false],
+  ['remote_started',true],['remote_completed',true],['same_request',false],['same_key',false],['same_actor',false],['same_sid',false],['same_plan_hash',false],['same_workflow_tuple',false],['handler','configuration.metadata'],['kind','native'],['native_request_count',1],['operation_id',c.workflowStepId],['configuration_execution_count',2],['configuration_step_count',16],['pending_unstarted_step_count',16],['native_operation_count',1],
+ ]as const)it(`rejects changed ${field} before a new independent validation`,()=>expect(()=>assertM8CurrentApproverNoNative({...original(),[field]:value})).toThrow('M8_CURRENT_FAILED_APPROVER_WITH_ZERO_NATIVE_REQUIRED'));
+ it('rejects absent/partial current proof',()=>{expect(()=>assertM8CurrentApproverNoNative(null)).toThrow();const row:any=original();delete row.same_actor;expect(()=>assertM8CurrentApproverNoNative(row)).toThrow();});
+ it('rejects fabricated failure/source checkpoint without exact frozen artifacts',()=>expect(()=>assertM8CurrentApproverRepairCheckpoint({requests:[]},Buffer.from('{}'),Buffer.from('{}'))).toThrow('M8_EXACT_FAILED_CURRENT_APPROVER_CHECKPOINT_REQUIRED'));
+});

@@ -1,0 +1,82 @@
+# LAB / E2E ONLY overlay (not a production artifact): adds a second Kong 1.5.1
+# cluster ("cluster B") and an echo upstream to the bridge production stack so
+# the KP-006 portal browser flow can run against a real second Kong.
+# Usage: docker compose -f docker-compose.yml -f deploy/compose.production.yml -f deploy/compose.e2e-cluster-b.yml ...
+# Kong B Admin listens only on its kong-admin IP and only accepts the BFF IP
+# (same kong-start.sh hardening as cluster A); proxy is published on loopback.
+x-kong-b-environment: &kong-b-environment
+  KONG_DATABASE: postgres
+  KONG_PG_HOST: kong-b-db
+  KONG_PG_PORT: 5432
+  KONG_PG_DATABASE: kong
+  KONG_PG_USER: kong
+  KONG_PG_PASSWORD: ${KONG_DATABASE_PASSWORD:?Set KONG_DATABASE_PASSWORD}
+
+services:
+  kong-b-db:
+    image: postgres:11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: ${KONG_DATABASE_PASSWORD:?Set KONG_DATABASE_PASSWORD}
+    volumes: [kong_b_db_data:/var/lib/postgresql/data]
+    networks:
+      kong-storage:
+        ipv4_address: ${KONG_B_DB_IP:?Set KONG_B_DB_IP}
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready --host=127.0.0.1 -U kong -d kong"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  kong-b-migrations:
+    image: kong:1.5.1
+    environment: *kong-b-environment
+    entrypoint: [/bin/sh, /opt/kongos/kong-migrate.sh]
+    volumes: [./deploy/scripts/kong-migrate.sh:/opt/kongos/kong-migrate.sh:ro]
+    networks: [kong-storage]
+    depends_on: {kong-b-db: {condition: service_healthy}}
+    restart: "no"
+  kong-b:
+    image: kong:1.5.1
+    restart: unless-stopped
+    entrypoint: [/bin/sh, /opt/kongos/kong-start.sh]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    environment:
+      <<: *kong-b-environment
+      KONG_NGINX_WORKER_PROCESSES: "2"
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONGOS_ADMIN_BIND_IP: ${KONG_B_ADMIN_IP:?Set KONG_B_ADMIN_IP}
+      KONGOS_BFF_ADMIN_IP: ${CONSOLE_KONG_ADMIN_IP:?Set CONSOLE_KONG_ADMIN_IP}
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/null
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/null
+    ports: ["127.0.0.1:${KONG_B_PROXY_PORT:?Set KONG_B_PROXY_PORT}:8000"]
+    volumes:
+      - ./deploy/scripts/kong-start.sh:/opt/kongos/kong-start.sh:ro
+      - ./deploy/scripts/kong-secure-start.sh:/opt/kongos/kong-secure-start.sh:ro
+    networks:
+      kong-admin:
+        ipv4_address: ${KONG_B_ADMIN_IP}
+      kong-storage:
+        ipv4_address: ${KONG_B_STORAGE_IP:?Set KONG_B_STORAGE_IP}
+      proxy-edge: {}
+    depends_on:
+      kong-b-db: {condition: service_healthy}
+      kong-b-migrations: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, kong, health]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+  e2e-echo:
+    image: hashicorp/http-echo:1.0
+    command: ["-listen=:5678", "-text=kp-e2e-echo"]
+    networks: [proxy-edge]
+
+volumes:
+  kong_b_db_data: {}

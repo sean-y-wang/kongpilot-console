@@ -1,0 +1,30 @@
+import{readFileSync}from'node:fs';
+import{M8Harness,readM8Reference,sha256,scope,entity}from'./lib/m8-harness.mjs';
+import{retainM8History}from'./lib/m8-private-history.mjs';
+import{configurationRead,configurationWrite,assertConfigurationReceipt}from'./lib/m8-configuration-acceptance.mjs';
+import{finishM8ObservedApprovalImport}from'./lib/m8-transfer-acceptance.mjs';
+import{M8_PREPARATION_STOPPED,assertM8PreparationRepairCheckpoint,m8CurrentStoppedApprovalProof}from'./lib/m8-v2-preparation-repair.mjs';
+if(process.env.M8_DEPLOYMENT_READY!=='true'||process.env.M8_RUNTIME_READY!=='true'||process.env.M8_APPROVAL_PREPARATION_REPAIR_READY!=='true')throw Error('M8_APPROVAL_PREPARATION_REPAIR_RELEASE_REQUIRED');
+const failurePath='artifacts/M8/security-live-submitted-v2-approval-tail.json',diagnosisPath='artifacts/M8/original-v2-execution-readonly-diagnosis.json';
+const failureBytes=readFileSync(failurePath),diagnosisBytes=readFileSync(diagnosisPath),r=readM8Reference();
+const original=assertM8PreparationRepairCheckpoint(r,failureBytes,diagnosisBytes),c=M8_PREPARATION_STOPPED,h=new M8Harness({resume:true,reference:r});let failure;
+try{
+ const history=retainM8History(r,'v2PreparationRepairTailHistory');r.v2PreparationRepairTail={version:1,state:'original-uncertain-read',history,originalPacketCount:c.count,originalPrefixSha256:c.prefix,failurePath,failureSha256:sha256(failureBytes),diagnosisPath,diagnosisSha256:sha256(diagnosisBytes),originalApprovalReplayed:false,originalExecutionReplayed:false,originalUnknownPreserved:true};
+ h.checks=original.failed.checks.filter(v=>v.passed);h.save({phase:'approval-preparation-new-intent',inFlight:null});
+ const actors={...r.sessions,direct:r.scopes.direct,approval:r.scopes.approval,foreign:r.scopes.foreign},area=actors.approval;
+ const prior=await configurationRead(h,actors.admin,area,`workflows/receipts/by-key/${c.key}`);
+ h.check(prior.workflowId===c.workflowId&&prior.executionId===c.executionId&&prior.clusterId===area.cid&&prior.workspaceId===area.wid&&prior.idempotencyKey===c.key&&prior.state==='uncertain'&&prior.steps?.length===1&&prior.steps[0].id===c.stepId&&prior.steps[0].state==='uncertain','original uncertain workflow receipt remains immutable and is never executed again');
+ const oldJob=await configurationRead(h,actors.admin,area,`configuration/jobs/by-key/${original.submission.key}`);assertConfigurationReceipt(h,oldJob,{actor:actors.admin,area,key:original.submission.key,jobId:c.jobId,kind:'apply'});
+ h.check(oldJob.state==='waiting_approval'&&oldJob.workflowId===c.workflowId&&oldJob.executionCompleted===false,'old original configuration job is not falsely promoted to successful execution');
+ const oldMode=entity(h.data(await h.request(actors.admin,`/clusters/${area.cid}`)));h.check(oldMode.id===area.cid&&oldMode.execution_mode==='approval','new validation preserves canonical approval mode without a new mode change');
+ const objects=h.data(await h.request(actors.admin,scope(area.cid,area.wid,'entities/services',{size:100})));
+ h.check(Array.isArray(objects.items)&&objects.items.length===0&&objects.nextCursor===null,'current exact fresh approval workspace has full empty EOF before the independent seventeen-object validation');
+ const proof=await m8CurrentStoppedApprovalProof(h,actors.admin,area);r.v2PreparationRepairTail.originalStoppedProof=proof;r.v2PreparationRepairTail.state='new-explicit-independent-validation';h.save();
+ h.public={actualM8Complete:false,originalFailuresRetained:[{path:failurePath,sha256:sha256(failureBytes)}],directTransfer:r.directTransfer,fiveClassRecovery:r.fiveClassRecovery,naturalTimer:r.naturalTimerProven,originalApprovalReplayed:false,originalExecutionReplayed:false,originalUnknownPreserved:true,originalApprovalNoNativeProven:true,recoveredCommittedHTTPFailures:1,nativeAdminBypassRequests:0,remaining:['fixed-deck11-cli','current-RBAC-IDOR-session','full-audit-events','browser','soft-cleanup-secret-scan']};
+ const imported=await configurationWrite(h,actors.admin,area,'configuration/imports',structuredClone(original.source.body),{kind:'import'});
+ h.check(imported.jobId!==original.source.responseData.jobId&&imported.counts?.create===17,'independent approved validation creates a new explicit import without altering the historical intent');
+ await finishM8ObservedApprovalImport(h,actors,imported);
+ h.check(sha256(JSON.stringify(r.requests.slice(0,c.count)))===c.prefix,'all ninety-eight original packets and their uncertain receipt retain exact original bytes');
+ r.v2PreparationRepairTail.state='completed';r.v2WrapperUnusedTail.state='completed';h.save();
+}catch(error){failure=error;}
+process.exitCode=h.finish(failure,'artifacts/M8/security-live-approval-preparation-repair.json');

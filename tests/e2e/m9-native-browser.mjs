@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { chromium } from '@playwright/test';
+import { existsSync, lstatSync, readFileSync, mkdirSync, writeFileSync, chmodSync } from 'node:fs';
+
+if(process.env.RELEASE_LAB_READY!=='true')throw Error('EXPLICIT_RELEASE_LAB_REQUIRED');
+const privatePath='/dev/shm/kongpilot-release-lab/m9-harness.json',stat=lstatSync(privatePath);
+if(!stat.isFile()||stat.isSymbolicLink()||(stat.mode&0o777)!==0o600||stat.uid!==process.getuid())throw Error('PRIVATE_NATIVE_HANDOFF_REQUIRED');
+const state=JSON.parse(readFileSync(privatePath,'utf8'));assert(['native-extended-passed','native-composite-workspaces-passed','native-migration-approval-passed','native-m9-final-passed'].includes(state.phase),'A verified native fixture handoff is required');
+const admin=state.sessions.admin,checks=[],screenshots=[],browser=await chromium.launch({headless:true,...(existsSync('/usr/bin/chromium')?{executablePath:'/usr/bin/chromium'}:{})});
+const directory='artifacts/M9/browser';mkdirSync(directory,{recursive:true});let passed=false,page,failedRequests=[],failure;
+const journalPath='/dev/shm/kongpilot-release-lab/m9-browser-journal.json',materialPath='/dev/shm/kongpilot-release-lab/m9-browser-secret-material.json';
+for(const path of [journalPath,materialPath])if(existsSync(path)){const s=lstatSync(path);assert(s.isFile()&&!s.isSymbolicLink()&&s.uid===process.getuid()&&(s.mode&0o777)===0o600,'Browser private material must remain owner-only');}
+assert(!existsSync(journalPath),'An existing browser request journal must be retained; use a reviewed new run instead of replaying an unknown write');
+const journal={version:1,milestone:'M9',source:'actual-browser',startedAt:new Date().toISOString(),actorId:admin.user.id,requests:[]},responseTasks=[],packets=new WeakMap();
+const digest=value=>createHash('sha256').update(value).digest('hex');
+const saveJournal=()=>{writeFileSync(journalPath,JSON.stringify(journal,null,2)+'\n',{mode:0o600});chmodSync(journalPath,0o600);};
+saveJournal();
+try{
+  const context=await browser.newContext({viewport:{width:1440,height:1000},baseURL:'http://127.0.0.1:5455'});
+  const loginBody={username:admin.username,password:admin.password},loginPacket={method:'POST',path:'/api/v1/auth/login',body:loginBody,bodyHash:digest(JSON.stringify(loginBody)),state:'prepared',startedAt:new Date().toISOString()};journal.requests.push(loginPacket);saveJournal();
+  const login=await context.request.post('/api/v1/auth/login',{data:loginBody}),loginBytes=await login.body();Object.assign(loginPacket,{state:'response_observed',status:login.status(),responseHash:digest(loginBytes),responseData:JSON.parse(loginBytes).data,responseHeaders:await login.headersArray(),actorId:admin.user.id});saveJournal();assert.equal(login.status(),201,'Actual browser login required');
+  assert.equal(loginPacket.responseData.user.id,admin.user.id,'Browser must use the original fixture owner');
+  await context.route('**/api/v1/**',async(route,request)=>{
+    if(!['GET','HEAD'].includes(request.method())){const url=new URL(request.url()),body=request.postData()??'',headers=await request.allHeaders(),packet={method:request.method(),path:url.pathname,query:url.search,headers,body:body?JSON.parse(body):null,bodyHash:digest(body||'null'),key:headers['x-idempotency-key']??null,actorId:admin.user.id,state:'prepared',startedAt:new Date().toISOString()};packets.set(request,packet);journal.requests.push(packet);saveJournal();}
+    await route.continue();
+  });
+  context.on('response',response=>{const packet=packets.get(response.request());if(!packet)return;responseTasks.push((async()=>{try{const bytes=await response.body(),data=JSON.parse(bytes);Object.assign(packet,{state:'response_observed',status:response.status(),responseHash:digest(bytes),responseData:data.data??null,requestId:data.meta?.requestId??null,errorCode:data.error?.code??null});}catch{packet.state='response_unknown';}finally{saveJournal();}})());});
+  page=await context.newPage();const errors=[],requests=[];page.on('pageerror',error=>errors.push(error.name));page.on('request',request=>requests.push(request.url()));page.on('response',response=>{if(response.status()>=400)failedRequests.push({path:new URL(response.url()).pathname,status:response.status()});});
+  const check=(name,condition=true)=>{assert(condition,name);checks.push({name,passed:true});};
+  async function screenshot(name){const path=`${directory}/${name}.png`,layout=await page.evaluate(()=>({viewport:innerWidth,siderWidth:document.querySelector('.console-sidebar')?.getBoundingClientRect().width,scrollX}));if(layout.viewport>=992)assert(layout.siderWidth>=240,'Desktop sidebar must remain expanded while editing or closing drawers');
+    const privateValues=[admin.password,state.recycleFixture_v2?.key,...Object.values(state.compositeWorkspaceFixtures??{}).map(value=>value.key),...(await context.cookies()).map(cookie=>cookie.value)].filter(value=>typeof value==='string'&&value.length>=8);
+    const visible=await page.evaluate(()=>[document.body.innerText,...Array.from(document.querySelectorAll('input,textarea')).map(control=>control.value)].join('\n'));
+    assert(privateValues.every(value=>!visible.includes(value)),'Screenshot DOM must not contain actual passwords, API Keys, access cookies or CSRF tokens');
+    await page.screenshot({path,fullPage:true,animations:'disabled'});chmodSync(path,0o644);screenshots.push(path);}
+  await page.goto('/toolbox');await page.getByRole('heading',{name:'运维工具箱',exact:true}).waitFor();await page.getByText('数据库连接',{exact:true}).waitFor();await page.getByText('可达',{exact:true}).waitFor();check('native node status renders through the BFF');await screenshot('node-status-light');
+  await page.getByRole('tab',{name:'缓存',exact:true}).click();await page.getByLabel('缓存键',{exact:true}).fill(`kongpilot.${state.tag}.missing`);await page.getByRole('button',{name:/^查\s*看$/}).click();await page.getByText('未找到',{exact:true}).waitFor();check('cache miss renders without exposing raw native values');await screenshot('cache');
+  await page.getByRole('tab',{name:'路由调试',exact:true}).click();await page.getByLabel('URL',{exact:true}).fill(`http://pilot.example.com/${state.tag}/native`);await page.getByRole('button',{name:'模拟匹配',exact:true}).click();await page.getByRole('link',{name:state.fixtures.route.name,exact:true}).waitFor();check('real routes and plugins appear in the simulation');await screenshot('route-debug');
+  await page.getByRole('button',{name:'真实代理探测',exact:true}).click();await page.getByLabel('确认名称',{exact:true}).fill(state.fixtures.route.name);await page.getByRole('button',{name:'确认执行',exact:true}).click();await page.getByText('代理响应 418',{exact:true}).waitFor();check('typed second confirmation produces an actual Kong proxy response');
+  await page.getByRole('tab',{name:'批量操作',exact:true}).click();await page.getByLabel('对象 ID',{exact:true}).waitFor();check('batch preview preserves the existing native execution flow');await screenshot('batch-preview');
+  await page.getByRole('tab',{name:'我的草稿',exact:true}).click();await page.getByText(`${state.tag} Service draft`,{exact:true}).waitFor();await page.getByRole('button',{name:'继续编辑',exact:true}).click();await page.getByRole('button',{name:'保存草稿',exact:true}).waitFor();check('saved public draft resumes in the real schema-based entity editor');await screenshot('draft-resume');
+  await page.keyboard.press('Escape');await page.getByRole('button',{name:'切换深色模式',exact:true}).click();await page.waitForFunction(()=>document.documentElement.dataset.appearance==='dark');await screenshot('toolbox-dark');check('toolbox preserves the platform dark theme');
+  await page.getByRole('button',{name:'切换浅色模式',exact:true}).click();await page.setViewportSize({width:390,height:844});await page.goto('/toolbox');await page.getByRole('heading',{name:'运维工具箱',exact:true}).waitFor();await screenshot('toolbox-mobile');check('mobile toolbox avoids horizontal page overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
+  check('browser requests never connect directly to Kong Admin',requests.every(value=>{const url=new URL(value);return url.port!=='8001'&&url.port!=='8444';}));check('native browser flow produces no page errors',errors.length===0);
+  await Promise.all(responseTasks);check('browser write packets have their original observed responses',journal.requests.every(packet=>packet.state==='response_observed'&&packet.status<500));
+  writeFileSync(materialPath,JSON.stringify({version:1,milestone:'M9',cookies:await context.cookies()},null,2)+'\n',{mode:0o600});chmodSync(materialPath,0o600);passed=true;
+}catch(error){failure={errorType:error.name,message:String(error.message).split('\n').slice(0,4).join(' ').slice(0,500),alerts:page?await page.locator('.ant-alert').allTextContents():[],failedRequests};process.stderr.write(JSON.stringify({passed:false,...failure,checks:checks.length})+'\n');process.exitCode=1;}
+finally{await Promise.allSettled(responseTasks);journal.completedAt=new Date().toISOString();journal.passed=passed;saveJournal();await browser.close();writeFileSync(`${directory}/verification.json`,JSON.stringify({passed,actualBackend:true,mocksUsed:false,credentialsRecorded:false,traceRecorded:false,checks,screenshots,observedWrites:journal.requests.filter(packet=>packet.state==='response_observed').length,unknownWrites:journal.requests.filter(packet=>packet.state!=='response_observed').length,...(failure?{failure}:{})},null,2)+'\n');process.stdout.write(JSON.stringify({passed,checks:checks.length,screenshots:screenshots.length})+'\n');}

@@ -1,0 +1,30 @@
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+import {randomUUID} from 'node:crypto';
+const f=vi.hoisted(()=>({allowed:true,busy:false,attempt:undefined as any,mode:'approval',actor:'',cid:'',wid:'',status:'active',refs:[] as any[],states:[] as any[],index:0,dialogs:[] as any[],execute:vi.fn(),post:vi.fn(),navigate:vi.fn(),effects:[] as any[],success:vi.fn()}));
+vi.mock('react',async orig=>({...await orig<typeof import('react')>(),useState:(initial:any)=>{const i=f.index++;if(!(i in f.states))f.states[i]=typeof initial==='function'?initial():initial;return[f.states[i],(v:any)=>{f.states[i]=typeof v==='function'?v(f.states[i]):v;}];},useRef:(value:any)=>({current:value}),useEffect:(fn:any)=>f.effects.push(fn)}));
+vi.mock('antd',async orig=>({...await orig<typeof import('antd')>(),App:{useApp:()=>({modal:{},message:{success:f.success,error:vi.fn()}})}}));
+vi.mock('@tanstack/react-query',()=>({useQueryClient:()=>({invalidateQueries:vi.fn()}),useQuery:(o:any)=>({data:o.queryKey[0]==='archive-workspace'?{id:f.wid,status:f.status}:o.queryKey[0]==='recycle'?{items:[],nextCursor:null}:undefined,refetch:vi.fn()}),useInfiniteQuery:()=>({data:{pages:[]}})}));
+vi.mock('react-router-dom',()=>({Link:'Link',useNavigate:()=>f.navigate,useSearchParams:()=>[new URLSearchParams(),vi.fn()]}));
+vi.mock('../../apps/console-web/src/app/ClusterContext',()=>({useCluster:()=>({clusterId:f.cid,cluster:{id:f.cid,execution_mode:f.mode}})}));
+vi.mock('../../apps/console-web/src/app/WorkspaceContext',()=>({useWorkspace:()=>({workspaceId:f.wid,references:f.refs,workspaces:[],ready:true})}));
+vi.mock('../../apps/console-web/src/app/Permissions',()=>({usePermissions:()=>({version:'v1',can:()=>f.allowed,has:()=>false})}));
+vi.mock('../../apps/console-web/src/api/client',async orig=>({...await orig<typeof import('../../apps/console-web/src/api/client')>(),getApiActorId:()=>f.actor,post:f.post}));
+vi.mock('../../apps/console-web/src/components/MutationConfirm',()=>({mutationConfirm:(_:any,o:any)=>f.dialogs.push(o)}));
+vi.mock('../../apps/console-web/src/components/Shared',()=>({PageHeading:'PageHeading',QueryError:'QueryError',NoCluster:'NoCluster',formatTime:()=>''}));
+vi.mock('../../apps/console-web/src/components/CursorPagination',()=>({CursorPagination:'CursorPagination',useCursorPages:()=>({})}));
+vi.mock('../../apps/console-web/src/features/EntityEditor',()=>({useEntityChangePreparation:()=>({allowed:true,busy:false})}));
+vi.mock('../../apps/console-web/src/features/RecycleReconciliation',()=>({RecycleReconciliation:'RecycleReconciliation'}));
+vi.mock('../../apps/console-web/src/features/ControlMetadataChanges',()=>({ControlMetadataChanges:'ControlMetadataChanges',useControlMetadataChanges:()=>({busy:f.busy,attempt:f.attempt,execute:f.execute})}));
+import {RecycleBinPage} from '../../apps/console-web/src/features/RecycleBinPage';
+const nodes=(x:any):any[]=>Array.isArray(x)?x.flatMap(nodes):x&&typeof x==='object'?[x,...nodes(x.props?.children)]:[];
+function render(){f.index=0;return RecycleBinPage();}
+function action(row:any,label='提交清除工单'){const table=nodes(render()).find(n=>Array.isArray(n.props?.columns)),buttons=nodes(table.props.columns.at(-1).render(undefined,row));return buttons.find(n=>n.props?.children===label);}
+let entry:any;
+beforeEach(async()=>{Object.assign(f,{allowed:true,busy:false,attempt:undefined,mode:'approval',actor:randomUUID(),cid:randomUUID(),wid:randomUUID(),status:'active',refs:[],states:[],index:0,dialogs:[],effects:[]});f.execute.mockReset().mockResolvedValue('prepared');f.post.mockReset().mockResolvedValue({purged:true});f.success.mockReset();entry={id:randomUUID(),original_id:randomUUID(),root_type:'services',root_name:'Original archive',state:'deleted',revision:9};vi.stubGlobal('React',await import('react'));});
+afterEach(()=>vi.unstubAllGlobals());
+describe('Actual recycle page Source wiring with controlled React/permissions/transport (no browser acceptance)',()=>{
+ it('retains typed first confirmation and prepares the exact entry version/WID via the existing review/submit component',async()=>{const tree=render();expect(nodes(tree).some(n=>n.type==='ControlMetadataChanges')).toBe(true);const button=action(entry);expect(button.props.disabled).toBe(false);button.props.onClick();expect(f.execute).not.toHaveBeenCalled();expect(f.dialogs[0]).toMatchObject({expected:entry.root_name,danger:true});await f.dialogs[0].onConfirm();expect(f.execute).toHaveBeenCalledExactlyOnceWith({change:{resource:'recycle-bin',operation:'purge',resourceId:entry.id,input:{revision:9,workspaceId:f.wid,confirmed:true,confirm_name:entry.root_name}},clusterId:f.cid,targetWorkspaceId:f.wid,allowed:true,subject:entry});expect(f.post).not.toHaveBeenCalled();expect(f.success).not.toHaveBeenCalled();});
+ for(const condition of ['permission','busy','unknown-original','foreign-live-operation','purged','restoring','deleting'])it(`disables purge under ${condition}`,()=>{if(condition==='permission')f.allowed=false;if(condition==='busy')f.busy=true;if(condition==='unknown-original')f.attempt={state:'unknown'};if(condition==='foreign-live-operation')f.refs=[{cid:f.cid,wid:f.wid}];if(['purged','restoring','deleting'].includes(condition))entry.state=condition;expect(action(entry).props.disabled).toBe(true);});
+ it('refuses lost permission between opening and confirming the original dialog',async()=>{action(entry).props.onClick();f.allowed=false;await expect(f.dialogs[0].onConfirm()).rejects.toThrow();expect(f.execute).not.toHaveBeenCalled();expect(f.post).not.toHaveBeenCalled();});
+ it('preserves direct mode endpoint with original typed confirmation and no fake approval receipt',async()=>{f.mode='direct';action(entry,'永久删除').props.onClick();await f.dialogs[0].onConfirm();expect(f.execute).not.toHaveBeenCalled();expect(f.post).toHaveBeenCalledExactlyOnceWith(`/clusters/${f.cid}/recycle-bin/${entry.id}/purge?workspaceId=${f.wid}`,{confirmed:true,confirm_name:entry.root_name});expect(f.success).toHaveBeenCalledOnce();});
+});

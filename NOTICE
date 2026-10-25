@@ -1,0 +1,7 @@
+KongPilot
+Copyright 2026 sean-y-wang
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product builds and invokes PCRE 8.45 (BSD licence), see docs/licenses/PCRE-8.45-LICENCE.txt.
+Kong is a trademark of Kong Inc. This project is not affiliated with Kong Inc.

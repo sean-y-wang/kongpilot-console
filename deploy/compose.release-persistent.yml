@@ -1,0 +1,39 @@
+# Isolated acceptance storage overlay; this is not a production deployment.
+# Apply after compose.release-validation.yml (and any governance overlay).
+# Use a fresh Compose project for a fresh acceptance run. Do not reuse a lost
+# ledger's identities, approvals, credentials, or original mutation keys.
+# Named volumes survive container recreation while this Docker data root exists;
+# that alone does not demonstrate host-loss recovery or verified backups.
+services:
+  console-db:
+    tmpfs: !reset []
+    volumes:
+      - console-db-persistent:/var/lib/postgresql/data
+  kong-db:
+    tmpfs: !reset []
+    volumes:
+      - kong-db-persistent:/var/lib/postgresql/data
+  redis:
+    command: [redis-server, --requirepass, "${LAB_REDIS_PASSWORD:?}", --appendonly, "yes", --appendfsync, everysec]
+    volumes:
+      - redis-persistent:/data
+  console-api:
+    environment:
+      # Keep an exact host allowlist. The optional service below shares only
+      # console-edge with the BFF and never joins either Kong Admin network.
+      OUTBOUND_ALLOWED_HOSTS: ${LAB_OUTBOUND_ALLOWED_HOSTS:-kong-admin,kong,echo,prometheus}
+  prometheus:
+    profiles: [release-monitoring]
+    image: prom/prometheus:v3.3.1
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.path=/prometheus, --storage.tsdb.retention.time=8d, --storage.tsdb.retention.size=512MB]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-persistent:/prometheus
+    networks: [console-edge]
+    healthcheck: {test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:9090/-/ready"], interval: 5s, timeout: 2s, retries: 30}
+
+volumes:
+  console-db-persistent: {}
+  kong-db-persistent: {}
+  redis-persistent: {}
+  prometheus-persistent: {}

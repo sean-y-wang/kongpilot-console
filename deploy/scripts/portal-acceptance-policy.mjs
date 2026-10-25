@@ -1,0 +1,41 @@
+import { resolve } from 'node:path';
+/** Pure checks of effective Compose facts; imports never call Docker or read secrets. */
+export function portalAcceptanceChecks(base, config) {
+  const checks = [], check = (name, passed) => checks.push({ name, passed: Boolean(passed) });
+  const api = config.services['console-api'], native = config.services['kong-portal'], db = config.services['kong-portal-db'], migration = config.services['kong-portal-migrations'];
+  const newNames = ['kong-portal', 'kong-portal-db', 'kong-portal-migrations'];
+  const members = name => Object.entries(config.services).filter(([, service]) => Object.hasOwn(service.networks || {}, name)).map(([name]) => name).sort();
+  const networks = name => Object.keys(config.services[name].networks || {}).sort();
+  const oldEnv = base.services['console-api'].environment, newEnv = api.environment;
+  for (const [name, service] of Object.entries(base.services)) if (name !== 'console-api') check(`${name} existing effective service configuration unchanged`, JSON.stringify(service) === JSON.stringify(config.services[name]));
+  const apiRemainder = value => { const {environment,networks,...rest}=value;return rest; };
+  check('API command/image/build/mounts/publications/security and all other configuration unchanged', JSON.stringify(apiRemainder(base.services['console-api'])) === JSON.stringify(apiRemainder(api)));
+  check('only one Kong, one PG and one bootstrap service added', Object.keys(config.services).filter(name => !Object.hasOwn(base.services, name)).sort().join(',') === [...newNames].sort().join(','));
+  check('API preserves every original environment value except explicit allow/protect extensions', Object.entries(oldEnv).filter(([key]) => !['OUTBOUND_ALLOWED_HOSTS', 'PROTECTED_DESTINATION_HOSTS'].includes(key)).every(([key, value]) => newEnv[key] === value) && Object.keys(newEnv).length === Object.keys(oldEnv).length);
+  for (const key of ['OUTBOUND_ALLOWED_HOSTS', 'PROTECTED_DESTINATION_HOSTS']) check(`API retains all original ${key} rules`, oldEnv[key].split(',').filter(Boolean).every(value => newEnv[key].split(',').includes(value)));
+  check('new endpoint exact host:port allow rule and no wildcard expansion', newEnv.OUTBOUND_ALLOWED_HOSTS.split(',').filter(value => !oldEnv.OUTBOUND_ALLOWED_HOSTS.split(',').includes(value)).join(',') === 'kong-portal-admin-endpoint:8001');
+  check('new DB Admin and BFF hostname/literal protections complete', ['kong-portal-db', '172.28.23.20', 'kong-portal-admin-endpoint', '172.28.13.20','172.28.13.10'].every(host => newEnv.PROTECTED_DESTINATION_HOSTS.split(',').includes(host)));
+  check('API preserves original networks and adds only fixed Admin source', Object.entries(base.services['console-api'].networks).every(([name, value]) => JSON.stringify(value) === JSON.stringify(api.networks[name])) && networks('console-api').filter(name => !Object.hasOwn(base.services['console-api'].networks, name)).join(',') === 'kong-portal-admin' && api.networks['kong-portal-admin'].ipv4_address === '172.28.13.10');
+  check('new Admin exact members API and Kong', members('kong-portal-admin').join(',') === 'console-api,kong-portal');
+  check('new storage exact members Kong PG bootstrap; BFF excluded', members('kong-portal-storage').join(',') === 'kong-portal,kong-portal-db,kong-portal-migrations');
+  check('new internal fixed subnets', config.networks['kong-portal-admin'].internal === true && config.networks['kong-portal-admin'].ipam.config[0].subnet === '172.28.13.0/24' && config.networks['kong-portal-storage'].internal === true && config.networks['kong-portal-storage'].ipam.config[0].subnet === '172.28.23.0/24');
+  check('Kong1.5.1 and PG11 exactly pinned', native.image === 'kong:1.5.1' && migration.image === 'kong:1.5.1' && db.image === 'postgres:11-alpine');
+  check('all new services opt-in profile only', newNames.every(name => config.services[name].profiles?.length === 1 && config.services[name].profiles[0] === 'portal-acceptance'));
+  check('new services cannot bypass declared networks via host/container/none network_mode', newNames.every(name => !config.services[name].network_mode));
+  const forbidden = ['network_mode','pid','ipc','cgroup','devices','device_cgroup_rules','privileged','cap_add','sysctls','volumes_from','extra_hosts','dns','dns_search','dns_opt','links','external_links','build','command'];
+  check('new services cannot add namespace/privilege/device/DNS/build/command escape configuration', newNames.every(name=>forbidden.every(key=>config.services[name][key]==null)));
+  check('Kong has only Admin storage proxy networks', networks('kong-portal').join(',') === 'kong-portal-admin,kong-portal-storage,proxy-edge');
+  check('only localhost10000 proxy published, never Admin or DB', native.ports?.length === 1 && native.ports[0].host_ip === '127.0.0.1' && native.ports[0].published === '10000' && native.ports[0].target === 8000 && !db.ports?.length && !migration.ports?.length);
+  check('Kong fixed IPv4 and exact BFF ACL startup reused', native.environment.KONGOS_ADMIN_BIND_IP === '172.28.13.20' && native.environment.KONGOS_BFF_ADMIN_IP === '172.28.13.10' && native.networks['kong-portal-admin'].ipv4_address === '172.28.13.20' && native.networks['kong-portal-admin'].aliases?.includes('kong-portal-admin-endpoint') && native.entrypoint.join(',') === '/bin/sh,/opt/kongos/kong-secure-start.sh');
+  const startupMount = (service,name,target) => service.volumes?.length===1&&service.volumes[0].type==='bind'&&service.volumes[0].read_only===true&&service.volumes[0].source===resolve('deploy/scripts',name)&&service.volumes[0].target===target;
+  check('Kong and bootstrap use only the trusted read-only startup scripts with no foreign mounts', startupMount(native,'kong-secure-start.sh','/opt/kongos/kong-secure-start.sh')&&startupMount(migration,'kong-migrate.sh','/opt/kongos/kong-migrate.sh'));
+  check('bootstrap command/entrypoint cannot replace approved migration startup', migration.entrypoint?.join(',')==='/bin/sh,/opt/kongos/kong-migrate.sh'&&!migration.command);
+  check('Kong storage address fixed and Admin alias exact',native.networks['kong-portal-storage'].ipv4_address==='172.28.23.10'&&native.networks['kong-portal-admin'].aliases.join(',')==='kong-portal-admin-endpoint');
+  check('native kong user capdrop without privilege escalation, safe logs and PID health', native.user === 'kong' && native.cap_drop.includes('ALL') && !native.cap_add?.length && !native.privileged && native.security_opt.includes('no-new-privileges:true') && native.environment.KONG_ADMIN_ERROR_LOG === '/dev/null' && native.environment.KONG_PROXY_ERROR_LOG === '/dev/null' && native.healthcheck.test.join(',') === 'CMD,kong,health');
+  check('new DB fixed independent private storage and durable volume', networks('kong-portal-db').join(',') === 'kong-portal-storage' && db.networks['kong-portal-storage'].ipv4_address === '172.28.23.20' && db.volumes?.length === 1 && db.volumes[0].source === 'kong_portal_db_data' && db.volumes[0].target === '/var/lib/postgresql/data');
+  check('new DB password only in new DB/Kong/bootstrap, never API or existing services', newNames.every(name => typeof config.services[name].environment.KONG_PG_PASSWORD === 'string' || typeof config.services[name].environment.POSTGRES_PASSWORD === 'string') && !Object.values(newEnv).includes(db.environment.POSTGRES_PASSWORD) && Object.entries(base.services).every(([name]) => !Object.values(config.services[name].environment || {}).includes(db.environment.POSTGRES_PASSWORD)));
+  check('bootstrap confined to new storage and dependent on new healthy PG', networks('kong-portal-migrations').join(',') === 'kong-portal-storage' && migration.depends_on['kong-portal-db'].condition === 'service_healthy' && native.depends_on['kong-portal-migrations'].condition === 'service_completed_successfully');
+  for (const [name, value] of Object.entries(base.networks)) check(`${name} existing network declaration unchanged`, JSON.stringify(value) === JSON.stringify(config.networks[name]));
+  for (const [name, value] of Object.entries(base.volumes)) check(`${name} existing durable volume declaration unchanged`, JSON.stringify(value) === JSON.stringify(config.volumes[name]));
+  return checks;
+}

@@ -1,0 +1,35 @@
+import{ProductionHarness}from'./lib/production-http-harness.mjs';
+import{createNativeFixture,recycleAndRestore}from'./lib/m8-native-acceptance.mjs';
+import{configurationWrite,boundedSnapshotObjects,downloadConfiguration}from'./lib/m8-configuration-acceptance.mjs';
+import{productionSixCredentials}from'./lib/production-proxy.mjs';
+import{role,account,wsGrant}from'./lib/m8-fixtures.mjs';
+import{readFileSync,existsSync}from'node:fs';
+if(process.env.PRODUCTION_CORE_EXCLUSIVE_READY!=='true')throw Error('PRODUCTION_CORE_HANDOFF_REQUIRED');
+const ui=JSON.parse(readFileSync('/tmp/kongos-production-ui-original-journal.json'));
+if(ui.phase!=='complete'||ui.attempts.length!==178||ui.attempts.some(p=>p.state!=='succeeded')||existsSync('artifacts/Production/root-production-core-regression-actual.json'))throw Error('PRODUCTION_COMPLETED_UI_REQUIRED');
+const h=new ProductionHarness({resume:true});const request=h.request.bind(h);h.request=(s,p,...rest)=>request(s,p.startsWith('/api/v1/')?p:'/api/v1'+p,...rest);h.data=r=>r.data;
+h.poll=async(read,done,label,budget=20000)=>{const end=Date.now()+budget;let value;do{value=await read();if(done(value))return value;await new Promise(r=>setTimeout(r,500));}while(Date.now()<end);throw Error('PRODUCTION_BOUNDED_READ_POLL_EXPIRED');};
+const actor=h.state.sessions.bootstrap,area=h.state.scope,checkStart=h.state.checks.length;let error;
+try{
+ await h.refresh(actor);h.state.sessions.admin=actor;h.state.scopes={direct:area};h.state.accounts??=[];h.state.configurationOperations??=[];h.state.proxyChecks??=[];h.save();
+ const fixture=await createNativeFixture(h,actor,area);
+ await h.request(actor,`/clusters/${area.cid}/entities/routes/${fixture.routes.oauth2.id}?workspaceId=${area.wid}`,'PATCH',{protocols:['https']});
+ await h.request(actor,`/clusters/${area.cid}/entities/plugins/${fixture.plugins.oauth2.id}?workspaceId=${area.wid}`,'PATCH',{config:{accept_http_if_already_terminated:false}});
+ await new Promise(r=>setTimeout(r,3000));
+ await productionSixCredentials(h,fixture,'fresh-production-before-recycle');
+ for(const[type,value]of[['certificates',fixture.certificate],['upstreams',fixture.upstream],['services',fixture.service],['consumers',fixture.consumer],['snis',fixture.sni]])await recycleAndRestore(h,actor,area,type,value);
+ await new Promise(r=>setTimeout(r,3000));await productionSixCredentials(h,fixture,'five-object-graphs-restored');
+ const snapshot=await configurationWrite(h,actor,area,'snapshots',{name:h.state.testTag+' production baseline',description:'生产镜像完整六类凭证恢复基线',scope:'workspace'},{kind:'capture'});
+ const graph=await boundedSnapshotObjects(h,actor,area,snapshot.snapshotId,10);
+ h.check(graph.summary.completeness==='complete'&&graph.objects.length===graph.summary.objectCount,'production sealed baseline includes complete original object graph');
+ const exported=await configurationWrite(h,actor,area,`snapshots/${snapshot.snapshotId}/export`,{mode:'deployment',confirmed:true,confirm_name:graph.summary.name},{kind:'export'});
+ const yaml=await downloadConfiguration(h,actor,area,exported,graph.summary.name);h.state.productionSnapshot={snapshotId:snapshot.snapshotId,graphSummary:graph.summary,yaml};h.save();
+ const grant=['services','routes','consumers','plugins','upstreams','certificates','ca_certificates','snis','snapshots','audit'].map(m=>wsGrant(area.cid,area.wid,m,'read'));
+ const readonlyRole=await role(h,actor,'production-read-only',grant,area.cid,area.wid),readonly=await account(h,actor,'production-read-only',readonlyRole,area.cid,area.wid);
+ await h.request(readonly,`/clusters/${area.cid}/entities/services/${fixture.service.id}?workspaceId=${area.wid}`);
+ await h.request(readonly,`/clusters/${area.cid}/entities/services/${fixture.service.id}?workspaceId=${area.wid}`,'PATCH',{read_timeout:3001},{expected:[403]});
+ await h.request(readonly,`/clusters/${area.cid}/entities/services/${ui.bindings.services.id}?workspaceId=${ui.wid}`,'GET',undefined,{expected:[403,404]});
+ await h.request(readonly,`/clusters/${area.cid}/entities/services/${ui.bindings.services.id}?workspaceId=${area.wid}`,'GET',undefined,{expected:[403,404]});
+ h.state.productionCoreComplete=true;h.save();
+}catch(e){error=e;h.state.privateCoreFailure={name:e.name,message:e.message,stack:e.stack};h.save();}
+process.exitCode=h.finish('artifacts/Production/root-production-core-regression-actual.json',error,{checks:h.state.checks.slice(checkStart),passed:h.state.checks.slice(checkStart).filter(c=>c.passed).length,failed:h.state.checks.slice(checkStart).filter(c=>!c.passed).length+(error?1:0),historicalCheckFailuresPreserved:h.state.checks.slice(0,checkStart).filter(c=>!c.passed).length,actualFreshProduction:!error,actualCredentialStages:h.state.credentialStages??[],fiveGraphRestorationCompleted:!error,productionReady:false});

@@ -1,0 +1,29 @@
+{
+  "name": "kongpilot-console",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @kongpilot/api",
+    "dev:web": "npm run dev -w @kongpilot/web --",
+    "build": "npm run build -w @kongpilot/api && npm run build -w @kongpilot/web && npm run build -w @kongpilot/portal-web",
+    "typecheck": "npm run typecheck -w @kongpilot/api && npm run typecheck -w @kongpilot/web && npm run typecheck -w @kongpilot/portal-web",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "dev:portal": "npm run dev -w @kongpilot/portal-web --"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "tsx": "4.20.6",
+    "typescript": "5.7.3",
+    "vite": "6.4.4",
+    "vitest": "5.0.3"
+  },
+  "overrides": {
+    "body-parser": "2.4.0",
+    "multer": "2.5.0"
+  }
+}

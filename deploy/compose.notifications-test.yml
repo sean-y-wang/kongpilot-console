@@ -1,0 +1,77 @@
+# Isolated synthetic receivers. No external provider account is configured.
+# Relative bind paths resolve against the repository's base Compose file.
+services:
+  console-api:
+    environment:
+      EVENT_DELIVERY_WORKER_ENABLED: "true"
+      EVENT_DELIVERY_ALLOWED_HOSTS: event-receiver:9087,event-mail:2465
+      EVENT_DELIVERY_HTTPS_CA_FILE: /run/event-delivery/ca.crt
+      EVENT_SMTP_HOST: event-mail
+      EVENT_SMTP_PORT: "2465"
+      EVENT_SMTP_MODE: starttls
+      EVENT_SMTP_SERVERNAME: event-mail
+      EVENT_SMTP_FROM: console@kongos.test
+      EVENT_SMTP_USERNAME: kongos
+      EVENT_SMTP_PASSWORD_FILE: /run/event-delivery/smtp-password
+      EVENT_SMTP_CA_FILE: /run/event-delivery/ca.crt
+      EVENT_DELIVERY_TEST_RECEIVERS_JSON: '{"event-receiver:9087":["172.28.51.20"],"event-mail:2465":["172.28.51.30"]}'
+      PROTECTED_DESTINATION_HOSTS: ${PROTECTED_DESTINATION_HOSTS:-},${KONG_DB_IP:-172.28.21.20},${KONG_SECONDARY_DB_IP:-172.28.22.20},${PROMETHEUS_TELEMETRY_IP:-172.28.31.20},${COLLECTOR_TELEMETRY_IP:-172.28.31.30},${COLLECTOR_PROXY_IP:-172.21.0.5},${COLLECTOR_OBSERVABILITY_IP:-172.22.0.5},telemetry-collector,${PORTAL_WEB_IP:-172.28.41.20},${PORTAL_ENTRY_IP:-172.28.42.20},portal-web,kong-portal-db,172.28.23.20,kong-portal-admin-endpoint,172.28.13.20,172.28.13.10,event-receiver,event-mail,172.28.51.20,172.28.51.30,172.28.51.10
+    networks:
+      delivery-test:
+        ipv4_address: 172.28.51.10
+    volumes:
+      - ./deploy/private/event-delivery/api:/run/event-delivery:ro
+  event-receiver:
+    profiles: [notifications-test]
+    build:
+      context: .
+      dockerfile: deploy/event-receivers/Dockerfile
+    image: kongpilot/event-receivers:local
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=8m,uid=1000,gid=1000,mode=0700"]
+    environment:
+      RECEIVER_KIND: https
+    networks:
+      delivery-test:
+        ipv4_address: 172.28.51.20
+    volumes:
+      - ./deploy/private/event-delivery/https:/run/receiver:ro
+      - ./deploy/event-receivers:/opt/kongos-event-receiver:ro
+    healthcheck:
+      test: [CMD, node, /opt/kongos-event-receiver/health.mjs]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+  event-mail:
+    profiles: [notifications-test]
+    image: kongpilot/event-receivers:local
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=8m,uid=1000,gid=1000,mode=0700"]
+    environment:
+      RECEIVER_KIND: smtp
+    networks:
+      delivery-test:
+        ipv4_address: 172.28.51.30
+    volumes:
+      - ./deploy/private/event-delivery/smtp:/run/receiver:ro
+      - ./deploy/event-receivers:/opt/kongos-event-receiver:ro
+    healthcheck:
+      test: [CMD, node, /opt/kongos-event-receiver/health.mjs]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+networks:
+  delivery-test:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.51.0/24

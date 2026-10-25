@@ -1,0 +1,24 @@
+{
+  "appName": "KongPilot",
+  "overview": "总览",
+  "clusters": "集群管理",
+  "dataSources": "数据源管理",
+  "workspace": "默认工作区",
+  "refresh": "刷新",
+  "login": "登录控制台",
+  "logout": "退出登录",
+  "emptyClusters": "登记第一个 Kong 集群",
+  "search": "搜索名称、环境或标签",
+  "noData": "暂无数据",
+  "cancel": "取消",
+  "save": "保存",
+  "loading": "正在加载…",
+  "vitals": {
+    "title": "Vitals 监控",
+    "description": "查看已验证范围内的网关流量、延迟与带宽；可按集群、工作区、服务或路由下钻。",
+    "unconfigured": "监控数据通道尚未启用",
+    "waiting": "此范围暂无可用采样，等待数据通道采集。",
+    "epoch": "仅展示当前授权与归属周期的采样；配置变更可能产生空缺，历史数据不会重新归属。"
+  },
+  "productName": "Kong 网关管理平台"
+}

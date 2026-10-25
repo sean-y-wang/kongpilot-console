@@ -1,0 +1,13 @@
+import{describe,it,expect}from'vitest';
+import{m8LegacyConsoleMetadataScopeMatches}from'./lib/m8-audit-acceptance.mjs';
+const cid='60000000-0000-4000-8000-000000000003',actor='60000000-0000-4000-8000-000000000001';
+const packet={requestId:'original-request',actorId:actor,clusterId:cid,path:`/api/v1/clusters/${cid}/workspaces`};
+const view={requestId:'original-request',actorId:actor,clusterId:cid,scopeQuality:'legacy_unknown',result:'success',entityType:'workspaces'};
+describe('M8 audit separates console metadata from native historical scope',()=>{
+ it('accepts actual same-request same-actor same-cluster workspace metadata without relabeling its quality',()=>{expect(m8LegacyConsoleMetadataScopeMatches(view,packet)).toBe(true);expect(view.scopeQuality).toBe('legacy_unknown');});
+ it.each(['services','routes','plugins','consumers','credentials','configuration_jobs','config_snapshots'])('never accepts %s as legacy console metadata',entityType=>{expect(m8LegacyConsoleMetadataScopeMatches({...view,entityType},packet)).toBe(false);});
+ it.each([{requestId:'foreign'},{actorId:'foreign'},{clusterId:'foreign'},{result:'uncertain'},{result:'pending'},{scopeQuality:'verified'}])('refuses foreign or nonterminal metadata %j',changed=>{expect(m8LegacyConsoleMetadataScopeMatches({...view,...changed},packet)).toBe(false);});
+ it('cannot use metadata quality to cover a native write or unrelated IAM type',()=>{expect(m8LegacyConsoleMetadataScopeMatches(view,{...packet,path:`/api/v1/clusters/${cid}/entities/services`})).toBe(false);expect(m8LegacyConsoleMetadataScopeMatches({...view,entityType:'roles'},{...packet,path:`/api/v1/clusters/${cid}/workspaces`})).toBe(false);});
+ it('binds scoped IAM metadata to the original body cluster without treating its global URL as a global scope',()=>{const p={...packet,clusterId:null,path:'/api/v1/iam/roles',body:{cluster_id:cid}},v={...view,entityType:'roles'};expect(m8LegacyConsoleMetadataScopeMatches(v,p)).toBe(true);expect(m8LegacyConsoleMetadataScopeMatches({...v,clusterId:'foreign'},p)).toBe(false);expect(m8LegacyConsoleMetadataScopeMatches({...v,clusterId:null},p)).toBe(false);});
+ it('uses the currently authorized audit chain for an IAM URL with a path-bound role, while refusing explicit conflicting scope',()=>{const p={...packet,clusterId:null,path:'/api/v1/iam/roles/60000000-0000-4000-8000-000000000007/permissions'},v={...view,entityType:'roles'};expect(m8LegacyConsoleMetadataScopeMatches(v,p,cid)).toBe(true);expect(m8LegacyConsoleMetadataScopeMatches(v,{...p,clusterId:'foreign'},cid)).toBe(false);expect(m8LegacyConsoleMetadataScopeMatches(v,{...p,body:{cluster_id:'foreign'}},cid)).toBe(false);});
+});

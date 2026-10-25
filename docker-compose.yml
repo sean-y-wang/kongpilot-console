@@ -1,0 +1,341 @@
+name: kongpilot-console
+
+x-kong-environment: &kong-environment
+  KONG_DATABASE: postgres
+  KONG_PG_HOST: kong-db
+  KONG_PG_PORT: 5432
+  KONG_PG_DATABASE: kong
+  KONG_PG_USER: kong
+  KONG_PG_PASSWORD: ${KONG_DATABASE_PASSWORD:?Set KONG_DATABASE_PASSWORD in .env}
+
+services:
+  kong-db:
+    image: postgres:11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: ${KONG_DATABASE_PASSWORD:?Set KONG_DATABASE_PASSWORD in .env}
+    volumes:
+      - kong_db_data:/var/lib/postgresql/data
+    networks:
+      kong-storage:
+        ipv4_address: ${KONG_DB_IP:-172.28.21.20}
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready --host=127.0.0.1 --timeout=1 -U kong -d kong && PGCONNECT_TIMEOUT=2 psql -X --set=ON_ERROR_STOP=1 -U kong -d kong -Atqc 'SELECT 1'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kong-migrations:
+    image: kong:1.5.1
+    environment: *kong-environment
+    entrypoint: [/bin/sh, /opt/kongos/kong-migrate.sh]
+    volumes:
+      - ./deploy/scripts/kong-migrate.sh:/opt/kongos/kong-migrate.sh:ro
+    networks: [kong-storage]
+    depends_on:
+      kong-db: {condition: service_healthy}
+    restart: "no"
+
+  kong:
+    image: kong:1.5.1
+    restart: unless-stopped
+    entrypoint: [/bin/sh, /opt/kongos/kong-start.sh]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      <<: *kong-environment
+      KONG_PROXY_LISTEN: 0.0.0.0:8000, 0.0.0.0:8443 ssl
+      KONGOS_ADMIN_BIND_IP: ${KONG_ADMIN_IP:-172.28.11.20}
+      KONGOS_BFF_ADMIN_IP: ${CONSOLE_KONG_ADMIN_IP:-172.28.11.10}
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/null
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/null
+    ports:
+      - "127.0.0.1:${KONG_PROXY_PORT:-8000}:8000"
+    # Admin port is deliberately not published to the host.
+    volumes:
+      - ./deploy/scripts/kong-start.sh:/opt/kongos/kong-start.sh:ro
+      - ./deploy/scripts/kong-secure-start.sh:/opt/kongos/kong-secure-start.sh:ro
+    networks:
+      kong-admin:
+        ipv4_address: ${KONG_ADMIN_IP:-172.28.11.20}
+        aliases: [kong-admin-endpoint]
+      kong-storage:
+        ipv4_address: ${KONG_STORAGE_IP:-172.28.21.10}
+      proxy-edge: {}
+    depends_on:
+      kong-db: {condition: service_healthy}
+      kong-migrations: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, kong, health]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+  console-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kongos
+      POSTGRES_USER: kongos
+      POSTGRES_PASSWORD: ${CONSOLE_DATABASE_PASSWORD:?Set CONSOLE_DATABASE_PASSWORD in .env}
+    volumes:
+      - console_db_data:/var/lib/postgresql/data
+    networks: [console-storage]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready --host=127.0.0.1 --timeout=1 -U kongos -d kongos && PGCONNECT_TIMEOUT=2 psql -X --set=ON_ERROR_STOP=1 -U kongos -d kongos -Atqc 'SELECT 1'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command: [/bin/sh, -ec, 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    volumes: [redis_data:/data]
+    networks: [console-storage]
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  console-api:
+    build:
+      context: .
+      dockerfile: apps/console-api/Dockerfile
+    image: kongpilot/console-api:local
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://kongos_app:${CONSOLE_APP_PASSWORD:?Set CONSOLE_APP_PASSWORD in .env}@console-db:5432/kongos
+      SKIP_MIGRATIONS: "true"
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379/0
+      CONSOLE_ENCRYPTION_KEY: ${CONSOLE_ENCRYPTION_KEY:?Set a 64-hex-character CONSOLE_ENCRYPTION_KEY}
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
+      PORTAL_SECRET: ${PORTAL_SECRET:?Generate the independent PORTAL_SECRET before M6 startup}
+      # Opt-in M11 worker; enabling requires genuine timed execution acceptance.
+      ENTITY_SCHEDULES_ENABLED: ${ENTITY_SCHEDULES_ENABLED:-false}
+      BUSINESS_SCHEDULES_ENABLED: ${BUSINESS_SCHEDULES_ENABLED:-false}
+      EVENT_DELIVERY_WORKER_ENABLED: "true"
+      EVENT_DELIVERY_ALLOWED_HOSTS: ${EVENT_DELIVERY_ALLOWED_HOSTS:-}
+      EVENT_SMTP_HOST: ${EVENT_SMTP_HOST:-}
+      EVENT_SMTP_PORT: ${EVENT_SMTP_PORT:-587}
+      EVENT_SMTP_MODE: ${EVENT_SMTP_MODE:-starttls}
+      EVENT_SMTP_SERVERNAME: ${EVENT_SMTP_SERVERNAME:-}
+      EVENT_SMTP_FROM: ${EVENT_SMTP_FROM:-}
+      EVENT_SMTP_USERNAME: ${EVENT_SMTP_USERNAME:-}
+      EVENT_SMTP_PASSWORD_FILE: ${EVENT_SMTP_PASSWORD_FILE:-}
+      EVENT_SMTP_CA_FILE: ${EVENT_SMTP_CA_FILE:-}
+      EVENT_DELIVERY_HTTPS_CA_FILE: ${EVENT_DELIVERY_HTTPS_CA_FILE:-}
+      PORTAL_PUBLIC_ORIGINS: ${PORTAL_PUBLIC_ORIGINS:?Configure explicit HTTPS Portal origins for production}
+      DEFAULT_KONG_ADMIN_URL: http://kong:8001
+      OUTBOUND_ALLOWED_HOSTS: ${OUTBOUND_ALLOWED_HOSTS:-kong,prometheus,loki,mock-kong,localhost,127.0.0.1}
+      # This database IP is invisible to BFF DNS because BFF never joins Kong storage.
+      PROTECTED_DESTINATION_HOSTS: ${PROTECTED_DESTINATION_HOSTS:-},${KONG_DB_IP:-172.28.21.20},${PORTAL_WEB_IP:-172.28.41.20},${PORTAL_ENTRY_IP:-172.28.42.20},portal-web
+      AUTH_PROVIDERS_JSON: ${AUTH_PROVIDERS_JSON:-[]}
+      AUTH_PROVIDER_ALLOWED_HOSTS: ${AUTH_PROVIDER_ALLOWED_HOSTS:-}
+      PUBLIC_ORIGINS: ${PUBLIC_ORIGINS:-}
+      PASSWORD_BCRYPT_ROUNDS: ${PASSWORD_BCRYPT_ROUNDS:-12}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TRUST_PROXY: "1"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    expose: ["3000"]
+    networks:
+      frontend: {}
+      portal-edge:
+        ipv4_address: ${CONSOLE_PORTAL_IP:-172.28.41.10}
+      kong-admin:
+        ipv4_address: ${CONSOLE_KONG_ADMIN_IP:-172.28.11.10}
+      console-storage: {}
+      observability: {}
+    depends_on:
+      console-db: {condition: service_healthy}
+      console-migrations: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      kong: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+  console-migrations:
+    build:
+      context: .
+      dockerfile: apps/console-api/Dockerfile
+    image: kongpilot/console-api:local
+    command: [node, dist/infrastructure/migrate.js]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://kongos:${CONSOLE_DATABASE_PASSWORD:?Set CONSOLE_DATABASE_PASSWORD in .env}@console-db:5432/kongos
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379/0
+      CONSOLE_DB_RUNTIME_USER: kongos_app
+      CONSOLE_DB_RUNTIME_PASSWORD: ${CONSOLE_APP_PASSWORD:?Set CONSOLE_APP_PASSWORD in .env}
+      CONSOLE_ENCRYPTION_KEY: ${CONSOLE_ENCRYPTION_KEY:?Set a 64-hex-character CONSOLE_ENCRYPTION_KEY}
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:?Set BOOTSTRAP_ADMIN_USERNAME in .env}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in .env}
+      DEFAULT_KONG_ADMIN_URL: http://kong:8001
+    networks: [console-storage]
+    depends_on:
+      console-db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    restart: "no"
+    healthcheck: {disable: true}
+
+  console-web:
+    build:
+      context: .
+      dockerfile: apps/console-web/Dockerfile
+    image: kongpilot/console-web:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CONSOLE_WEB_PORT:-8080}:8080"
+    networks: [frontend]
+    depends_on:
+      console-api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, "wget -Y off -q -O /dev/null http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+
+  portal-web:
+    build:
+      context: .
+      dockerfile: apps/portal-web/Dockerfile
+    image: kongpilot/portal-web:local
+    user: "101:101"
+    init: true
+    restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: ["/tmp:size=32m,mode=1777"]
+    ports:
+      - "127.0.0.1:${PORTAL_WEB_PORT:-8082}:8080"
+    networks:
+      portal-edge:
+        ipv4_address: ${PORTAL_WEB_IP:-172.28.41.20}
+      portal-entry:
+        ipv4_address: ${PORTAL_ENTRY_IP:-172.28.42.20}
+    depends_on:
+      console-api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, "wget -Y off -q -O /dev/null http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v3.3.1
+    profiles: [observability]
+    restart: unless-stopped
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.path=/prometheus]
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks: [observability]
+    healthcheck:
+      test: [CMD-SHELL, "wget -Y off -q -O /dev/null http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  loki:
+    image: grafana/loki:3.5.0
+    profiles: [observability]
+    restart: unless-stopped
+    command: [-config.file=/etc/loki/local-config.yaml]
+    volumes:
+      - ./deploy/loki/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks: [observability]
+    healthcheck:
+      test: [CMD-SHELL, "wget -Y off -q -O /dev/null http://127.0.0.1:3100/ready"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 10
+
+  mock-kong:
+    profiles: [test]
+    build:
+      context: .
+      dockerfile: tests/mock-kong/Dockerfile
+    networks: [kong-admin]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8001/__health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  echo-upstream:
+    profiles: [test]
+    image: node:22-bookworm-slim
+    user: node
+    init: true
+    command: [node, /opt/kongos/echo-upstream.mjs]
+    environment:
+      PORT: 8081
+    volumes:
+      - ./tests/upstream/server.mjs:/opt/kongos/echo-upstream.mjs:ro
+    networks: [proxy-edge]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8081/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+networks:
+  frontend: {}
+  portal-entry:
+    # Docker does not publish ports for an internal-only container.
+    # This bridge contains PortalWeb only; BFF stays on the private backend.
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${PORTAL_ENTRY_SUBNET:-172.28.42.0/24}
+  portal-edge:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${PORTAL_EDGE_SUBNET:-172.28.41.0/24}
+  # Only Kong joins this network; host publication remains proxy port 8000 only.
+  proxy-edge: {}
+  kong-admin:
+    # A new physical network permits an in-place upgrade without removing volumes.
+    name: ${COMPOSE_PROJECT_NAME:-kongos-console}_kong-admin-secure
+    internal: true
+    ipam:
+      config:
+        - subnet: ${KONG_ADMIN_SUBNET:-172.28.11.0/24}
+  kong-storage:
+    name: ${COMPOSE_PROJECT_NAME:-kongos-console}_kong-storage-secure
+    internal: true
+    ipam:
+      config:
+        - subnet: ${KONG_STORAGE_SUBNET:-172.28.21.0/24}
+  console-storage: {internal: true}
+  observability: {}
+
+volumes:
+  kong_db_data: {}
+  console_db_data: {}
+  redis_data: {}
+  prometheus_data: {}
+  loki_data: {}

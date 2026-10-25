@@ -1,0 +1,120 @@
+name: kongpilot-release-lab
+
+x-api-volumes: &api-volumes
+  - ../apps/console-api/dist:/app/apps/console-api/dist:ro
+  - ../apps/console-api/node_modules:/app/apps/console-api/node_modules:ro
+  - ../apps/console-api/src/infrastructure/migrations:/app/apps/console-api/dist/infrastructure/migrations:ro
+  - ../node_modules:/app/node_modules:ro
+
+x-kong: &kong
+  KONG_DATABASE: postgres
+  KONG_PG_HOST: kong-db
+  KONG_PG_DATABASE: kong
+  KONG_PG_USER: kong
+  KONG_PG_PASSWORD: ${LAB_KONG_DB_PASSWORD:?}
+  KONG_PROXY_ACCESS_LOG: /dev/stdout
+  KONG_ADMIN_ACCESS_LOG: /dev/stdout
+  KONG_PROXY_ERROR_LOG: /dev/stderr
+  KONG_ADMIN_ERROR_LOG: /dev/stderr
+  KONG_NGINX_WORKER_PROCESSES: "1"
+
+services:
+  console-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kongpilot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${LAB_CONSOLE_DB_PASSWORD:?}
+    tmpfs: ["/var/lib/postgresql/data:rw,size=268435456"]
+    networks: [console-store]
+    healthcheck: {test: [CMD-SHELL, "pg_isready --host=127.0.0.1 --timeout=1 -U postgres -d kongpilot && PGCONNECT_TIMEOUT=2 psql -X --set=ON_ERROR_STOP=1 -U postgres -d kongpilot -Atqc 'SELECT 1'"], interval: 2s, timeout: 2s, retries: 30}
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --requirepass, "${LAB_REDIS_PASSWORD:?}"]
+    networks: [console-store]
+    healthcheck: {test: [CMD-SHELL, "redis-cli -a $$REDISCLI_AUTH ping"], interval: 2s, timeout: 2s, retries: 30}
+    environment: {REDISCLI_AUTH: "${LAB_REDIS_PASSWORD:?}"}
+  kong-db:
+    image: postgres:11-alpine
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: ${LAB_KONG_DB_PASSWORD:?}
+    tmpfs: ["/var/lib/postgresql/data:rw,size=268435456"]
+    networks: [kong-store]
+    healthcheck: {test: [CMD-SHELL, "pg_isready --host=127.0.0.1 --timeout=1 -U kong -d kong && PGCONNECT_TIMEOUT=2 psql -X --set=ON_ERROR_STOP=1 -U kong -d kong -Atqc 'SELECT 1'"], interval: 2s, timeout: 2s, retries: 30}
+  kong-migrations:
+    image: kong:1.5.1
+    command: kong migrations bootstrap
+    environment: *kong
+    networks: [kong-store]
+    depends_on: {kong-db: {condition: service_healthy}}
+    restart: "no"
+  kong:
+    image: kong:1.5.1
+    pids_limit: 256
+    environment:
+      <<: *kong
+      KONG_ADMIN_LISTEN: 172.31.91.2:8001
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+    networks:
+      kong-store: {}
+      kong-admin: {ipv4_address: 172.31.91.2, aliases: [kong-admin]}
+      gateway-proxy: {}
+    depends_on: {kong-migrations: {condition: service_completed_successfully}, kong-db: {condition: service_healthy}}
+    healthcheck: {test: [CMD-SHELL, "wget -q -O /dev/null http://172.31.91.2:8001/status"], interval: 2s, timeout: 2s, retries: 40}
+  echo:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: [node, /app/echo.mjs]
+    volumes: [./scripts/release-lab-echo.mjs:/app/echo.mjs:ro]
+    networks: [gateway-proxy]
+    healthcheck: {test: [CMD, node, -e, "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 2s, timeout: 2s, retries: 30}
+  console-migrations:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: [node, /app/apps/console-api/dist/infrastructure/migrate.js]
+    volumes: *api-volumes
+    environment:
+      DATABASE_URL: postgres://postgres:${LAB_CONSOLE_DB_PASSWORD:?}@console-db:5432/kongpilot
+      CONSOLE_DB_RUNTIME_USER: kongpilot_lab_app
+      CONSOLE_DB_RUNTIME_PASSWORD: ${LAB_CONSOLE_APP_PASSWORD:?}
+      BOOTSTRAP_ADMIN_USERNAME: ${LAB_BOOTSTRAP_USER:?}
+      BOOTSTRAP_ADMIN_PASSWORD: ${LAB_BOOTSTRAP_PASSWORD:?}
+    networks: [console-store]
+    depends_on: {console-db: {condition: service_healthy}}
+    restart: "no"
+  console-api:
+    image: node:22-bookworm-slim
+    pids_limit: 128
+    working_dir: /app
+    command: [node, /app/apps/console-api/dist/main.js]
+    volumes: *api-volumes
+    environment:
+      NODE_ENV: test
+      SKIP_MIGRATIONS: "true"
+      DATABASE_URL: postgres://kongpilot_lab_app:${LAB_CONSOLE_APP_PASSWORD:?}@console-db:5432/kongpilot
+      REDIS_URL: redis://:${LAB_REDIS_PASSWORD:?}@redis:6379
+      APP_SECRET: ${LAB_APP_SECRET:?}
+      PORTAL_SECRET: ${LAB_PORTAL_SECRET:?}
+      CONSOLE_ENCRYPTION_KEY: ${LAB_CONSOLE_ENCRYPTION_KEY:?}
+      CURSOR_SIGNING_KEY: ${LAB_CURSOR_SIGNING_KEY:?}
+      DEFAULT_KONG_ADMIN_URL: http://kong-admin:8001
+      OUTBOUND_ALLOWED_HOSTS: kong-admin,kong,echo
+      PUBLIC_ORIGINS: http://127.0.0.1:5455,${LAB_API_ORIGIN:-http://127.0.0.1:5445}
+      COOKIE_SECURE: "false"
+      PORTAL_ENABLED: "true"
+      PORTAL_PUBLIC_ORIGINS: http://127.0.0.1:5456
+    ports: ["${LAB_API_BIND:-127.0.0.1}:5445:3000"]
+    networks: [console-store, kong-admin, gateway-proxy, console-edge]
+    depends_on: {console-migrations: {condition: service_completed_successfully}, redis: {condition: service_healthy}, kong: {condition: service_healthy}, echo: {condition: service_healthy}}
+    healthcheck: {test: [CMD, node, -e, "fetch('http://localhost:3000/api/v1/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 2s, timeout: 2s, retries: 40}
+
+networks:
+  console-store: {internal: true, ipam: {config: [{subnet: 172.31.92.0/28}]}}
+  kong-store: {internal: true, ipam: {config: [{subnet: 172.31.93.0/28}]}}
+  kong-admin:
+    internal: true
+    ipam: {config: [{subnet: 172.31.91.0/28}]}
+  gateway-proxy: {internal: true, ipam: {config: [{subnet: 172.31.94.0/28}]}}
+  console-edge: {ipam: {config: [{subnet: 172.31.95.0/28}]}}

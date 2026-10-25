@@ -1,0 +1,16 @@
+# Apply after compose.gitops.yml. The runner reaches only the Console's real
+# TLS listener over frontend; its hostname must be covered by the certificate.
+services:
+  console-web:
+    networks:
+      frontend:
+        aliases: ["${KONGOS_CONSOLE_HOSTNAME:?Set the Console TLS certificate hostname}"]
+  console-deck-runner:
+    environment:
+      DECK_CONSOLE_ORIGIN: https://${KONGOS_CONSOLE_HOSTNAME:?Set the Console TLS certificate hostname}:8443
+      SSL_CERT_FILE: /run/kongos-deck-ca/ca.crt
+      NO_PROXY: ${KONGOS_CONSOLE_HOSTNAME:?Set the Console TLS certificate hostname},console-web,localhost,127.0.0.1
+      DECK_ANALYTICS: "off"
+    volumes:
+      # Public trust roots only, never a Console password, token or private key.
+      - ${KONGOS_DECK_CA_DIRECTORY:?Set the public CA trust directory}:/run/kongos-deck-ca:ro

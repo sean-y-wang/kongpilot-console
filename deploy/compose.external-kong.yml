@@ -1,0 +1,16 @@
+# Apply last. Manage an existing Kong through its Admin API without starting
+# the bundled gateway or its database. Keep the remote Admin endpoint private.
+services:
+  kong:
+    profiles: [bundled-kong]
+  kong-db:
+    profiles: [bundled-kong]
+  kong-migrations:
+    profiles: [bundled-kong]
+  console-api:
+    environment:
+      DEFAULT_KONG_ADMIN_URL: ${KONGPILOT_KONG_ADMIN_URL:?Set the existing Kong 1.5.x Admin URL}
+    depends_on: !override
+      console-db: {condition: service_healthy}
+      console-migrations: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}

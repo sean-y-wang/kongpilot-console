@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+/** Fixed upstream PCRE1 build prerequisite. Build-time only, no gateway/network choices or credentials. */
+import {get} from 'node:https';
+import {createHash,randomUUID} from 'node:crypto';
+import {gunzipSync} from 'node:zlib';
+import {existsSync,lstatSync,mkdirSync,mkdtempSync,readFileSync,writeFileSync,chmodSync,rmSync,linkSync,unlinkSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join,resolve,isAbsolute} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
+export const PCRE1_RELEASE=Object.freeze({version:'8.45',url:'https://downloads.sourceforge.net/project/pcre/pcre/8.45/pcre-8.45.tar.gz',sha256:'4e6ce03e0336e8b4a3d6c2b70b1c5e18590a5673a98186da90d4f33c23defc09',licenseSha256:'51b3dea44f63338b84b9c97b3d793826a8397309068cf9379a423216ab8ea5b2'});
+const units=['pcre_byte_order.c','pcre_chartables.c','pcre_compile.c','pcre_config.c','pcre_dfa_exec.c','pcre_exec.c','pcre_fullinfo.c','pcre_get.c','pcre_globals.c','pcre_jit_compile.c','pcre_maketables.c','pcre_newline.c','pcre_ord2utf8.c','pcre_refcount.c','pcre_string_utils.c','pcre_study.c','pcre_tables.c','pcre_ucd.c','pcre_valid_utf8.c','pcre_version.c','pcre_xclass.c'];
+const wanted=new Set([...units.filter(x=>x!=='pcre_chartables.c'),'pcre_chartables.c.dist','config.h.generic','pcre.h.generic','pcre_internal.h','ucp.h','LICENCE']);
+const flags=['-O2','-fstack-protector-strong','-fPIE','-pie','-Wl,-z,relro,-z,now,-z,noexecstack','-DHAVE_CONFIG_H','-DPCRE_STATIC','-DSUPPORT_PCRE8','-DSUPPORT_UTF','-DSUPPORT_UCP','-DNO_RECURSE','-DHAVE_STDINT_H','-DHAVE_STDLIB_H','-DHAVE_STRING_H','-DHAVE_MEMMOVE','-DHAVE_UNISTD_H','-DHAVE_LIMITS_H'];
+const fail=code=>{throw Error(code);},sha=b=>createHash('sha256').update(b).digest('hex');
+function checkedPath(value,{file=false}={}){if(typeof value!=='string'||!isAbsolute(value)||value.includes('\0')||value.includes('\\')||value.split('/').some(x=>x==='.'||x==='..'))fail('PCRE_BUILD_PATH_INVALID');let p='/';for(const part of value.split('/').filter(Boolean)){p=join(p,part);if(existsSync(p)){if(lstatSync(p).isSymbolicLink())fail('PCRE_BUILD_SYMLINK_FORBIDDEN');}else if(p!==value)fail('PCRE_BUILD_PARENT_MISSING');}if(file&&!lstatSync(value).isFile())fail('PCRE_BUILD_FILE_REQUIRED');return value;}
+export function unpackPcre1(archive){if(!Buffer.isBuffer(archive)||archive.length>4*1024*1024||sha(archive)!==PCRE1_RELEASE.sha256)fail('PCRE_BUILD_ARCHIVE_SHA256_INVALID');let clear;try{clear=gunzipSync(archive,{maxOutputLength:32*1024*1024});}catch{fail('PCRE_BUILD_ARCHIVE_GZIP_INVALID');}const files=new Map();let at=0,count=0,ended=false;
+ const text=b=>b.subarray(0,b.indexOf(0)<0?b.length:b.indexOf(0)).toString('ascii');const oct=b=>{const s=text(b).trim();if(!/^[0-7]+$/.test(s))fail('PCRE_BUILD_TAR_NUMBER_INVALID');return parseInt(s,8);};
+ while(at+512<=clear.length){const h=clear.subarray(at,at+512);if(h.every(x=>x===0)){if(clear.length-at<1024||!clear.subarray(at).every(x=>x===0))fail('PCRE_BUILD_TAR_END_INVALID');ended=true;break;}if(++count>512)fail('PCRE_BUILD_TAR_ENTRY_LIMIT');let sum=0;for(let n=0;n<512;n++)sum+=n>=148&&n<156?32:h[n];if(sum!==oct(h.subarray(148,156)))fail('PCRE_BUILD_TAR_CHECKSUM_INVALID');
+  const name=text(h.subarray(0,100)),prefix=text(h.subarray(345,500)),type=h[156],size=oct(h.subarray(124,136));if(prefix||!name.startsWith('pcre-8.45/')||name.split('/').includes('..')||![0,48,53].includes(type)||size>8*1024*1024)fail('PCRE_BUILD_TAR_ENTRY_INVALID');
+  const start=at+512,end=start+size,next=start+Math.ceil(size/512)*512;if(end>clear.length||next>clear.length)fail('PCRE_BUILD_TAR_DATA_INVALID');const relative=name.slice(10);if(wanted.has(relative)){if(files.has(relative)||![0,48].includes(type))fail('PCRE_BUILD_TAR_DUPLICATE');files.set(relative,Buffer.from(clear.subarray(start,end)));}at=next;
+ }if(!ended||files.size!==wanted.size||sha(files.get('LICENCE'))!==PCRE1_RELEASE.licenseSha256)fail('PCRE_BUILD_TAR_CONTENT_INVALID');clear.fill(0);return files;}
+function releaseUrl(raw){let u;try{u=new URL(raw);}catch{fail('PCRE_BUILD_DOWNLOAD_URL_INVALID');}if(u.protocol!=='https:'||u.username||u.password||u.hash||u.port&&u.port!=='443'||!(['sourceforge.net','downloads.sourceforge.net'].includes(u.hostname)||/^[a-z0-9.-]+\.dl\.sourceforge\.net$/.test(u.hostname)))fail('PCRE_BUILD_DOWNLOAD_HOST_INVALID');return u;}
+export async function downloadPcre1(){let url=releaseUrl(PCRE1_RELEASE.url);const deadline=Date.now()+60000;for(let n=0;n<5;n++){
+ const response=await new Promise((ok,reject)=>{const q=get(url,{rejectUnauthorized:true,timeout:Math.max(1,Math.min(15000,deadline-Date.now())),headers:{'user-agent':'KongPilot-fixed-PCRE1-build'}},ok);q.once('error',()=>reject(Error('PCRE_BUILD_DOWNLOAD_FAILED')));q.once('timeout',()=>q.destroy(Error('PCRE_BUILD_DOWNLOAD_TIMEOUT')));});
+ if([301,302,303,307,308].includes(response.statusCode)){const next=response.headers.location;response.destroy();if(typeof next!=='string')fail('PCRE_BUILD_DOWNLOAD_REDIRECT_INVALID');url=releaseUrl(new URL(next,url).href);continue;}
+ if(response.statusCode!==200){response.destroy();fail('PCRE_BUILD_DOWNLOAD_STATUS');}const chunks=[];let bytes=0;for await(const chunk of response){bytes+=chunk.length;if(bytes>4*1024*1024||Date.now()>=deadline){response.destroy();fail('PCRE_BUILD_DOWNLOAD_LIMIT');}chunks.push(chunk);}return Buffer.concat(chunks);
+ }fail('PCRE_BUILD_DOWNLOAD_REDIRECT_LIMIT');}
+export async function preparePcre1({directory,archiveFile,download=downloadPcre1}={}){
+ if(process.platform!=='linux'||!['x64','arm64'].includes(process.arch))fail('PCRE_BUILD_SUPPORTED_LINUX_REQUIRED');
+ const repository=resolve(fileURLToPath(new URL('../../',import.meta.url))),dir=checkedPath(directory??join(repository,'apps/console-api/native-bin'));
+ if(existsSync(dir))fail('PCRE_BUILD_NEW_DIRECTORY_REQUIRED');mkdirSync(dir,{mode:0o700});
+ const work=mkdtempSync(join(tmpdir(),'kp-pcre1-build-')),output=join(dir,'kongpilot-pcre1'),source=join(repository,'apps/console-api/native/pcre1/engine.c');let files;
+ try{const archive=archiveFile?readFileSync(checkedPath(archiveFile,{file:true})):await download();files=unpackPcre1(archive);for(const[name,bytes]of files)writeFileSync(join(work,name),bytes,{mode:0o600});for(const[a,b]of [['config.h.generic','config.h'],['pcre.h.generic','pcre.h'],['pcre_chartables.c.dist','pcre_chartables.c']])writeFileSync(join(work,b),files.get(a),{mode:0o600});
+  const child=spawnSync('/usr/bin/cc',[...flags,'-I'+work,checkedPath(source,{file:true}),...units.map(x=>join(work,x)),'-o',output],{timeout:120000,maxBuffer:1024*1024,env:{PATH:'/usr/bin:/bin',LANG:'C'},encoding:'utf8'});if(child.error||child.status!==0)fail('PCRE_BUILD_COMPILER_FAILED');chmodSync(output,0o555);
+  const pattern=Buffer.from('/kongpilot/(?>ready|ok)'),subject=Buffer.from('/kongpilot/ready'),header=Buffer.alloc(12),size=Buffer.alloc(4);header.writeUInt32BE(1);header.writeUInt32BE(1,4);header.writeUInt32BE(subject.length,8);size.writeUInt32BE(pattern.length);
+  const check=spawnSync(output,[],{input:Buffer.concat([Buffer.from('KPPCRE1\0'),header,subject,size,pattern]),timeout:1000,maxBuffer:256,env:{LANG:'C'}});if(check.error||check.status!==0||check.stdout.length!==17||check.stdout[16]!==1||!check.stdout.subarray(0,8).equals(Buffer.from('KPPCR01\0')))fail('PCRE_BUILD_SANDBOX_SELFTEST_FAILED');
+  const binary=readFileSync(output),manifest={format:'kongpilot-pcre1-engine-v1',version:'8.45',archiveSha256:PCRE1_RELEASE.sha256,helperSourceSha256:sha(readFileSync(source)),binarySha256:sha(binary),binaryBytes:binary.length,architecture:process.arch,license:'BSD-3-Clause',jit:false};
+  writeFileSync(join(dir,'pcre1-build.json'),JSON.stringify(manifest,null,2)+'\n',{mode:0o444});writeFileSync(join(dir,'PCRE-8.45-LICENCE.txt'),files.get('LICENCE'),{mode:0o444});return{completed:true,...manifest,upstreamCredentialsUsed:false};
+ }finally{for(const v of files?.values()??[])v.fill(0);rmSync(work,{recursive:true,force:true});}
+}
+async function cli(args){const values={};for(const arg of args){const m=/^--(directory|archive-file)=(.+)$/.exec(arg);if(!m||Object.hasOwn(values,m[1]))fail('PCRE_BUILD_ARGUMENT_INVALID');values[m[1]]=m[2];}return preparePcre1({directory:values.directory,archiveFile:values['archive-file']});}
+if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))cli(process.argv.slice(2)).then(x=>process.stdout.write(JSON.stringify(x)+'\n')).catch(e=>{process.stderr.write(JSON.stringify({completed:false,code:/^PCRE_BUILD_[A-Z0-9_]+$/.test(e?.message??'')?e.message:'PCRE_BUILD_PRIVATE_FAILURE'})+'\n');process.exitCode=1;});

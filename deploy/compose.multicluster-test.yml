@@ -1,0 +1,104 @@
+# Optional M4 RBAC and M10 governance integration environment.
+# Nothing here runs with the base file alone.
+# Use --env-file .env --env-file .env.multicluster and --profile multicluster-test.
+x-secondary-kong-environment: &secondary-kong-environment
+  KONG_DATABASE: postgres
+  KONG_PG_HOST: kong-secondary-db
+  KONG_PG_PORT: 5432
+  KONG_PG_DATABASE: kong_secondary
+  KONG_PG_USER: kong_secondary
+  KONG_PG_PASSWORD: ${KONG_SECONDARY_DATABASE_PASSWORD:?Generate .env.multicluster first}
+
+services:
+  console-api:
+    environment:
+      OUTBOUND_ALLOWED_HOSTS: ${OUTBOUND_ALLOWED_HOSTS:-kong,prometheus,loki,mock-kong,localhost,127.0.0.1},kong-secondary
+      PROTECTED_DESTINATION_HOSTS: ${PROTECTED_DESTINATION_HOSTS:-},${KONG_DB_IP:-172.28.21.20},${KONG_SECONDARY_DB_IP:-172.28.22.20},${PORTAL_WEB_IP:-172.28.41.20},${PORTAL_ENTRY_IP:-172.28.42.20},portal-web
+    networks:
+      kong-secondary-admin:
+        ipv4_address: ${CONSOLE_SECONDARY_KONG_ADMIN_IP:-172.28.12.10}
+
+  kong-secondary-db:
+    profiles: [multicluster-test]
+    image: postgres:11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kong_secondary
+      POSTGRES_USER: kong_secondary
+      POSTGRES_PASSWORD: ${KONG_SECONDARY_DATABASE_PASSWORD:?Generate .env.multicluster first}
+    volumes:
+      - kong_secondary_db_data:/var/lib/postgresql/data
+    networks:
+      kong-secondary-storage:
+        ipv4_address: ${KONG_SECONDARY_DB_IP:-172.28.22.20}
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready --host=127.0.0.1 --timeout=1 -U kong_secondary -d kong_secondary && PGCONNECT_TIMEOUT=2 psql -X --set=ON_ERROR_STOP=1 -U kong_secondary -d kong_secondary -Atqc 'SELECT 1'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kong-secondary-migrations:
+    profiles: [multicluster-test]
+    image: kong:1.5.1
+    environment: *secondary-kong-environment
+    entrypoint: [/bin/sh, /opt/kongos/kong-migrate.sh]
+    volumes:
+      - ./deploy/scripts/kong-migrate.sh:/opt/kongos/kong-migrate.sh:ro
+    networks: [kong-secondary-storage]
+    depends_on:
+      kong-secondary-db: {condition: service_healthy}
+    restart: "no"
+
+  kong-secondary:
+    profiles: [multicluster-test]
+    image: kong:1.5.1
+    restart: unless-stopped
+    entrypoint: [/bin/sh, /opt/kongos/kong-secondary-start.sh]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      <<: *secondary-kong-environment
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONGOS_ADMIN_BIND_IP: ${KONG_SECONDARY_ADMIN_IP:-172.28.12.20}
+      KONGOS_BFF_ADMIN_IP: ${CONSOLE_SECONDARY_KONG_ADMIN_IP:-172.28.12.10}
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/null
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/null
+    ports:
+      - "127.0.0.1:${KONG_SECONDARY_PROXY_PORT:-9000}:8000"
+    volumes:
+      - ./deploy/scripts/kong-secondary-start.sh:/opt/kongos/kong-secondary-start.sh:ro
+      - ./deploy/scripts/kong-secure-start.sh:/opt/kongos/kong-secure-start.sh:ro
+    networks:
+      kong-secondary-admin:
+        ipv4_address: ${KONG_SECONDARY_ADMIN_IP:-172.28.12.20}
+        aliases: [kong-secondary-admin-endpoint]
+      kong-secondary-storage:
+        ipv4_address: ${KONG_SECONDARY_STORAGE_IP:-172.28.22.10}
+      proxy-edge: {}
+    depends_on:
+      kong-secondary-db: {condition: service_healthy}
+      kong-secondary-migrations: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, kong, health]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+networks:
+  kong-secondary-admin:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${KONG_SECONDARY_ADMIN_SUBNET:-172.28.12.0/24}
+  kong-secondary-storage:
+    name: ${COMPOSE_PROJECT_NAME:-kongos-console}_kong-secondary-storage-secure
+    internal: true
+    ipam:
+      config:
+        - subnet: ${KONG_SECONDARY_STORAGE_SUBNET:-172.28.22.0/24}
+
+volumes:
+  kong_secondary_db_data: {}

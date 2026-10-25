@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      KONGPILOT_TEST_SHARD: ${{ matrix.shard }}/3
+    steps:
+      - name: Checkout source without persistent credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - name: Select the pinned Node.js 22 toolchain
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          check-latest: false
+      - name: Install, verify public tools, test, typecheck, build and audit
+        run: node deploy/scripts/ci-quality.mjs
+      - name: Retain bounded nonsecret quality totals
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kongpilot-source-quality-summary-${{ matrix.shard }}
+          path: ${{ runner.temp }}/kongpilot-quality-report/summary.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 9
+          include-hidden-files: false
+
+  source-quality-merge:
+    needs: source-quality
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source without persistent credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - name: Select the pinned Node.js 22 toolchain
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          check-latest: false
+      - name: Download every shard summary
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: kongpilot-source-quality-summary-*
+          path: ${{ runner.temp }}/kongpilot-quality-shards
+      - name: Install without lifecycle scripts for test inventory
+        run: npm ci --no-audit --no-fund --ignore-scripts
+      - name: Require all shards and conserved total test count
+        env:
+          KONGPILOT_SHARD_SUMMARIES: ${{ runner.temp }}/kongpilot-quality-shards
+          KONGPILOT_MERGED_REPORT: ${{ runner.temp }}/kongpilot-quality-merged
+        run: node deploy/scripts/ci-quality-merge.mjs
+      - name: Retain merged nonsecret totals
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kongpilot-source-quality-merged
+          path: ${{ runner.temp }}/kongpilot-quality-merged/summary.json
+          if-no-files-found: error
+          retention-days: 7
+
+  immutable-images-amd64:
+    needs: source-quality-merge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the same source without persistent credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - name: Select the shared pinned Node.js 22 toolchain
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          check-latest: false
+      - name: Verify image acceptance boundaries without Docker
+        run: node --test tests/image-ci/*.check.mjs
+      - name: Build immutable images and verify hardened startup
+        run: node deploy/scripts/ci-images.mjs
+      - name: Retain bounded nonsecret image acceptance summary
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kongpilot-image-acceptance-summary
+          path: ${{ runner.temp }}/kongpilot-image-report/summary.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 9
+          include-hidden-files: false

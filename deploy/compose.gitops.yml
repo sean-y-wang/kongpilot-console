@@ -1,0 +1,23 @@
+services:
+  console-deck-runner:
+    profiles: [gitops-runner]
+    build:
+      # Compose resolves this path from the first (repository-root) file.
+      context: .
+      dockerfile: deploy/deck-runner/Dockerfile
+    image: kongpilot/deck-runner:1.2.4
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    environment:
+      DECK_CONSOLE_ORIGIN: http://console-web:8080
+      NO_PROXY: console-web,localhost,127.0.0.1
+      DECK_ANALYTICS: "off"
+    networks: [frontend]
+    stdin_open: true
+    restart: "no"
+    pids_limit: 64
+    mem_limit: 256m

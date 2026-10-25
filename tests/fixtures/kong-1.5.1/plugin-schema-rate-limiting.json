@@ -1,0 +1,109 @@
+{
+  "fields": [
+    {
+      "second": {
+        "gt": 0,
+        "type": "number"
+      }
+    },
+    {
+      "minute": {
+        "gt": 0,
+        "type": "number"
+      }
+    },
+    {
+      "hour": {
+        "gt": 0,
+        "type": "number"
+      }
+    },
+    {
+      "day": {
+        "gt": 0,
+        "type": "number"
+      }
+    },
+    {
+      "month": {
+        "gt": 0,
+        "type": "number"
+      }
+    },
+    {
+      "year": {
+        "gt": 0,
+        "type": "number"
+      }
+    },
+    {
+      "limit_by": {
+        "one_of": [
+          "consumer",
+          "credential",
+          "ip",
+          "service"
+        ],
+        "default": "consumer",
+        "type": "string"
+      }
+    },
+    {
+      "policy": {
+        "len_min": 0,
+        "one_of": [
+          "local",
+          "cluster",
+          "redis"
+        ],
+        "default": "cluster",
+        "type": "string"
+      }
+    },
+    {
+      "fault_tolerant": {
+        "default": true,
+        "type": "boolean"
+      }
+    },
+    {
+      "redis_host": {
+        "type": "string"
+      }
+    },
+    {
+      "redis_port": {
+        "between": [
+          0,
+          65535
+        ],
+        "default": 6379,
+        "type": "integer"
+      }
+    },
+    {
+      "redis_password": {
+        "len_min": 0,
+        "type": "string"
+      }
+    },
+    {
+      "redis_timeout": {
+        "default": 2000,
+        "type": "number"
+      }
+    },
+    {
+      "redis_database": {
+        "default": 0,
+        "type": "integer"
+      }
+    },
+    {
+      "hide_client_headers": {
+        "default": false,
+        "type": "boolean"
+      }
+    }
+  ]
+}

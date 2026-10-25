@@ -1,0 +1,329 @@
+{
+  "version": "1.5.1",
+  "recorded": [
+    {
+      "path": "/",
+      "filename": "root.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:15.405Z"
+    },
+    {
+      "path": "/status",
+      "filename": "status.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:15.555Z"
+    },
+    {
+      "path": "/endpoints",
+      "filename": "endpoints.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:15.709Z"
+    },
+    {
+      "path": "/plugins/enabled",
+      "filename": "plugins-enabled.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:15.847Z"
+    },
+    {
+      "path": "/schemas/services",
+      "filename": "schema-services.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:16.053Z"
+    },
+    {
+      "path": "/services?size=2",
+      "filename": "list-services-empty.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:16.263Z"
+    },
+    {
+      "path": "/schemas/routes",
+      "filename": "schema-routes.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:16.435Z"
+    },
+    {
+      "path": "/routes?size=2",
+      "filename": "list-routes-empty.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:16.578Z"
+    },
+    {
+      "path": "/schemas/consumers",
+      "filename": "schema-consumers.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:16.808Z"
+    },
+    {
+      "path": "/consumers?size=2",
+      "filename": "list-consumers-empty.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:16.975Z"
+    },
+    {
+      "path": "/schemas/plugins",
+      "filename": "schema-plugins.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:17.118Z"
+    },
+    {
+      "path": "/plugins?size=2",
+      "filename": "list-plugins-empty.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:17.271Z"
+    },
+    {
+      "path": "/schemas/certificates",
+      "filename": "schema-certificates.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:17.450Z"
+    },
+    {
+      "path": "/certificates?size=2",
+      "filename": "list-certificates-empty.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:17.599Z"
+    },
+    {
+      "path": "/schemas/ca_certificates",
+      "filename": "schema-ca_certificates.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:17.751Z"
+    },
+    {
+      "path": "/ca_certificates?size=2",
+      "filename": "list-ca_certificates-empty.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:17.898Z"
+    },
+    {
+      "path": "/schemas/snis",
+      "filename": "schema-snis.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:18.047Z"
+    },
+    {
+      "path": "/snis?size=2",
+      "filename": "list-snis-empty.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:18.197Z"
+    },
+    {
+      "path": "/schemas/upstreams",
+      "filename": "schema-upstreams.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:18.351Z"
+    },
+    {
+      "path": "/upstreams?size=2",
+      "filename": "list-upstreams-empty.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:18.522Z"
+    },
+    {
+      "path": "/plugins/schema/correlation-id",
+      "filename": "plugin-schema-correlation-id.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:18.661Z"
+    },
+    {
+      "path": "/plugins/schema/pre-function",
+      "filename": "plugin-schema-pre-function.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:18.815Z"
+    },
+    {
+      "path": "/plugins/schema/cors",
+      "filename": "plugin-schema-cors.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:18.961Z"
+    },
+    {
+      "path": "/plugins/schema/ldap-auth",
+      "filename": "plugin-schema-ldap-auth.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:19.111Z"
+    },
+    {
+      "path": "/plugins/schema/loggly",
+      "filename": "plugin-schema-loggly.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:19.265Z"
+    },
+    {
+      "path": "/plugins/schema/hmac-auth",
+      "filename": "plugin-schema-hmac-auth.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:19.459Z"
+    },
+    {
+      "path": "/plugins/schema/zipkin",
+      "filename": "plugin-schema-zipkin.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:19.604Z"
+    },
+    {
+      "path": "/plugins/schema/request-size-limiting",
+      "filename": "plugin-schema-request-size-limiting.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:19.750Z"
+    },
+    {
+      "path": "/plugins/schema/azure-functions",
+      "filename": "plugin-schema-azure-functions.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:19.904Z"
+    },
+    {
+      "path": "/plugins/schema/request-transformer",
+      "filename": "plugin-schema-request-transformer.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:20.058Z"
+    },
+    {
+      "path": "/plugins/schema/oauth2",
+      "filename": "plugin-schema-oauth2.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:20.202Z"
+    },
+    {
+      "path": "/plugins/schema/response-transformer",
+      "filename": "plugin-schema-response-transformer.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:20.383Z"
+    },
+    {
+      "path": "/plugins/schema/ip-restriction",
+      "filename": "plugin-schema-ip-restriction.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:20.539Z"
+    },
+    {
+      "path": "/plugins/schema/statsd",
+      "filename": "plugin-schema-statsd.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:20.678Z"
+    },
+    {
+      "path": "/plugins/schema/jwt",
+      "filename": "plugin-schema-jwt.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:20.850Z"
+    },
+    {
+      "path": "/plugins/schema/proxy-cache",
+      "filename": "plugin-schema-proxy-cache.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:21.015Z"
+    },
+    {
+      "path": "/plugins/schema/basic-auth",
+      "filename": "plugin-schema-basic-auth.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:21.196Z"
+    },
+    {
+      "path": "/plugins/schema/key-auth",
+      "filename": "plugin-schema-key-auth.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:21.346Z"
+    },
+    {
+      "path": "/plugins/schema/http-log",
+      "filename": "plugin-schema-http-log.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:21.497Z"
+    },
+    {
+      "path": "/plugins/schema/datadog",
+      "filename": "plugin-schema-datadog.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:21.661Z"
+    },
+    {
+      "path": "/plugins/schema/tcp-log",
+      "filename": "plugin-schema-tcp-log.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:21.830Z"
+    },
+    {
+      "path": "/plugins/schema/rate-limiting",
+      "filename": "plugin-schema-rate-limiting.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:22.114Z"
+    },
+    {
+      "path": "/plugins/schema/post-function",
+      "filename": "plugin-schema-post-function.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:22.316Z"
+    },
+    {
+      "path": "/plugins/schema/prometheus",
+      "filename": "plugin-schema-prometheus.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:22.473Z"
+    },
+    {
+      "path": "/plugins/schema/acl",
+      "filename": "plugin-schema-acl.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:22.677Z"
+    },
+    {
+      "path": "/plugins/schema/kubernetes-sidecar-injector",
+      "filename": "plugin-schema-kubernetes-sidecar-injector.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:22.873Z"
+    },
+    {
+      "path": "/plugins/schema/syslog",
+      "filename": "plugin-schema-syslog.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:23.071Z"
+    },
+    {
+      "path": "/plugins/schema/file-log",
+      "filename": "plugin-schema-file-log.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:23.258Z"
+    },
+    {
+      "path": "/plugins/schema/udp-log",
+      "filename": "plugin-schema-udp-log.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:23.431Z"
+    },
+    {
+      "path": "/plugins/schema/response-ratelimiting",
+      "filename": "plugin-schema-response-ratelimiting.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:23.795Z"
+    },
+    {
+      "path": "/plugins/schema/aws-lambda",
+      "filename": "plugin-schema-aws-lambda.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:23.968Z"
+    },
+    {
+      "path": "/plugins/schema/session",
+      "filename": "plugin-schema-session.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:24.132Z"
+    },
+    {
+      "path": "/plugins/schema/bot-detection",
+      "filename": "plugin-schema-bot-detection.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:24.282Z"
+    },
+    {
+      "path": "/plugins/schema/request-termination",
+      "filename": "plugin-schema-request-termination.json",
+      "source": "real Kong OSS 1.5.1 Docker image",
+      "recordedAt": "2026-10-10T13:15:24.435Z"
+    }
+  ]
+}

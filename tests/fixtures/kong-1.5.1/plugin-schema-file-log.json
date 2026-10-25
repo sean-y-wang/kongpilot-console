@@ -1,0 +1,18 @@
+{
+  "fields": [
+    {
+      "path": {
+        "match": "^[^*&%%\\`]+$",
+        "err": "not a valid filename",
+        "required": true,
+        "type": "string"
+      }
+    },
+    {
+      "reopen": {
+        "default": false,
+        "type": "boolean"
+      }
+    }
+  ]
+}
