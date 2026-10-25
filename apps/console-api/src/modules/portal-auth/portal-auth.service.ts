@@ -39,7 +39,7 @@ export class PortalAuthService implements OnModuleInit {
     const origins=(process.env.PORTAL_PUBLIC_ORIGINS??'').split(',').map(value=>value.trim()).filter(Boolean);
     if(!origins.length||origins.length>8)throw new Error('PORTAL_PUBLIC_ORIGINS is required');
     for(const origin of origins){let url:URL;try{url=new URL(origin);}catch{throw new Error('PORTAL_PUBLIC_ORIGINS contains an invalid origin');}
-      if(url.origin!==origin||!['http:','https:'].includes(url.protocol)||url.username||url.password||(process.env.NODE_ENV==='production'&&url.protocol!=='https:'))throw new Error('PORTAL_PUBLIC_ORIGINS must contain explicit portal origins');}
+      if(url.origin!==origin||!['http:','https:'].includes(url.protocol)||url.username||url.password||(process.env.NODE_ENV==='production'&&url.protocol!=='https:'&&!['127.0.0.1','localhost','[::1]'].includes(url.hostname)))throw new Error('PORTAL_PUBLIC_ORIGINS must contain explicit portal origins');}
     return origins;
   }
   /** Only configured portal origins, never forwarded headers, can mint a CSRF origin proof. */

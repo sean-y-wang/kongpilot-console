@@ -21,6 +21,9 @@ docker compose ps                              # 等待全部 healthy
 
 在控制台中添加内置 Kong 集群（Admin 地址仅 BFF 网络可达，如 `http://kong-admin-endpoint:8001`）。
 
+## 端口冲突
+如果 8080/8082/8000 被占用，修改 `.env` 里的 `CONSOLE_WEB_PORT`、`PORTAL_WEB_PORT`、`KONG_PROXY_PORT`，并把 `PORTAL_PUBLIC_ORIGINS` 改成新的门户端口。只有回环地址（`127.0.0.1`、`localhost`、`[::1]`）允许使用 `http://`，其他主机必须用 HTTPS。
+
 ## 停止 / 重置
 ```bash
 docker compose down          # 保留数据卷

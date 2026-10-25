@@ -21,6 +21,9 @@ docker compose ps                              # wait until services are healthy
 
 Add the bundled Kong as a cluster in the console (Admin URL is reachable only from the BFF network, e.g. `http://kong-admin-endpoint:8001`).
 
+## Port conflicts
+If 8080/8082/8000 are taken, edit `CONSOLE_WEB_PORT`, `PORTAL_WEB_PORT` and `KONG_PROXY_PORT` in `.env`, and update `PORTAL_PUBLIC_ORIGINS` to the new portal port. Plain `http://` origins are accepted only for loopback hosts (`127.0.0.1`, `localhost`, `[::1]`); any other host must use HTTPS.
+
 ## Stop / reset
 ```bash
 docker compose down          # keeps data volumes
