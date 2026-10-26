@@ -48,7 +48,7 @@ test('M0 login, cluster registration and data source configuration', async ({ pa
 
   await page.getByRole('menuitem', { name: /集群管理$/ }).click();
   await expect(page.getByRole('heading', { name: '集群管理', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Kong 1.5 默认集群', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '默认集群', exact: true })).toBeVisible();
   const name = `浏览器验收-${Date.now()}`;
   await page.getByRole('button', { name: /登记集群$/ }).click();
   await page.getByLabel('集群名称', { exact: true }).fill(name);
