@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { ConfigurationDurableRepository, configurationDurableMarker } from '../configuration/configuration-durable.repository';
 import { configurationJobSubjectMaterial } from './workflow-configuration-job-subject';
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
@@ -97,7 +98,7 @@ export class WorkflowScheduledConfigurationOriginService {
       || plan.scope.clusterId !== job.cluster_id || plan.scope.workspaceId !== job.workspace_id || plan.scope.transportScope !== job.transport_scope
       || plan.scope.kind !== job.scope_kind || this.secrets.fingerprint(plan.scope.rootIds) !== this.secrets.fingerprint(job.root_ids)
       || plan.permissionVersion !== job.permission_version || plan.clusterRevision !== job.cluster_revision || plan.workspaceRevision !== job.workspace_revision
-      || !/^1\.5\.\d+$/.test(plan.kongVersion) || !plan.recoveryComplete || !Array.isArray(plan.steps) || plan.steps.length > 10000
+      || !isSupportedKong(plan.kongVersion) || !plan.recoveryComplete || !Array.isArray(plan.steps) || plan.steps.length > 10000
       || version.step_count !== plan.steps.length || version.schema_hmac !== plan.schemaHmac || version.source_manifest_hmac !== plan.sourceManifestHmac
       || version.baseline_manifest_hmac !== plan.baselineManifestHmac) throw deny('WORKFLOW_SCHEDULE_CONFIGURATION_PLAN_HMAC_INVALID');
     if(configurationDurableMarker(job)||plan.durableRef!==undefined)await new ConfigurationDurableRepository(this.secrets).verify(job,tx,true,plan);
@@ -229,7 +230,7 @@ export class WorkflowScheduledConfigurationOriginService {
     await this.principal(ns.actor.id, ns, tx);
     const cluster = await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL', [ns.clusterId]);
     const workspace = await tx.one<any>('SELECT * FROM workspaces WHERE cluster_id=$1 AND id=$2', keys);
-    if (!cluster || !/^1\.5\.\d+$/.test(cluster.version ?? '') || ['disabled', 'incompatible'].includes(cluster.status) || cluster.execution_mode !== 'approval'
+    if (!cluster || !isSupportedKong(cluster.version ?? '') || ['disabled', 'incompatible'].includes(cluster.status) || cluster.execution_mode !== 'approval'
       || cluster.revision !== job.cluster_revision || transportScopeFor(cluster.admin_url, cluster.transport_scope) !== job.transport_scope
       || job.transport_scope !== ns.transportScope || !workspace || workspace.status !== 'active' || workspace.revision !== job.workspace_revision) throw deny('WORKFLOW_SCHEDULE_CONFIGURATION_SCOPE_CHANGED');
     const wrapperOrigin = await tx.one<any>('SELECT * FROM workflow_execution_origins WHERE execution_id=$1', [state.wrapperExecutionId]);

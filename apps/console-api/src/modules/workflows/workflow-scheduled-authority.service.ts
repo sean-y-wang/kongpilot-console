@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import type {PortalPartyObservationRoundOriginal,PortalPartyObservationRoundRunner,PortalPartyObservationRoundVerifier} from './workflow-portal-party-observation.types';
 import type {PortalInspectionInvocationOriginal,PortalInspectionInvocationVerifier} from './workflow-portal-inspection-invocation.types';
 import { ConflictException, ForbiddenException, HttpException, Injectable, ServiceUnavailableException } from '@nestjs/common';
@@ -230,7 +231,7 @@ export class WorkflowScheduledAuthorityService {
         transportScope: draft.transportScope, impactHmac: draft.impactHmac, subjectSealHmac: this.digest(b.subjectSeal) })) throw changed('WORKFLOW_SCHEDULE_PLAN_CHANGED');
     const cluster = await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL', [plan.clusterId]);
     const workspace = await tx.one<any>('SELECT * FROM workspaces WHERE id=$1 AND cluster_id=$2 AND deleted_at IS NULL', [plan.workspaceId, plan.clusterId]);
-    if (!cluster || !workspace || ['disabled', 'incompatible'].includes(cluster.status) || !/^1\.5\.\d+$/.test(cluster.version ?? '')
+    if (!cluster || !workspace || ['disabled', 'incompatible'].includes(cluster.status) || !isSupportedKong(cluster.version ?? '')
       || cluster.revision !== plan.scope.clusterRevision || cluster.execution_mode !== plan.executionMode || workspace.status !== 'active'
       || workspace.revision !== plan.scope.workspaceRevision || transportScopeFor(cluster.admin_url, cluster.transport_scope) !== draft.transportScope)
       throw changed('WORKFLOW_SCHEDULE_SCOPE_CHANGED');
@@ -528,7 +529,7 @@ export class WorkflowScheduledAuthorityService {
       const cluster = await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL', [plan.clusterId]);
       const workspace = await tx.one<any>('SELECT * FROM workspaces WHERE id=$1 AND cluster_id=$2 AND deleted_at IS NULL', [plan.workspaceId, plan.clusterId]);
       if (!cluster || !workspace || cluster.id !== plan.clusterId || workspace.id !== plan.workspaceId || workspace.cluster_id !== plan.clusterId
-        || ['disabled', 'incompatible'].includes(cluster.status) || !/^1\.5\.\d+$/.test(cluster.version ?? '') || workspace.status !== 'active'
+        || ['disabled', 'incompatible'].includes(cluster.status) || !isSupportedKong(cluster.version ?? '') || workspace.status !== 'active'
         || cluster.revision !== scope.namespace.clusterRevision || workspace.revision !== scope.namespace.workspaceRevision
         || cluster.execution_mode !== plan.executionMode || transportScopeFor(cluster.admin_url, cluster.transport_scope) !== scope.namespace.transportScope)
         throw changed('WORKFLOW_SCHEDULE_CONFIGURATION_ORIGIN_SQL_REGISTRY_CHANGED');

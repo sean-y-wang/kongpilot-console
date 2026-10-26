@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { DbService } from '../../infrastructure/db.service';
 import { SecretService } from '../../infrastructure/secret.service';
@@ -249,7 +250,7 @@ export class WorkflowScheduleCandidateReadService {
       if (registries.some(r => r.clusterId === resource.clusterId && r.workspaceId === resource.workspaceId)) continue;
       const cluster = await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL', [resource.clusterId]);
       const workspace = await tx.one<any>('SELECT * FROM workspaces WHERE id=$1 AND cluster_id=$2 AND deleted_at IS NULL', [resource.workspaceId, resource.clusterId]);
-      if (!cluster || !workspace || ['disabled', 'incompatible'].includes(cluster.status) || !/^1\.5\.\d+$/.test(cluster.version ?? '') || workspace.status !== 'active') throw changed('WORKFLOW_CANDIDATE_SCOPE_CHANGED');
+      if (!cluster || !workspace || ['disabled', 'incompatible'].includes(cluster.status) || !isSupportedKong(cluster.version ?? '') || workspace.status !== 'active') throw changed('WORKFLOW_CANDIDATE_SCOPE_CHANGED');
       const transportScope = transportScopeFor(cluster.admin_url, cluster.transport_scope);
       if (resource.clusterId === plan.clusterId && resource.workspaceId === plan.workspaceId && (cluster.revision !== plan.scope.clusterRevision
         || workspace.revision !== plan.scope.workspaceRevision || cluster.execution_mode !== plan.executionMode || transportScope !== plan.scope.transportScope)) throw changed('WORKFLOW_CANDIDATE_SCOPE_CHANGED');
@@ -440,7 +441,7 @@ export class WorkflowScheduleCandidateReadService {
         const cluster=await observed(()=>tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL',[original.clusterId]));
         const workspace=await observed(()=>tx.one<any>('SELECT * FROM workspaces WHERE id=$1 AND cluster_id=$2 AND deleted_at IS NULL',[original.workspaceId,original.clusterId]));
         if(!cluster||!workspace||cluster.id!==original.clusterId||workspace.id!==original.workspaceId||workspace.cluster_id!==original.clusterId
-          ||['disabled','incompatible'].includes(cluster.status)||!/^1\.5\.\d+$/.test(cluster.version??'')||workspace.status!=='active')throw changed('WORKFLOW_CANDIDATE_SCOPE_CHANGED');
+          ||['disabled','incompatible'].includes(cluster.status)||!isSupportedKong(cluster.version??'')||workspace.status!=='active')throw changed('WORKFLOW_CANDIDATE_SCOPE_CHANGED');
         const transportScope=transportScopeFor(cluster.admin_url,cluster.transport_scope);
         if(original.clusterId===state.plan.clusterId&&original.workspaceId===state.plan.workspaceId&&cluster.execution_mode!==state.plan.executionMode)
           throw changed('WORKFLOW_CANDIDATE_SCOPE_CHANGED');
