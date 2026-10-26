@@ -1,3 +1,5 @@
+import { withoutUnsupportedTags } from '../workspaces/workspace-resolver.service';
+import { CREDENTIAL_SCHEMAS, type CredentialKind } from '../entities/entities.types';
 import { ConflictException, Injectable } from '@nestjs/common';
 import { canonicalJson, SecretService } from '../../infrastructure/secret.service';
 import { KongService } from '../../infrastructure/kong/kong.service';
@@ -54,6 +56,11 @@ export class ConfigurationNativeService {
           await this.workspaces.prepareInheritedUpdate(context.clusterId,step.entityType,parent,step.before,step.body,context.workspaceId);
       }else prepared=step.mutationAction==='create'?await this.workspaces.prepareCreate(context.clusterId,step.entityType,step.body,context.workspaceId):
         await this.workspaces.prepareUpdate(context.clusterId,step.entityType,step.before,step.body,context.workspaceId);
+      // Mirror the planner: a Kong <1.4 credential schema has no tags, and the sealed body omits them.
+      if(step.entityType==='credentials'&&step.body&&!Object.hasOwn(step.body,'tags')&&isCredentialKind(step.credentialKind)){
+        const schema=await Promise.resolve().then(()=>this.kong.schema(context.clusterId,CREDENTIAL_SCHEMAS[step.credentialKind as CredentialKind])).catch(()=>null);
+        prepared=withoutUnsupportedTags(prepared,schema);
+      }
       if(canonicalJson(prepared)!==canonicalJson(step.body)||canonicalJson(packet.body)!==canonicalJson(step.body))throw changed();
       const entity={...(step.before as any??{}),...prepared,id:step.allocatedNativeId??step.nativeId};
       if(step.parentId)entity[step.entityType==='targets'?'upstream':'consumer']={id:step.parentId};
@@ -78,3 +85,5 @@ export class ConfigurationNativeService {
     return{receipt,after,result:this.secrets.redact(result),effectiveNativeId:receipt.entityId};
   }
 }
+
+function isCredentialKind(value:unknown):value is CredentialKind{return typeof value==='string'&&Object.hasOwn(CREDENTIAL_SCHEMAS,value);}

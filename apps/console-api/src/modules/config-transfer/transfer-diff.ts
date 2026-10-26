@@ -39,7 +39,12 @@ function currentPayload(object: CaptureObject, graph: CaptureGraph): Record<stri
   return normalizeEntityPayload(writableCapturedPayload(object.payload, object.entityType), graph.schemas, object.entityType, object.credentialKind);
 }
 function addCreateTags(object: TransferObject, target: NormalizedTransferGraph, body: Record<string, unknown>): void {
-  if (!Object.hasOwn(schemaFields(entitySchema(target.schemas, object.entityType, object.credentialKind)), 'tags')) transferFail('CONFIGURATION_WORKSPACE_SCHEMA_UNSUPPORTED');
+  if (!Object.hasOwn(schemaFields(entitySchema(target.schemas, object.entityType, object.credentialKind)), 'tags')) {
+    // Kong <1.4 credential DAOs have no tags column. A credential is always scoped by its
+    // tag-scoped parent Consumer, so the sealed body carries no tags (Kong rejects unknown fields).
+    if (object.entityType === 'credentials') { delete body.tags; return; }
+    transferFail('CONFIGURATION_WORKSPACE_SCHEMA_UNSUPPORTED');
+  }
   const code = target.workspaceCodesById[object.objectWorkspaceId];
   if (!code) transferFail('CONFIGURATION_UNKNOWN_WORKSPACE_TAG');
   body.tags = [...new Set([...(Array.isArray(body.tags) ? body.tags : []), workspaceTag(code)])].sort();
@@ -105,7 +110,7 @@ export function diffTransferGraphs(baseline: CaptureGraph, target: NormalizedTra
       if (!Object.keys(write).length) { unchangedCount++; continue; }
       // Real prepareInheritedUpdate always emits the full effective tag set,
       // even for a password-only or weight-only input. Freeze that exact tuple.
-      if (after.entityType === 'credentials' || after.entityType === 'targets') write.tags = structuredClone(effective.tags);
+      if ((after.entityType === 'credentials' || after.entityType === 'targets') && effective.tags !== undefined) write.tags = structuredClone(effective.tags);
       if (before.recovery.state !== 'complete') codes.add('CONFIGURATION_BEFORE_NOT_RECOVERABLE');
     }
     if (before?.managedBoundary && before.managedBoundary !== 'none') codes.add('CONFIGURATION_MANAGED_BOUNDARY');
