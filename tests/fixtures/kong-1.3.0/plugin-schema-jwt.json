@@ -1,0 +1,82 @@
+{
+  "fields": [
+    {
+      "uri_param_names": {
+        "elements": {
+          "type": "string"
+        },
+        "default": [
+          "jwt"
+        ],
+        "type": "set"
+      }
+    },
+    {
+      "cookie_names": {
+        "elements": {
+          "type": "string"
+        },
+        "default": [],
+        "type": "set"
+      }
+    },
+    {
+      "key_claim_name": {
+        "default": "iss",
+        "type": "string"
+      }
+    },
+    {
+      "secret_is_base64": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "claims_to_verify": {
+        "elements": {
+          "one_of": [
+            "exp",
+            "nbf"
+          ],
+          "type": "string"
+        },
+        "type": "set"
+      }
+    },
+    {
+      "anonymous": {
+        "legacy": true,
+        "uuid": true,
+        "type": "string"
+      }
+    },
+    {
+      "run_on_preflight": {
+        "default": true,
+        "type": "boolean"
+      }
+    },
+    {
+      "maximum_expiration": {
+        "between": [
+          0,
+          31536000
+        ],
+        "default": 0,
+        "type": "number"
+      }
+    },
+    {
+      "header_names": {
+        "elements": {
+          "type": "string"
+        },
+        "default": [
+          "authorization"
+        ],
+        "type": "set"
+      }
+    }
+  ]
+}
