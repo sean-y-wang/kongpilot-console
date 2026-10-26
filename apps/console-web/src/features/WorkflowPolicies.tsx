@@ -10,6 +10,7 @@ import { mutationConfirm } from '../components/MutationConfirm';
 import { QueryError } from '../components/Shared';
 import { usePortalPage, usePortalScope } from './portal-hooks';
 import { WorkflowApproverLookup } from './WorkflowApproverLookup';
+import { SelfApprovalSetting } from './SelfApprovalSetting';
 import { workflowKindLabels, workflowPolicyPayload, workflowStageModeLabels, type WorkflowDefinition, type WorkflowPolicy } from './workflows.model';
 
 type OriginalPolicyRequest = { actor: string; version?: string; cid: string; wid: string; key: string; definitionId?: string };
@@ -94,7 +95,7 @@ export function WorkflowPolicies() {
     } catch (cause) { if (alive.current) setError(cause); }
     finally { if (alive.current) setBusy(false); }
   }
-  return <><Space className="list-toolbar"><Button loading={query.isFetching} onClick={() => void query.refetch()}>刷新政策</Button></Space>
+  return <><SelfApprovalSetting /><Space className="list-toolbar"><Button loading={query.isFetching} onClick={() => void query.refetch()}>刷新政策</Button></Space>
     {query.error && <QueryError error={query.error} />}{!!error && <Alert type="error" showIcon message={errorMessage(error)} style={{ marginBottom: 16 }} />}
     {submittedWorkflow && <Alert type="success" showIcon message={<span>审批政策变更已登记 · <Link to={`/workflows/${submittedWorkflow}`}>查看真实工单</Link></span>} style={{ marginBottom: 16 }} />}
     {recovery && <Alert type="warning" showIcon message={original ? '审批政策写入结果待核验' : '当前范围有写入结果待核验'} description={<Space wrap><Typography.Text className="mono" copyable>{recovery.key}</Typography.Text><Button loading={busy} onClick={() => void verify()}>只读检查原政策回执</Button></Space>} style={{ marginBottom: 16 }} />}
