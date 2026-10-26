@@ -1,0 +1,194 @@
+{
+  "fields": [
+    {
+      "host": {
+        "default": "localhost",
+        "type": "string"
+      }
+    },
+    {
+      "port": {
+        "between": [
+          0,
+          65535
+        ],
+        "default": 8125,
+        "type": "integer"
+      }
+    },
+    {
+      "prefix": {
+        "default": "kong",
+        "type": "string"
+      }
+    },
+    {
+      "metrics": {
+        "elements": {
+          "fields": [
+            {
+              "name": {
+                "one_of": [
+                  "kong_latency",
+                  "latency",
+                  "request_count",
+                  "request_per_user",
+                  "request_size",
+                  "response_size",
+                  "status_count",
+                  "status_count_per_user",
+                  "unique_users",
+                  "upstream_latency"
+                ],
+                "type": "string",
+                "required": true
+              }
+            },
+            {
+              "stat_type": {
+                "one_of": [
+                  "counter",
+                  "gauge",
+                  "histogram",
+                  "meter",
+                  "set",
+                  "timer"
+                ],
+                "type": "string",
+                "required": true
+              }
+            },
+            {
+              "sample_rate": {
+                "gt": 0,
+                "type": "number"
+              }
+            },
+            {
+              "consumer_identifier": {
+                "one_of": [
+                  "consumer_id",
+                  "custom_id",
+                  "username"
+                ],
+                "type": "string"
+              }
+            }
+          ],
+          "entity_checks": [
+            {
+              "conditional": {
+                "if_match": {
+                  "eq": "unique_users"
+                },
+                "then_match": {
+                  "eq": "set"
+                },
+                "if_field": "name",
+                "then_field": "stat_type"
+              }
+            },
+            {
+              "conditional": {
+                "if_match": {
+                  "one_of": [
+                    "counter",
+                    "gauge"
+                  ]
+                },
+                "then_match": {
+                  "required": true
+                },
+                "if_field": "stat_type",
+                "then_field": "sample_rate"
+              }
+            },
+            {
+              "conditional": {
+                "if_match": {
+                  "one_of": [
+                    "status_count_per_user",
+                    "request_per_user",
+                    "unique_users"
+                  ]
+                },
+                "then_match": {
+                  "required": true
+                },
+                "if_field": "name",
+                "then_field": "consumer_identifier"
+              }
+            },
+            {
+              "conditional": {
+                "if_match": {
+                  "one_of": [
+                    "status_count",
+                    "status_count_per_user",
+                    "request_per_user"
+                  ]
+                },
+                "then_match": {
+                  "eq": "counter"
+                },
+                "if_field": "name",
+                "then_field": "stat_type"
+              }
+            }
+          ],
+          "type": "record"
+        },
+        "default": [
+          {
+            "sample_rate": 1,
+            "name": "request_count",
+            "stat_type": "counter"
+          },
+          {
+            "stat_type": "timer",
+            "name": "latency"
+          },
+          {
+            "stat_type": "timer",
+            "name": "request_size"
+          },
+          {
+            "sample_rate": 1,
+            "name": "status_count",
+            "stat_type": "counter"
+          },
+          {
+            "stat_type": "timer",
+            "name": "response_size"
+          },
+          {
+            "consumer_identifier": "custom_id",
+            "name": "unique_users",
+            "stat_type": "set"
+          },
+          {
+            "sample_rate": 1,
+            "name": "request_per_user",
+            "consumer_identifier": "custom_id",
+            "stat_type": "counter"
+          },
+          {
+            "stat_type": "timer",
+            "name": "upstream_latency"
+          },
+          {
+            "stat_type": "timer",
+            "name": "kong_latency"
+          },
+          {
+            "sample_rate": 1,
+            "name": "status_count_per_user",
+            "consumer_identifier": "custom_id",
+            "stat_type": "counter"
+          }
+        ],
+        "type": "array"
+      }
+    }
+  ]
+}

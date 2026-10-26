@@ -1,0 +1,68 @@
+{
+  "fields": [
+    {
+      "log_level": {
+        "one_of": [
+          "debug",
+          "info",
+          "notice",
+          "warning",
+          "err",
+          "crit",
+          "alert",
+          "emerg"
+        ],
+        "default": "info",
+        "type": "string"
+      }
+    },
+    {
+      "successful_severity": {
+        "one_of": [
+          "debug",
+          "info",
+          "notice",
+          "warning",
+          "err",
+          "crit",
+          "alert",
+          "emerg"
+        ],
+        "default": "info",
+        "type": "string"
+      }
+    },
+    {
+      "client_errors_severity": {
+        "one_of": [
+          "debug",
+          "info",
+          "notice",
+          "warning",
+          "err",
+          "crit",
+          "alert",
+          "emerg"
+        ],
+        "default": "info",
+        "type": "string"
+      }
+    },
+    {
+      "server_errors_severity": {
+        "one_of": [
+          "debug",
+          "info",
+          "notice",
+          "warning",
+          "err",
+          "crit",
+          "alert",
+          "emerg"
+        ],
+        "default": "info",
+        "type": "string"
+      }
+    }
+  ]
+}
