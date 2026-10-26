@@ -13,6 +13,7 @@ import { mutationConfirm } from '../components/MutationConfirm';
 import { QueryError, formatTime } from '../components/Shared';
 import { useEntityPermissions } from '../app/EntityPermissions';
 import type { EntityPageData } from './entities';
+import { EntityRefById } from '../components/EntityReference';
 import { workflowCanPrepare, type EntityChangeIntent } from './workflow-entity-change.model';
 import { safeJsonPreview } from './m7.redaction';
 import { createTargetWorkflowClient, freshTargetWorkflowSession, readTargetWorkflowAttempt, sameTargetWorkflowScope, targetManualHealthAvailable,
@@ -167,7 +168,7 @@ function TargetApprovalDrawer({ scope, draft, rows, healthItems, onChange, onClo
   }
   return <Drawer title="Target 变更审批" open width={760} onClose={onClose} destroyOnClose>
     {!!journal.error && <QueryError error={journal.error} />}{!!error && <QueryError error={error} />}
-    <Descriptions size="small" column={1} items={[{ key: 'parent', label: 'Upstream', children: scope.upstreamId },
+    <Descriptions size="small" column={1} items={[{ key: 'parent', label: 'Upstream', children: <EntityRefById type="upstreams" id={scope.upstreamId} /> },
       { key: 'target', label: '原 Target ID', children: selection?.targetId ?? '创建新 Target' },
       { key: 'operation', label: '操作', children: selection?.action === 'create' ? '添加 Target' : selection?.action === 'weight' ? '更新权重与标签' : selection?.action === 'delete' ? '移入回收站' : selection?.healthState === 'healthy' ? '置为健康' : '置为不健康' },
       ...(intent ? [{ key: 'expiry', label: '预览有效期', children: formatTime(intent.expiresAt) }] : [])]} />

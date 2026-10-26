@@ -15,6 +15,7 @@ import { mutationConfirm } from '../components/MutationConfirm';
 import { KongSchemaForm, prepareFormValues, schemaFields, type KongSchema } from '../components/KongSchemaForm';
 import { QueryError } from '../components/Shared';
 import { EntityEditor } from './EntityEditor';
+import { EntityRefById } from '../components/EntityReference';
 import { entityName, entityTime, type EntityPageData } from './entities';
 import { workflowCanPrepare, type EntityChangeIntent } from './workflow-entity-change.model';
 import { credentialWorkflowKinds, credentialWorkflowScope, credentialWorkflowSelection, credentialWorkflowFormDefaults, createCredentialWorkflowClient,
@@ -186,7 +187,7 @@ function CredentialApprovalDrawer({ scope, selection, onClose, onChange }: { sco
     extra={intent ? <Space><Button disabled={busy||attempt?.state!=='prepared'||!!intent.workflowId} onClick={discardPrepared}>关闭预览</Button><Button type="primary" loading={busy} disabled={!writable || attempt?.state !== 'prepared' || intent.capabilities.submit !== true || !!intent.workflowId} onClick={submit}>提交工单</Button></Space>
       : <Button type="primary" loading={busy} disabled={!writable || !!attempt || !!parent.error || selection.action !== 'delete' && !renderedSchema || !!before.error || !!selection.credentialId && !before.data}
         onClick={() => selection.action === 'delete' ? confirmPrepare() : form.submit()}>生成变更预览</Button>}>
-    <Descriptions size="small" column={1} items={[{ key: 'consumer', label: 'Consumer', children: <Typography.Text className="mono">{scope.consumerId}</Typography.Text> },
+    <Descriptions size="small" column={1} items={[{ key: 'consumer', label: 'Consumer', children: <EntityRefById type="consumers" id={scope.consumerId} /> },
       { key: 'kind', label: '凭证类型', children: scope.credentialKind }, { key: 'credential', label: '凭证 ID', children: selection.credentialId ?? '执行时创建' }]} />
     {attempt && attempt.state !== 'prepared' && <Alert type="warning" showIcon message="原请求结果待核验，不会重新提交"
       description={<Space wrap><Typography.Text className="mono" copyable>{attempt.key}</Typography.Text><Button loading={busy} onClick={() => void recover()}>只读核验原请求</Button></Space>} style={{ marginTop: 16 }} />}
