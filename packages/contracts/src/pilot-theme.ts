@@ -54,7 +54,7 @@ export function pilotTheme(mode: AppearanceMode): ThemeConfig {
       },
       Table: {
         headerBg: dark ? '#1F2A3A' : '#F2F6FC', headerColor: body,
-        rowHoverBg: dark ? 'rgba(121,176,255,0.06)' : 'rgba(23,100,216,0.035)',
+        rowHoverBg: dark ? '#1F2B3C' : '#F7FAFE',
         borderColor: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', headerSplitColor: 'transparent',
       },
       Card: { boxShadowTertiary: '0 2px 12px rgba(0,0,0,0.06)' },

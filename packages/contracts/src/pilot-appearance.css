@@ -19,7 +19,7 @@ html[data-appearance] {
   --kp-control: rgba(255,255,255,.65);
   --kp-soft: #eaf1fb;
   --kp-selected: #e6effd;
-  --kp-row-hover: rgba(23,100,216,.035);
+  --kp-row-hover: #f7fafe;
   --kp-table-head: #f2f6fc;
   --kp-radius: 8px;
   --kp-glass-blur: 10px;
@@ -45,7 +45,7 @@ html[data-appearance='dark'] {
   --kp-control: rgba(31,42,58,.75);
   --kp-soft: #1f2a3a;
   --kp-selected: #1d2d47;
-  --kp-row-hover: rgba(121,176,255,.06);
+  --kp-row-hover: #1f2b3c;
   --kp-table-head: #1f2a3a;
   --kp-shadow: 0 2px 12px rgba(0,0,0,.14), 0 1px 2px rgba(0,0,0,.06);
 }
@@ -123,6 +123,8 @@ html[data-appearance] .ant-table-tbody > tr.ant-table-row:hover > td,
 html[data-appearance] .ant-table-tbody > tr > td.ant-table-cell-row-hover { background: var(--kp-row-hover); }
 html[data-appearance] .ant-table-tbody > tr > td.ant-table-cell-fix-right,
 html[data-appearance] .ant-table-thead > tr > th.ant-table-cell-fix-right { background: var(--kp-panel); }
+html[data-appearance] .ant-table-tbody > tr.ant-table-row:hover > td.ant-table-cell-fix-right,
+html[data-appearance] .ant-table-tbody > tr > td.ant-table-cell-fix-right.ant-table-cell-row-hover { background: var(--kp-row-hover); }
 html[data-appearance] .ant-table-cell-fix-right-first::after { box-shadow: -3px 0 8px rgba(0,0,0,.02); }
 html[data-appearance] .entity-tags .ant-tag { background: var(--kp-soft); color: var(--kp-muted); border-color: transparent; border-radius: 4px; font-size: 11px; }
 

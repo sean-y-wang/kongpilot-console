@@ -59,3 +59,9 @@ export function EntityRef({ type, id, refs, compact }: { type: string; id?: stri
     {ref?.expires_at && <Tag color={ref.expired ? 'red' : 'default'} className="entity-ref-exp">{ref.expired ? '已过期' : `到期 ${ref.expires_at.slice(0, 10)}`}</Tag>}
   </span></Tooltip>;
 }
+
+/** Resolves and renders one reference by id; for detail panes that show a single parent entity. */
+export function EntityRefById({ type, id }: { type: string; id?: string | null }) {
+  const refs = useEntityReferences([{ type, id }]);
+  return <EntityRef type={type} id={id} refs={refs} />;
+}
