@@ -33,14 +33,15 @@ export function normalizeWorkflowApprovalPolicy(input: unknown, kind?: WorkflowK
   return Object.freeze({ version: 2, kind: value.kind as WorkflowKind, allowSelfApproval: false, distinctAcrossStages: value.distinctAcrossStages !== false, intentTtlHours: Number(ttl), stages: Object.freeze(stages) });
 }
 
+const unsatisfiable = () => new ConflictException({ code: 'WORKFLOW_APPROVAL_CANDIDATES_UNSATISFIABLE', message: '没有可用的审批人：审批阶段需要申请人以外的审批人' });
 /** Hall-style matching permits overlapping selector pools while proving enough
  * distinct actual reviewers remain for every stage's required vote slots. */
 export function assertWorkflowCandidateFeasibility(stages: WorkflowCandidateManifest['stages'], distinct: boolean, used: ReadonlySet<string> = new Set()): void {
-  if (!stages.length || stages.length > 8) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_CANDIDATES_UNSATISFIABLE' });
+  if (!stages.length || stages.length > 8) throw unsatisfiable();
   const slots: string[][] = [];
   for (const stage of stages) {
     const candidates = [...new Set(stage.candidates.map(candidate => candidate.userId))].filter(id => !distinct || !used.has(id));
-    if (!Number.isInteger(stage.threshold) || stage.threshold < 1 || candidates.length < stage.threshold || stage.candidates.length > 100) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_CANDIDATES_UNSATISFIABLE' });
+    if (!Number.isInteger(stage.threshold) || stage.threshold < 1 || candidates.length < stage.threshold || stage.candidates.length > 100) throw unsatisfiable();
     if (distinct) for (let index = 0; index < stage.threshold; index++) slots.push(candidates);
   }
   if (!distinct) return;
@@ -53,5 +54,5 @@ export function assertWorkflowCandidateFeasibility(stages: WorkflowCandidateMani
     }
     return false;
   };
-  for (let slot = 0; slot < slots.length; slot++) if (!assign(slot, new Set())) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_CANDIDATES_UNSATISFIABLE' });
+  for (let slot = 0; slot < slots.length; slot++) if (!assign(slot, new Set())) throw unsatisfiable();
 }

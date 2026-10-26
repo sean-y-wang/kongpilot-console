@@ -201,7 +201,14 @@ export function patch<T>(path: string, body: unknown) {
   return api<T>(path, { method: 'PATCH', body: JSON.stringify(body) });
 }
 
+export const NO_ELIGIBLE_APPROVER_MESSAGE = '没有可用的审批人：每个审批阶段都需要申请人以外、具备审批角色的用户。请在「访问控制」中为其他用户授予审批角色。';
+/** Approval policy has no eligible reviewer besides the requester. */
+export function isNoEligibleApprover(error: unknown) {
+  return error instanceof ApiError && error.code === 'WORKFLOW_APPROVAL_CANDIDATES_UNSATISFIABLE';
+}
+
 export function errorMessage(error: unknown) {
+  if (isNoEligibleApprover(error)) return NO_ELIGIBLE_APPROVER_MESSAGE;
   if (error instanceof ApiError && error.fields) {
     const fields = Object.entries(error.fields).slice(0, 5).map(([field, message]) => `${field}: ${String(message)}`).join('；');
     return fields ? `${error.message} · ${fields}` : error.message;

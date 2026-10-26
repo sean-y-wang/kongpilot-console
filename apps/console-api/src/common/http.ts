@@ -52,7 +52,7 @@ export class ErrorFilter implements ExceptionFilter {
     // The guard captured the trusted identity before authorization/CSRF. The
     // original business transaction has unwound; append a separate HTTP fact.
     // Keep the synchronous filter contract for isolated uses without auditing.
-    if(this.requestAudit)return this.requestAudit.recordFailure(request,status).then(send,send);
+    if(this.requestAudit)return this.requestAudit.recordFailure(request,status,detail.code).then(send,send);
     send();
   }
 }
