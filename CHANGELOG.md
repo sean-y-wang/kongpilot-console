@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Redis Cluster mode (`REDIS_MODE=cluster`, `REDIS_CLUSTER_NODES`, `REDIS_USERNAME`, `REDIS_TLS`) and a configurable key prefix (`REDIS_KEY_PREFIX`); standalone remains the default — [Redis reference](docs/reference/redis.md), [ADR 0011](docs/decisions/0011-redis-cluster-and-key-prefix.md).
+
 ## [1.0.0-rc.2] - 2026-10-26
 
 First public release candidate of KongPilot, a self-hosted management console for Kong OSS 1.5.x.

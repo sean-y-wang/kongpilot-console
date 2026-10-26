@@ -1,0 +1,16 @@
+# Test-only 3-master Redis Cluster on host networking (ports 7101-7103).
+# Usage: scripts/verification/redis-cluster-test.sh
+x-node: &node
+  image: redis:7.4-alpine
+  network_mode: host
+  environment: {REDIS_CLUSTER_TEST_PASSWORD: "${REDIS_CLUSTER_TEST_PASSWORD:-kongpilot-cluster-test}"}
+services:
+  redis-7101:
+    <<: *node
+    command: [sh, -c, 'exec redis-server --port 7101 --cluster-enabled yes --cluster-config-file /tmp/n.conf --appendonly no --save "" --requirepass "$$REDIS_CLUSTER_TEST_PASSWORD" --masterauth "$$REDIS_CLUSTER_TEST_PASSWORD"']
+  redis-7102:
+    <<: *node
+    command: [sh, -c, 'exec redis-server --port 7102 --cluster-enabled yes --cluster-config-file /tmp/n.conf --appendonly no --save "" --requirepass "$$REDIS_CLUSTER_TEST_PASSWORD" --masterauth "$$REDIS_CLUSTER_TEST_PASSWORD"']
+  redis-7103:
+    <<: *node
+    command: [sh, -c, 'exec redis-server --port 7103 --cluster-enabled yes --cluster-config-file /tmp/n.conf --appendonly no --save "" --requirepass "$$REDIS_CLUSTER_TEST_PASSWORD" --masterauth "$$REDIS_CLUSTER_TEST_PASSWORD"']

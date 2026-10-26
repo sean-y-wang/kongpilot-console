@@ -14,3 +14,4 @@
 | 0008 | [Destination DNS via c-ares with bounded fallback](0008-destination-dns-c-ares.md) |
 | 0009 | [Scheduled configuration executions have a Kong call budget of 1000](0009-scheduled-execution-call-budget.md) |
 | 0010 | [In-image brotli-libs upgrade until the nginx base image is updated](0010-brotli-libs-in-image-upgrade.md) |
+| 0011 | [Redis Cluster mode and key prefix](0011-redis-cluster-and-key-prefix.md) |

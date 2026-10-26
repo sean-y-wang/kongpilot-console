@@ -3,6 +3,7 @@ import { lookup, Resolver } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { readFile } from 'node:fs/promises';
 import type { DbService } from '../db.service';
+import { redisProtectedHosts } from '../redis-config';
 import { pluginMetadata } from '../../modules/plugin-center/plugin-metadata';
 
 type HostPort = { host: string; port: number };
@@ -125,6 +126,7 @@ export async function assertProxyDestination(db: Pick<DbService, 'query'>, candi
     for (const row of rows) admins.push(parseUrl(row.admin_url));
     for (const row of sources) privateHosts.add(parseUrl(row.base_url).host);
     for (const value of [process.env.DATABASE_URL ?? process.env.CONSOLE_DATABASE_URL, process.env.REDIS_URL, process.env.CONSOLE_INTERNAL_URL]) if (value) privateHosts.add(parseUrl(value).host);
+    for (const host of redisProtectedHosts()) privateHosts.add(hostName(host));
     for (const host of (process.env.PROTECTED_DESTINATION_HOSTS || '').split(',').filter(Boolean)) privateHosts.add(hostName(host.trim()));
   } catch { throw unavailable(); }
   if (privateHosts.has(normalized) || admins.some(row => row.host === normalized && row.port === port)) throw prohibited();
@@ -168,6 +170,7 @@ export async function assertManagedCollectorDestination(db: Pick<DbService, 'que
     for (const row of rows) hardHosts.add(parseUrl(row.admin_url).host);
     for (const row of sources) hardHosts.add(parseUrl(row.base_url).host);
     for (const value of [process.env.DATABASE_URL ?? process.env.CONSOLE_DATABASE_URL, process.env.REDIS_URL, process.env.CONSOLE_INTERNAL_URL]) if (value) hardHosts.add(parseUrl(value).host);
+    for (const host of redisProtectedHosts()) hardHosts.add(hostName(host));
   } catch { throw unavailable(); }
   if (hardHosts.has('telemetry-collector') || hardHosts.has('metrics-collector') || [...selfIps].some(address => hardHosts.has(address))) throw prohibited();
   for (const host of (process.env.PROTECTED_DESTINATION_HOSTS || '').split(',').filter(Boolean)) {

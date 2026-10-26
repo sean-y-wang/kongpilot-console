@@ -118,3 +118,23 @@ jobs:
           retention-days: 7
           compression-level: 9
           include-hidden-files: false
+
+  redis-cluster:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source without persistent credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - name: Select the pinned Node.js 22 toolchain
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          check-latest: false
+      - name: Install without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Redis Cluster (3 masters) with key prefix integration suite
+        run: scripts/verification/redis-cluster-test.sh
