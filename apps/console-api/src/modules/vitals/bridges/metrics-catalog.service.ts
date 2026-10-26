@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../../infrastructure/kong/kong-capabilities';
 import { ConflictException, Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { DbService } from '../../../infrastructure/db.service';
 import { KongService } from '../../../infrastructure/kong/kong.service';
@@ -82,6 +83,6 @@ export class MetricsCatalogService implements OnModuleInit, OnModuleDestroy {
     await this.repository.publishVerifiedCatalog({ cid, expectedCatalogRevision: current.catalogRevision, transportScope: scope, nodeId: scope, observedKongNodeId: nodeId, observedAt, complete: true, routePairs, consumers });
   }
   async nodeIdentity(cid: string): Promise<string> {
-    return this.execution.runSystemRead(cid, 'probe', async () => { const root = await this.kong.request(cid, 'GET', '/'); if (!/^1\.5\.\d+$/.test(root.version || '')) throw new ConflictException({ code: 'KONG_METRICS_VERSION_CHANGED' }); return metricsId(root.node_id)!; }, { paths: ['/'], maxCalls: 3, maxPages: 1, maxRecords: 1, maxBytes: 2 * 1024 * 1024, timeoutMs: 5000 });
+    return this.execution.runSystemRead(cid, 'probe', async () => { const root = await this.kong.request(cid, 'GET', '/'); if (!isSupportedKong(root.version || '')) throw new ConflictException({ code: 'KONG_METRICS_VERSION_CHANGED' }); return metricsId(root.node_id)!; }, { paths: ['/'], maxCalls: 3, maxPages: 1, maxRecords: 1, maxBytes: 2 * 1024 * 1024, timeoutMs: 5000 });
   }
 }

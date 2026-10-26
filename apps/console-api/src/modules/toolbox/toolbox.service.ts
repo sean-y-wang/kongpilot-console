@@ -1,3 +1,4 @@
+import { kongCapabilities } from '../../infrastructure/kong/kong-capabilities';
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DbService } from '../../infrastructure/db.service';
@@ -26,7 +27,7 @@ export class ToolboxService {
   async capabilities(cid:string,actor:EntityActor){return this.run(cid,actor,async()=>{
     const ws=await this.workspaces.resolve(cid,actor.workspaceId);await this.authz.assertCluster(actor.user,cid,'toolbox','read',ws.id);
     const cluster=await this.db.one<any>('SELECT proxy_origin,execution_mode,version FROM clusters WHERE id=$1 AND deleted_at IS NULL',[cid]);
-    const compatible=/^1\.5\.\d+$/.test(cluster.version??'');
+    const compatible=kongCapabilities(cluster.version??'').routeSimulation;
     return{clusterId:cid,workspaceId:ws.id,executionMode:cluster.execution_mode,routeSimulation:compatible,nodeStatus:await this.authz.hasWholeCluster(actor.user,cid,'toolbox','read'),cacheRead:await this.authz.hasWholeCluster(actor.user,cid,'toolbox','read'),cacheInvalidate:compatible&&await this.authz.hasWholeCluster(actor.user,cid,'toolbox','write'),proxyConfigured:!!cluster.proxy_origin,proxyProbe:compatible&&!!cluster.proxy_origin&&await this.authz.hasWholeCluster(actor.user,cid,'toolbox','write')};
   });}
   async status(cid:string,actor:EntityActor){return this.run(cid,actor,async()=>{
@@ -65,7 +66,7 @@ export class ToolboxService {
   private async simulate(cid:string,input:RouteDebugInput,actor:EntityActor,persist:boolean){
     const ws=await this.workspaces.resolve(cid,actor.workspaceId),version=await this.authz.permissionVersion(actor.user);
     await this.authz.assertCluster(actor.user,cid,'toolbox','read',ws.id);
-    const cluster=await this.db.one<any>('SELECT version FROM clusters WHERE id=$1 AND deleted_at IS NULL',[cid]);if(!/^1\.5\.\d+$/.test(cluster?.version??''))throw new ConflictException({code:'ROUTE_ADAPTER_UNAVAILABLE',message:'路由模拟仅支持已探测的 Kong OSS 1.5.x'});
+    const cluster=await this.db.one<any>('SELECT version FROM clusters WHERE id=$1 AND deleted_at IS NULL',[cid]);if(!kongCapabilities(cluster?.version??'').routeSimulation)throw new ConflictException({code:'ROUTE_ADAPTER_UNAVAILABLE',message:'路由模拟仅在已探测的 Kong OSS 1.5.x 上开放'});
     const routes=await this.collect(cid,'routes',{...actor,workspaceId:ws.id}),result=await simulateRoutes(routes.items,input),reasonCodes=[...result.reasonCodes];
     let plugins={items:[] as any[],pages:0,bytes:0,complete:false};try{plugins=await this.collect(cid,'plugins',{...actor,workspaceId:ws.id});}catch(error){if(!(error instanceof ForbiddenException))throw error;reasonCodes.push('PLUGIN_SCOPE_NOT_AUTHORIZED');}
     const wholeRoutes=await this.authz.hasWholeWorkspace(actor.user,cid,ws.id,'routes','read'),wholePlugins=await this.authz.hasWholeWorkspace(actor.user,cid,ws.id,'plugins','read');

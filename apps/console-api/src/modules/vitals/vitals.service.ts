@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, Injectable, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { DbService } from '../../infrastructure/db.service';
@@ -112,7 +113,7 @@ export class VitalsService {
     if (body.confirmed !== true || body.confirm_name !== cluster.name) throw new BadRequestException({ code: 'CONFIRMATION_REQUIRED', message: '请二次确认集群名称；启用全局监控会影响全部工作区' });
     if (!['native_prometheus', 'collector'].includes(body.mode as string) || !actor.idempotencyKey) throw new BadRequestException({ code: 'INVALID_METRICS_SETUP' });
     if (cluster.execution_mode === 'approval') throw new ConflictException({ code: 'APPROVAL_REQUIRED', message: '此集群配置须工单审批，未直接创建监控插件' });
-    if (!/^1\.5\.\d+$/.test(cluster.version || '') || !cluster.enabled_plugins?.includes('prometheus')) throw new ConflictException({ code: 'KONG_METRICS_UNAVAILABLE' });
+    if (!isSupportedKong(cluster.version || '') || !cluster.enabled_plugins?.includes('prometheus')) throw new ConflictException({ code: 'KONG_METRICS_UNAVAILABLE' });
     const source = await this.sources.read(cid, metricsId(body.sourceId)!); if (source.type !== 'prometheus') throw new BadRequestException({ code: 'METRICS_SETUP_REQUIRES_PROMETHEUS' });
     const initial = await this.settings.get(cid), defaultWorkspace = await this.workspaces.resolve(cid), anchor = await this.workspaces.resolve(cid, workspaceId);
     const permissionVersion = await this.authz.permissionVersion(actor.user);

@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException,OnModuleInit,ServiceUnavailableException} from '@nestjs/common';
 import {createHash,randomUUID} from 'node:crypto';
 import {DbService} from '../../infrastructure/db.service';
@@ -73,7 +74,7 @@ export class VitalsSetupService implements OnModuleInit {
    ||!this.whole(identity,cid,'workflows',action))throw deny('METRICS_SETUP_PLATFORM_PERMISSION_REQUIRED');
   const cluster=await tx.one<any>(`SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL${action==='read'?'':' FOR SHARE'}`,[cid]);
   const workspace=await tx.one<any>(`SELECT * FROM workspaces WHERE cluster_id=$1 AND id=$2 AND deleted_at IS NULL${action==='read'?'':' FOR SHARE'}`,[cid,wid]);
-  if(!cluster||cluster.status==='disabled'||!/^1\.5\.\d+$/.test(cluster.version??'')||!workspace||!workspace.is_default||workspace.status!=='active')
+  if(!cluster||cluster.status==='disabled'||!isSupportedKong(cluster.version??'')||!workspace||!workspace.is_default||workspace.status!=='active')
    throw conflict('METRICS_SETUP_DEFAULT_WORKSPACE_REQUIRED','请在默认工作区设置集群全局监控；已有其他工作区的全局插件须先使用工作区迁移入口移至默认工作区');
   if(action!=='read'&&(cluster.execution_mode!=='approval'||!cluster.enabled_plugins?.includes('prometheus')))throw conflict('METRICS_SETUP_APPROVAL_SCOPE_REQUIRED');
   return{identity,cluster,workspace};
