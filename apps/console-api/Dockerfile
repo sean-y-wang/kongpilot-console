@@ -25,7 +25,7 @@ RUN --mount=type=secret,id=proxy_ca \
     cp -a /app/apps/console-api/native-bin /runtime/apps/console-api/native-bin; \
     cp -a /app/apps/console-api/src/infrastructure/migrations /runtime/apps/console-api/dist/infrastructure/migrations
 
-FROM gcr.io/distroless/nodejs22-debian13:nonroot@sha256:ec2313763dd43931543bd03830466e0c409ce73a487e8d46f10db72d3b816c1c AS runtime
+FROM gcr.io/distroless/nodejs22-debian13:nonroot@sha256:10747a1323be68f206aed893599d43e6697ad67257e7c42703553f99fbce3d33 AS runtime
 LABEL org.opencontainers.image.title="KongPilot API" org.opencontainers.image.description="Kong 网关管理平台"
 # Runtime has Node, production dependencies and the fixed sandboxed PCRE1 worker.
 # Native compiler/headers/source archive stay in the build stage. Keep shell, npm
