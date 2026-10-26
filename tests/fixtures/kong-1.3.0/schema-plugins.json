@@ -1,0 +1,105 @@
+{
+  "fields": [
+    {
+      "id": {
+        "auto": true,
+        "uuid": true,
+        "type": "string"
+      }
+    },
+    {
+      "name": {
+        "required": true,
+        "type": "string"
+      }
+    },
+    {
+      "created_at": {
+        "timestamp": true,
+        "auto": true,
+        "type": "integer"
+      }
+    },
+    {
+      "route": {
+        "reference": "routes",
+        "on_delete": "cascade",
+        "default": null,
+        "type": "foreign"
+      }
+    },
+    {
+      "service": {
+        "reference": "services",
+        "on_delete": "cascade",
+        "default": null,
+        "type": "foreign"
+      }
+    },
+    {
+      "consumer": {
+        "reference": "consumers",
+        "on_delete": "cascade",
+        "default": null,
+        "type": "foreign"
+      }
+    },
+    {
+      "config": {
+        "abstract": true,
+        "type": "record"
+      }
+    },
+    {
+      "run_on": {
+        "type": "string",
+        "one_of": [
+          "first",
+          "second",
+          "all"
+        ],
+        "default": "first",
+        "required": true
+      }
+    },
+    {
+      "protocols": {
+        "elements": {
+          "one_of": [
+            "grpc",
+            "grpcs",
+            "http",
+            "https",
+            "tcp",
+            "tls"
+          ],
+          "type": "string"
+        },
+        "type": "set",
+        "default": [
+          "grpc",
+          "grpcs",
+          "http",
+          "https"
+        ],
+        "required": true
+      }
+    },
+    {
+      "enabled": {
+        "default": true,
+        "type": "boolean"
+      }
+    },
+    {
+      "tags": {
+        "elements": {
+          "type": "string",
+          "required": true,
+          "match": "^[%w%.%-%_~]+$"
+        },
+        "type": "set"
+      }
+    }
+  ]
+}

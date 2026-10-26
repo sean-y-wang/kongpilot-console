@@ -1,0 +1,253 @@
+{
+  "fields": [
+    {
+      "id": {
+        "auto": true,
+        "uuid": true,
+        "type": "string"
+      }
+    },
+    {
+      "created_at": {
+        "timestamp": true,
+        "auto": true,
+        "type": "integer"
+      }
+    },
+    {
+      "updated_at": {
+        "timestamp": true,
+        "auto": true,
+        "type": "integer"
+      }
+    },
+    {
+      "name": {
+        "unique": true,
+        "type": "string"
+      }
+    },
+    {
+      "protocols": {
+        "mutually_exclusive_subsets": [
+          [
+            "http",
+            "https"
+          ],
+          [
+            "tcp",
+            "tls"
+          ],
+          [
+            "grpc",
+            "grpcs"
+          ]
+        ],
+        "required": true,
+        "elements": {
+          "one_of": [
+            "grpc",
+            "grpcs",
+            "http",
+            "https",
+            "tcp",
+            "tls"
+          ],
+          "type": "string"
+        },
+        "len_min": 1,
+        "default": [
+          "http",
+          "https"
+        ],
+        "type": "set"
+      }
+    },
+    {
+      "methods": {
+        "elements": {
+          "match": "^%u+$",
+          "type": "string"
+        },
+        "type": "set"
+      }
+    },
+    {
+      "hosts": {
+        "elements": {
+          "match_all": [
+            {
+              "err": "invalid wildcard: must have at most one wildcard",
+              "pattern": "^[^*]*%*?[^*]*$"
+            }
+          ],
+          "match_any": {
+            "patterns": [
+              "^%*%.",
+              "%.%*$",
+              "^[^*]*$"
+            ],
+            "err": "invalid wildcard: must be placed at leftmost or rightmost label"
+          },
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "paths": {
+        "elements": {
+          "match_none": [
+            {
+              "err": "must not have empty segments",
+              "pattern": "//"
+            }
+          ],
+          "starts_with": "/",
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "headers": {
+        "keys": {
+          "match_none": [
+            {
+              "err": "cannot contain 'host' header, which must be specified in the 'hosts' attribute",
+              "pattern": "^[Hh][Oo][Ss][Tt]$"
+            }
+          ],
+          "type": "string"
+        },
+        "values": {
+          "elements": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": "map"
+      }
+    },
+    {
+      "https_redirect_status_code": {
+        "required": true,
+        "one_of": [
+          426,
+          301,
+          302,
+          307,
+          308
+        ],
+        "default": 426,
+        "type": "integer"
+      }
+    },
+    {
+      "regex_priority": {
+        "default": 0,
+        "type": "integer"
+      }
+    },
+    {
+      "strip_path": {
+        "default": true,
+        "type": "boolean"
+      }
+    },
+    {
+      "preserve_host": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "snis": {
+        "elements": {
+          "type": "string"
+        },
+        "type": "set"
+      }
+    },
+    {
+      "sources": {
+        "elements": {
+          "fields": [
+            {
+              "ip": {
+                "type": "string"
+              }
+            },
+            {
+              "port": {
+                "between": [
+                  0,
+                  65535
+                ],
+                "type": "integer"
+              }
+            }
+          ],
+          "entity_checks": [
+            {
+              "at_least_one_of": [
+                "ip",
+                "port"
+              ]
+            }
+          ],
+          "type": "record"
+        },
+        "type": "set"
+      }
+    },
+    {
+      "destinations": {
+        "elements": {
+          "fields": [
+            {
+              "ip": {
+                "type": "string"
+              }
+            },
+            {
+              "port": {
+                "between": [
+                  0,
+                  65535
+                ],
+                "type": "integer"
+              }
+            }
+          ],
+          "entity_checks": [
+            {
+              "at_least_one_of": [
+                "ip",
+                "port"
+              ]
+            }
+          ],
+          "type": "record"
+        },
+        "type": "set"
+      }
+    },
+    {
+      "tags": {
+        "elements": {
+          "type": "string",
+          "required": true,
+          "match": "^[%w%.%-%_~]+$"
+        },
+        "type": "set"
+      }
+    },
+    {
+      "service": {
+        "reference": "services",
+        "type": "foreign"
+      }
+    }
+  ]
+}
