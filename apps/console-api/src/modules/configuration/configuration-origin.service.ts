@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import {ConflictException,ForbiddenException,Injectable} from '@nestjs/common';
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {DbService} from '../../infrastructure/db.service';
@@ -180,7 +181,7 @@ export class ConfigurationOriginService {
     // its raw fingerprints; only these two known component labels align.
     const supportedAdapters=new Set(['kong-1.5','kong-oss-1.5-v1']),comparisonAdapter=inventory.adapterVersion??'kong-1.5';
     if(canonicalJson(graph.scope)!==canonicalJson(inventory.scope)||graph.completeness!=='complete'||graph.consistency!=='console_fenced_best_effort'
-      ||graph.kongVersion!==inventory.version||!/^1\.5\.\d+$/.test(graph.kongVersion)||!supportedAdapters.has(graph.adapterVersion)||!supportedAdapters.has(comparisonAdapter))throw changed(side==='source'?'CONFIGURATION_ORIGIN_PRIVATE_SOURCE_CHANGED':'CONFIGURATION_ORIGIN_TARGET_CHANGED');
+      ||graph.kongVersion!==inventory.version||!isSupportedKong(graph.kongVersion)||!supportedAdapters.has(graph.adapterVersion)||!supportedAdapters.has(comparisonAdapter))throw changed(side==='source'?'CONFIGURATION_ORIGIN_PRIVATE_SOURCE_CHANGED':'CONFIGURATION_ORIGIN_TARGET_CHANGED');
     const roots=new Map(graph.objects.filter(object=>object.entityType!=='credentials').map(object=>[`${object.entityType}:${object.nativeId}`,object]));
     // M8 can capture additional read-only dependencies. Only objects present
     // in the original comparison may supply noncredential Promote material.

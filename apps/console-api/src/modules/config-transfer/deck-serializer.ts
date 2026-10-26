@@ -1,3 +1,4 @@
+import { isSupportedKong, kongCapabilities } from '../../infrastructure/kong/kong-capabilities';
 import { stringify } from 'yaml';
 import type { CaptureGraph, CaptureObject } from '../configuration/configuration.types';
 import { CREDENTIAL_SCHEMAS } from '../entities/entities.types';
@@ -9,7 +10,9 @@ import type { Deck11Export, DeckFormatOmission } from './transfer.types';
 
 export function assertCompleteCaptureGraph(graph: CaptureGraph): void {
   if (graph.completeness !== 'complete' || graph.consistency !== 'console_fenced_best_effort') transferFail('CONFIGURATION_CAPTURE_NOT_COMPLETE');
-  if (!/^1\.5\./.test(graph.kongVersion) || graph.schemas.kongVersion !== graph.kongVersion || graph.schemas.schemaHmac !== graph.schemaHmac) transferFail('CONFIGURATION_SCHEMA_BINDING_MISMATCH');
+  if (!isSupportedKong(graph.kongVersion) || graph.schemas.kongVersion !== graph.kongVersion || graph.schemas.schemaHmac !== graph.schemaHmac) transferFail('CONFIGURATION_SCHEMA_BINDING_MISMATCH');
+  // Kong < 1.4 credentials carry no tags, so workspace isolation cannot be proven.
+  if (!kongCapabilities(graph.kongVersion).credentialTransfer && graph.objects.some(object => object.entityType === 'credentials')) transferFail('CONFIGURATION_CREDENTIALS_UNSUPPORTED_KONG_VERSION');
   const collections = new Map(graph.collections.map(collection => [collection.collectionKey, collection]));
   if (collections.size !== graph.collections.length || graph.requiredCollections.some(key => !collections.get(key)?.terminalObserved)) transferFail('CONFIGURATION_COLLECTION_NOT_COMPLETE');
   const objects = new Map<string, CaptureObject>();

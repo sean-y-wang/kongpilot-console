@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { ConflictException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import {randomUUID} from 'node:crypto';
@@ -241,7 +242,7 @@ export class ConfigurationAccessService implements ConfigurationAccessPolicy, On
     const cluster = await db.one<any>(`SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL${lock?' FOR SHARE':''}`, [cid]);
     const workspace = await db.one<any>(`SELECT * FROM workspaces WHERE cluster_id=$1 AND id=$2${lock?' FOR SHARE':''}`, [cid, wid]);
     if (!cluster || !workspace) throw new NotFoundException({code:'CONFIGURATION_SCOPE_NOT_FOUND',message:'所选集群或工作区不存在'});
-    if (!/^1\.5\.\d+$/.test(cluster.version ?? '') || ['disabled','incompatible'].includes(cluster.status) || workspace.status !== 'active') throw deny('CONFIGURATION_SCOPE_UNAVAILABLE');
+    if (!isSupportedKong(cluster.version ?? '') || ['disabled','incompatible'].includes(cluster.status) || workspace.status !== 'active') throw deny('CONFIGURATION_SCOPE_UNAVAILABLE');
     const scope = transportScopeFor(cluster.admin_url, cluster.transport_scope);
     return {cluster, workspace, scope, endpoint: this.secrets.fingerprint({url:cluster.admin_url,transportScope:scope,version:cluster.version,secret:cluster.connection_secret??null})};
   }

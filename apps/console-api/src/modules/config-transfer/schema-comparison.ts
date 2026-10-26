@@ -1,3 +1,4 @@
+import { kongCapabilities } from '../../infrastructure/kong/kong-capabilities';
 import {canonicalJson} from '../../infrastructure/secret.service';
 import type {CapturedSchemaBundle} from '../configuration/configuration.types';
 
@@ -38,13 +39,13 @@ function namedFields(schema:unknown,kong15Defaults=false):unknown{
  * Compare definitions without rewriting stored approvals or native schemas.
  * Explicit limits, defaults, checks and non-field arrays stay exact. */
 export function kong15SchemaValidationEquivalent(left:unknown,right:unknown,kongVersion:string):boolean{
- if(typeof kongVersion!=='string'||!/^1\.5\.\d+$/.test(kongVersion))return false;
+ if(typeof kongVersion!=='string'||!kongCapabilities(kongVersion).full)return false;
  try{return canonicalJson(namedFields(left,true))===canonicalJson(namedFields(right,true));}catch{return false;}
 }
 export function compareCapturedSchemas(left:CapturedSchemaBundle,right:CapturedSchemaBundle){
  const equality=(a:unknown,b:unknown)=>canonicalJson(a)===canonicalJson(b);
  const entries:Array<{kind:'entity'|'plugin';name:string;exactEqual:boolean;namedFieldOrderEquivalent:boolean;kong15ValidationEquivalent:boolean;valid:boolean;differences:Array<{path:string;kind:'missing'|'value'|'type'|'array-order'}>;differencesTruncated:boolean}>=[];
- const kong15=left.kongVersion===right.kongVersion&&/^1\.5\.\d+$/.test(left.kongVersion);
+ const kong15=left.kongVersion===right.kongVersion&&kongCapabilities(left.kongVersion).full;
  const safeKey=(name:string)=>/^[A-Za-z0-9_-]{1,100}$/.test(name)?name:'[field]';
  const differences=(a:any,b:any)=>{
   const items:Array<{path:string;kind:'missing'|'value'|'type'|'array-order'}>=[];let total=0;
