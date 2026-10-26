@@ -380,3 +380,24 @@ a { text-decoration: none; }
 
 .toolbox-form-grid { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(220px, 2fr); gap: 0 24px; }
 @media (max-width: 650px) { .toolbox-form-grid { grid-template-columns: minmax(0, 1fr); } }
+.entity-ref { display: inline-flex; align-items: baseline; gap: 6px; flex-wrap: wrap; max-width: 100%; }
+.entity-ref .entity-ref-link { padding: 0; height: auto; }
+.entity-ref-id { font-size: 12px; }
+.entity-ref-scope { display: inline-flex; align-items: baseline; gap: 2px; margin-right: 6px; }
+
+/* Readability pass (WCAG AA): secondary copy previously used light greys
+ * (2.3–4.3:1 on white). Route it through the shared --kp-muted token, which is
+ * >= 4.5:1 on canvas/panel/soft in both appearances. Icons keep their hue but
+ * reach >= 3:1. See docs/reference/accessibility.md. */
+html[data-appearance] :is(.header-label, .header-stage, .eyebrow, .stat-card .ant-statistic-title, .stat-caption, .info-grid dt,
+  .connection-note, .source-summary-info span, .baseline-item p, .table-secondary, .page-footnote .ant-alert-description,
+  .provider-intro p, .provider-note, .empty-panel p, .console-footer, .app-loading, .index-status, .schema-array-row-heading,
+  .field-code, .schema-authority-note .ant-alert-description, .inventory-item span, .plugin-summary-grid .ant-statistic-title,
+  .plugin-card-stats span, .plugin-priority-number, .plugin-supported-scopes, .plugin-binding-refs a, .plugin-context-intro,
+  .plugin-context-selectors label, .plugin-execution-chain small, .plugin-chain-order, .plugin-handler-priorities .ant-tag,
+  .editor-workspace-note, .vitals-filters label, .vitals-stat-title, .vitals-stat-title > span, .vitals-stat-note,
+  .metric-chart-empty .ant-empty-description, .vitals-bandwidth-summary, .vitals-observation, .portal-settings-form,
+  .login-form .ant-input-prefix, .login-security, .login-copyright) { color: var(--kp-muted); }
+html[data-appearance] :is(.table-secondary, .field-code, .stat-caption, .vitals-stat-note) { font-size: 12px; }
+html[data-appearance='light'] .stat-icon.orange, html[data-appearance='light'] .source-icon.prometheus, html[data-appearance='light'] .provider-symbol.prometheus { color: #b0641f; }
+html[data-appearance='light'] :is(.stat-icon.green, .plugin-summary-grid .ant-statistic-content-prefix, .plugin-card-title > .anticon, .user-avatar) { color: #0f7a68; }

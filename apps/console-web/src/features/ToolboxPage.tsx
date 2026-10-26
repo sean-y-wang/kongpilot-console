@@ -19,16 +19,16 @@ const routeReasonLabels:Record<string,string>={PROTOCOL_MISMATCH:'协议不匹�
 const routeReason=(code:string)=>routeReasonLabels[code]??'部分匹配条件尚无法验证';
 
 function useToolboxScope(){
-  const {clusterId,cluster}=useCluster(),workspace=useWorkspace(),permission=usePermissions(),mounted=useRef(true);
+  const {clusterId,cluster,kong}=useCluster(),workspace=useWorkspace(),permission=usePermissions(),mounted=useRef(true);
   const identity=JSON.stringify([getApiActorId(),permission.version,clusterId,workspace.workspaceId]),current=useRef(identity);current.current=identity;
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   const assert=()=>{if(!mounted.current||current.current!==identity||!workspace.ready||getApiActorId()!==JSON.parse(identity)[0])throw new ApiError('账号、权限或工作区已切换，请重新操作。',409,'SCOPE_CHANGED');};
-  return{clusterId,cluster,workspace,permission,identity,assert,path:(suffix:string)=>scopeQuery(`/clusters/${clusterId}/${suffix}`,clusterId,workspace.workspaceId)};
+  return{clusterId,cluster,kong,workspace,permission,identity,assert,path:(suffix:string)=>scopeQuery(`/clusters/${clusterId}/${suffix}`,clusterId,workspace.workspaceId)};
 }
 export function ToolboxPage(){const scope=useToolboxScope();
   const capabilities=useQuery({queryKey:['m9','capabilities',scope.identity],queryFn:({signal})=>api<any>(scope.path('toolbox/capabilities'),{signal}),enabled:scope.workspace.ready&&scope.permission.has('toolbox')});
   if(!scope.clusterId)return <NoCluster/>;
-  const tabs=[...(scope.permission.has('toolbox')?[{key:'status',label:'节点状态',children:<StatusPane capabilities={capabilities.data}/>},{key:'cache',label:'缓存',children:<CachePane capabilities={capabilities.data}/>},{key:'routes',label:'路由调试',children:<RouteDebugPane capabilities={capabilities.data}/>}]:[]),...(scope.permission.has('batches')?[{key:'batches',label:'批量操作',children:<BatchPane/>}]:[]),...(scope.permission.has('drafts')?[{key:'drafts',label:'我的草稿',children:<DraftsPane/>}]:[])];
+  const tabs=[...(scope.permission.has('toolbox')?[{key:'status',label:'节点状态',children:<StatusPane capabilities={capabilities.data}/>},{key:'cache',label:'缓存',children:<CachePane capabilities={capabilities.data}/>},...(scope.kong.routeSimulation?[{key:'routes',label:'路由调试',children:<RouteDebugPane capabilities={capabilities.data}/>}]:[])]:[]),...(scope.permission.has('batches')?[{key:'batches',label:'批量操作',children:<BatchPane/>}]:[]),...(scope.permission.has('drafts')?[{key:'drafts',label:'我的草稿',children:<DraftsPane/>}]:[])];
   return <><PageHeading title="运维工具箱"/>{capabilities.isError&&<QueryError error={capabilities.error} retry={()=>void capabilities.refetch()}/>}<Tabs key={scope.identity} items={tabs}/></>;
 }
 function StatusPane({capabilities}:{capabilities:any}){const scope=useToolboxScope();const query=useQuery({queryKey:['m9','status',scope.identity],queryFn:({signal})=>api<any>(scope.path('toolbox/status'),{signal}),enabled:scope.workspace.ready&&capabilities?.nodeStatus===true});
