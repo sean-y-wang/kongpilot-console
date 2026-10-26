@@ -1,3 +1,4 @@
+import { isSupportedKong } from './kong-capabilities';
 import { ConflictException, ForbiddenException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import {performance} from 'node:perf_hooks';
@@ -1048,7 +1049,7 @@ export class KongExecutionContextService {
   async assertPromotionRecoveryRequest(frame:KongExecutionFrame,cluster:KongPolicyCluster,method:string,path:string,body:unknown,query:Record<string,string|number>):Promise<boolean>{
     const claim=this.promotionRecovery(frame);if(!claim)return false;const proof=await this.currentRecovery(claim);
     if(proof.mode!=='read'||method!=='GET'||body!==undefined||cluster.id!==proof.clusterId||transportScopeFor(cluster.admin_url,cluster.transport_scope)!==proof.transportScope
-      ||!/^1\.5\.\d+$/.test(cluster.version??'')||['disabled','incompatible'].includes(String(cluster.status)))throw denied('PROMOTION_RECOVERY_REQUEST_FORBIDDEN');
+      ||!isSupportedKong(cluster.version??'')||['disabled','incompatible'].includes(String(cluster.status)))throw denied('PROMOTION_RECOVERY_REQUEST_FORBIDDEN');
     const endpoint=new URL(cluster.admin_url).origin;if(claim.endpointOrigin&&claim.endpointOrigin!==endpoint)throw denied('PROMOTION_RECOVERY_CHANGED');claim.endpointOrigin=endpoint;
     const cursor=claim.cursors.get(path);
     if(cursor){

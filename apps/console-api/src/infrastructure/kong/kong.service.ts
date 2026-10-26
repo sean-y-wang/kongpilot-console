@@ -1,3 +1,4 @@
+import { isSupportedKong, kongCapabilities, stripUnsupportedFields } from './kong-capabilities';
 import { BadGatewayException, BadRequestException, ConflictException, HttpException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { MetricsCredentialsService } from '../../modules/metrics/metrics-credentials.service';
 import { randomUUID } from 'node:crypto';
@@ -94,10 +95,11 @@ export class KongService {
     this.scopes.set(clusterId, scope);
     let result: T;
     if (writeMethods.has(method)) {
-      if (!/^1\.5\.\d+$/.test(cluster.version || '')) throw new HttpException({ code: 'KONG_VERSION_INCOMPATIBLE', message: `集群版本 ${cluster.version || '尚未探测'} 不支持配置写入，仅支持 Kong OSS 1.5.x` }, 409);
+      if (!isSupportedKong(cluster.version || '')) throw new HttpException({ code: 'KONG_VERSION_INCOMPATIBLE', message: `集群版本 ${cluster.version || '尚未探测'} 不支持配置写入，仅支持 Kong OSS 1.3.x–1.5.x` }, 409);
       await this.execution.assertApprovedNativeRequest(ticket, 'authorize');
       if (body !== undefined && (body === null || typeof body !== 'object' || Array.isArray(body))) throw new BadRequestException({ code: 'INVALID_KONG_BODY', message: '网关配置必须为 JSON 对象' });
       const entity = entityForPath(path);
+      if (body && entity) body = immutableJson(stripUnsupportedFields(entity, body as Record<string, unknown>, cluster.version));
       if (body && entity && !/\/targets\/[^/]+\/(healthy|unhealthy)$/.test(path)) await this.validateBody(clusterId, path, entity, body,ticket);
       if (method !== 'DELETE') await this.protectDestination(clusterId, path, body, ticket);
       result = await this.redis.withLock(`kong:${scope}:write`, () => this.perform<T>(cluster, method, path, body, query, ticket, scope));
@@ -118,7 +120,7 @@ export class KongService {
     const frame = this.execution.current();
     if (frame.kind !== 'system-read' || frame.purpose !== 'metrics-scrape' || frame.clusterId !== clusterId) throw new HttpException({ code: 'KONG_METRICS_CONTEXT_REQUIRED', message: '指标端点仅允许独立内部抓取上下文访问' }, 403);
     const cluster = await this.cluster(clusterId);
-    if (!/^1\.5\.\d+$/.test(cluster.version || '') || cluster.status === 'disabled' || !cluster.enabled_plugins?.includes('prometheus')) throw new ConflictException({ code: 'KONG_METRICS_UNAVAILABLE', message: '此集群尚未探测到 Kong 1.5 prometheus 插件能力' });
+    if (!isSupportedKong(cluster.version || '') || cluster.status === 'disabled' || !cluster.enabled_plugins?.includes('prometheus')) throw new ConflictException({ code: 'KONG_METRICS_UNAVAILABLE', message: '此集群尚未探测到受支持 Kong 版本的 prometheus 插件能力' });
     assertKongPath('GET', '/metrics', true);
     const ticket = await this.execution.authorizeRequest(cluster, 'GET', '/metrics', undefined, {});
     const scope = transportScopeFor(cluster.admin_url, cluster.transport_scope);
@@ -237,7 +239,7 @@ export class KongService {
     }
     if (health && body !== undefined) throw new BadRequestException({ code: 'INVALID_KONG_BODY', message: '健康状态置位不接受配置请求体' });
     const before = await this.cluster(clusterId);
-    if (!/^1\.5\.\d+$/.test(before.version ?? '') || before.status === 'disabled') {
+    if (!isSupportedKong(before.version ?? '') || before.status === 'disabled') {
       throw new ConflictException({ code: 'KONG_VERSION_INCOMPATIBLE', message: '变更准备仅支持可用的 Kong OSS 1.5.x 集群' });
     }
     if (scheduled && (before.revision !== scheduled.clusterRevision || transportScopeFor(before.admin_url, before.transport_scope) !== scheduled.transportScope)) {
@@ -489,7 +491,7 @@ export class KongService {
       const root = await this.request(clusterId, 'GET', '/');
       if (!root || typeof root.version !== 'string') throw new BadGatewayException({ code: 'KONG_INVALID_ROOT', message: '目标未返回 Kong version，不能识别为 Kong Admin API' });
       observedVersion = root.version;
-      const supported = /^1\.5\.\d+$/.test(root.version);
+      const supported = isSupportedKong(root.version);
       // The user's 1.5 allowlist permits root discovery, not GET /endpoints.
       // Missing discovery remains explicit; version/schema-derived endpoints
       // are recorded separately and never invented as native root fields.
@@ -500,14 +502,15 @@ export class KongService {
       const schemaCapabilities: Record<string, boolean> = {};
       if (supported) await Promise.all(ENTITIES.map(async entity => { schemaCapabilities[entity] = await this.schema(clusterId, entity).then(() => true).catch(error => { this.optionalProbeRead(error); return false; }); }));
       const capabilities = {
-        adapter: supported ? 'kong-oss-1.5' : null, version_supported: supported,
+        adapter: supported ? `kong-oss-${kongCapabilities(root.version).line}` : null, version_supported: supported,
+        kong_capabilities: kongCapabilities(root.version),
         endpoint_discovery: endpointResult !== null, endpoint_discovery_source: endpointResult !== null ? 'root' : 'unavailable',
         endpoints: endpointResult, derived_endpoints: supported ? ENTITIES.filter(entity => schemaCapabilities[entity]).map(entity => `/${entity}`) : [],
-        derived_capability_source: supported ? 'fixed-1.5-allowlist-and-schemas' : null, status: statusResult !== null,
+        derived_capability_source: supported ? 'fixed-allowlist-and-schemas' : null, status: statusResult !== null,
         schemas: schemaCapabilities, plugins_schema_path: '/plugins/schema/{name}',
         native_workspaces: false, native_rbac: false, native_vitals: false, native_vaults: false, native_event_hooks: false, native_clustering: false, expression_routes: false,
         write_enabled: supported && initial.execution_mode === 'direct',
-        warnings: supported ? [] : [`仅支持 Kong OSS 1.5.x，检测到 ${root.version}，配置写入已禁止`],
+        warnings: !supported ? [`仅支持 Kong OSS 1.3.x–1.5.x，检测到 ${root.version}，配置写入已禁止`] : kongCapabilities(root.version).full ? [] : [`Kong ${root.version} 为有限支持：凭证无 tags，门户发放凭证、凭证导入导出与路由模拟已隐藏`],
       };
       const inspection = immutableJson({ cluster_id: clusterId, version: root.version, status: supported ? 'healthy' : 'incompatible', capabilities, enabled_plugins: enabled.enabled_plugins, latency_ms: Date.now() - started, probed_at: new Date().toISOString() });
       this.probeInspections.set(inspection, { initial }); return inspection;
