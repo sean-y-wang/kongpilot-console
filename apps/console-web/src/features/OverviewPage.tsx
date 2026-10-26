@@ -13,7 +13,7 @@ import { formatTime, NoCluster, PageHeading, QueryError, StatusBadge } from '../
 import { entityLabels, entityTypes } from './entities';
 
 export function OverviewPage() {
-  const { cluster, clusters, clusterId, query } = useCluster();
+  const { cluster, clusters, clusterId, query, kong } = useCluster();
   const { workspaceId, workspace, ready, writeBlocked } = useWorkspace();
   const { user } = useAuth();
   const permission = usePermissions();
@@ -22,11 +22,13 @@ export function OverviewPage() {
   const syncInventory = useMutation({ mutationFn: () => post(scopeQuery(`/clusters/${clusterId}/inventory/refresh`, clusterId, workspaceId)), onSuccess: () => { void inventory.refetch(); } });
   const sources = sourcesQuery.data ?? [];
   const connected = clusters.filter(item => ['healthy', 'connected', 'ok', 'online', 'compatible'].includes(item.status)).length;
-  const incompatible = !!cluster?.version && !/^1\.5\./.test(cluster.version);
+  const incompatible = !!cluster?.version && !kong.supported;
+  const limited = !!cluster?.version && kong.supported && !kong.full;
   return <>
     <PageHeading title="网关总览" extra={<Button icon={<PilotIcon name="reload" />} loading={query.isFetching} onClick={() => { void query.refetch(); void sourcesQuery.refetch(); }}>刷新状态</Button>} />
     {query.isError && <QueryError error={query.error} retry={() => void query.refetch()} />}
-    {incompatible && <Alert type="warning" showIcon message={`当前集群版本 ${cluster?.version} 不在 Kong 1.5.x 兼容范围内`} description="网关配置写入已受版本策略限制。请连接受支持的集群。" style={{ marginBottom: 24 }} />}
+    {incompatible && <Alert type="warning" showIcon message={`当前集群版本 ${cluster?.version} 不在 Kong 1.3.x–1.5.x 兼容范围内`} description="网关配置写入已受版本策略限制。请连接受支持的集群。" style={{ marginBottom: 24 }} />}
+    {limited && <Alert type="info" showIcon data-testid="kong-limited-support" message={`Kong ${cluster?.version}：有限支持`} description={`浏览、巡检、指标、健康检查、导出与配置写入可用；${kong.line} 不认识的字段（${Object.entries(kong.unsupportedFields).map(([entity, fields]) => `${entity}.${fields.join('/')}`).join('、') || '无'}）写入时自动剥离。${kong.credentialTags ? '' : '凭证不支持 tags，门户发放凭证与凭证导入导出已关闭。'}${kong.routeSimulation ? '' : '路由模拟已隐藏。'}`} style={{ marginBottom: 24 }} />}
     <Row gutter={[20, 20]} className="stat-row">
       <Col xs={12} sm={12} xl={6}><Card className="stat-card"><div className="stat-icon blue"><PilotIcon name="cluster" /></div><Statistic title="已登记集群" value={query.isError && !query.data ? '—' : clusters.length} loading={query.isLoading} /></Card></Col>
       <Col xs={12} sm={12} xl={6}><Card className="stat-card"><div className="stat-icon green"><PilotIcon name="check-circle" /></div><Statistic title="连接正常" value={query.isError && !query.data ? '—' : connected} loading={query.isLoading} /></Card></Col>

@@ -10,6 +10,7 @@ import { api } from '../api/client';
 import { redactForDisplay } from '../api/redaction';
 import { EntityRelationList, relationUnavailableMessage } from '../components/EntityRelationList';
 import { QueryError } from '../components/Shared';
+import { EntityRef, useEntityReferences } from '../components/EntityReference';
 import { entityLabels, entityName, entityTime } from './entities';
 import { TargetManager } from './TargetManager';
 import { CredentialManager } from './CredentialManager';
@@ -30,7 +31,8 @@ export function EntityDetails({ type, id, onClose, onEdit, onDelete }: { type: s
   const entity = query.data?.entity;
   const abilities = useEntityPermissions(entity ? [{ type, id: entity.id }] : []);
   const certificate = query.data?.certificate;
-  const relationTypes: Record<string, string> = { service: 'services', route: 'routes', consumer: 'consumers', certificate: 'certificates', client_certificate: 'certificates' };
+  const relationTypes: Record<string, string> = { service: 'services', route: 'routes', consumer: 'consumers', certificate: 'certificates', client_certificate: 'certificates', upstream: 'upstreams' };
+  const refs = useEntityReferences(entity ? Object.entries(relationTypes).map(([field, target]) => ({ type: target, id: entity[field]?.id })) : []);
   function renderValue(name: string, value: any): React.ReactNode {
     const unavailable = relationTypes[name] && relationUnavailableMessage(query.data?.relations?.[name]);
     if (unavailable) return <Typography.Text type="secondary">{unavailable}</Typography.Text>;
@@ -38,7 +40,7 @@ export function EntityDetails({ type, id, onClose, onEdit, onDelete }: { type: s
     if (value == null) return <Typography.Text type="secondary">—</Typography.Text>;
     if (name === 'created_at' || name === 'updated_at') return entityTime(value);
     if (name === 'tags') return <Space wrap>{value.map((tag: string) => <Tag key={tag}>{tag}</Tag>)}</Space>;
-    if (relationTypes[name] && value.id) return <Button type="link" size="small" onClick={() => navigate(`/entities/${relationTypes[name]}/${value.id}`)}>{value.id}</Button>;
+    if (relationTypes[name] && value.id) return <EntityRef type={relationTypes[name]} id={value.id} refs={refs} />;
     if (typeof value === 'boolean') return <Tag color={value ? 'green' : 'default'}>{value ? 'true' : 'false'}</Tag>;
     if (typeof value === 'object') return <pre className="detail-value-json">{JSON.stringify(value, null, 2)}</pre>;
     return <Typography.Text className={['id', 'cert', 'key'].includes(name) ? 'mono' : undefined} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{String(value)}</Typography.Text>;
