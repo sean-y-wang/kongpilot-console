@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { DbService } from '../../infrastructure/db.service';
@@ -669,7 +670,7 @@ export class WorkflowService {
     const version=await this.authz.permissionVersion(actor.user);if(expectedVersion&&version!==expectedVersion)throw new ForbiddenException({code:'PERMISSIONS_CHANGED'});
     const cluster=await tx.one<any>(`SELECT admin_url,transport_scope,revision,execution_mode,status,version FROM clusters WHERE id=$1 AND deleted_at IS NULL${tx!==this.db?' FOR SHARE':''}`,[cid]);
     const workspace=await tx.one<any>(`SELECT revision,status FROM workspaces WHERE id=$1 AND cluster_id=$2${tx!==this.db?' FOR SHARE':''}`,[wid,cid]);
-    if(!cluster||cluster.status==='disabled'||!/^1\.5\.\d+$/.test(cluster.version??'')||transportScopeFor(cluster.admin_url,cluster.transport_scope)!==plan.scope.transportScope
+    if(!cluster||cluster.status==='disabled'||!isSupportedKong(cluster.version??'')||transportScopeFor(cluster.admin_url,cluster.transport_scope)!==plan.scope.transportScope
       ||cluster.revision!==plan.scope.clusterRevision||cluster.execution_mode!==plan.executionMode||!workspace||workspace.status!=='active'||workspace.revision!==plan.scope.workspaceRevision)throw new ConflictException({code:'WORKFLOW_SCOPE_CHANGED'});
     const grant=await tx.one<any>('SELECT * FROM portal_application_grants WHERE id=$1 AND cluster_id=$2 AND workspace_id=$3',[plan.subject.id,cid,wid]);
     if(!grant||grant.transport_scope!==plan.scope.transportScope||grant.workflow_id!==plan.workflowId)throw new ConflictException({code:'PORTAL_REJECTED_ISSUE_PROOF_INVALID'});

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { EntityRef, useEntityReferences } from '../components/EntityReference';
 import { Alert, App, Button, Card, Input, Select, Space, Table, Tag, Typography } from 'antd';
 import { PilotIcon } from '../../../../packages/contracts/src/PilotIcon';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -69,13 +70,20 @@ export function EntitiesPage() {
       }catch(error){setOperationError(error);throw error;}
     } });
   }
+  const refs = useEntityReferences(items.flatMap((entity: any) => [
+    ...(type === 'plugins' ? (['service', 'route', 'consumer'] as const).map(key => ({ type: `${key}s`, id: entity[key]?.id })) : []),
+    ...(type === 'routes' ? [{ type: 'services', id: entity.service?.id }] : []),
+    ...(type === 'snis' ? [{ type: 'certificates', id: entity.certificate?.id }] : []),
+    ...(type === 'services' ? [{ type: 'certificates', id: entity.client_certificate?.id }] : []),
+  ]));
   const columns: any[] = [{ title: '名称 / ID', width: 245, render: (_: any, entity: any) => <div><Button type="link" className="table-name" onClick={() => navigate(`/entities/${type}/${entity.id}`)}>{entityName(entity)}</Button><div className="table-secondary mono">{entity.id}</div></div> }];
   if (type === 'services') columns.push({ title: '连接', width: 250, render: (_: any, entity: any) => <span className="mono">{entity.protocol}://{entity.host}:{entity.port}{entity.path ?? ''}</span> });
   if (type === 'routes') columns.push({ title: '匹配规则', width: 290, render: (_: any, entity: any) => <div><Space wrap size={2}>{[...(entity.hosts ?? []), ...(entity.paths ?? [])].map((value: string) => <Tag key={value}>{value}</Tag>)}</Space><div className="table-secondary">{(entity.protocols ?? []).join(' / ')} · {(entity.methods ?? []).join(', ') || '全部方法'}</div></div> });
+  if (type === 'routes') columns.push({ title: 'Service', width: 220, render: (_: any, entity: any) => <EntityRef type="services" id={entity.service?.id} refs={refs} /> });
   if (type === 'consumers') columns.push({ title: '业务标识', dataIndex: 'custom_id', width: 200, render: (value: string) => value ?? '—' });
-  if (type === 'plugins') columns.push({ title: '范围 / 状态', width: 240, render: (_: any, entity: any) => <Space wrap><Tag color={entity.enabled ? 'green' : 'default'}>{entity.enabled ? '启用' : '停用'}</Tag>{['service', 'route', 'consumer'].filter(key => entity[key]).map(key => <Tag key={key}>{key}</Tag>)}{!entity.service && !entity.route && !entity.consumer && <Tag color="purple">全局</Tag>}</Space> });
+  if (type === 'plugins') columns.push({ title: '范围 / 状态', width: 240, render: (_: any, entity: any) => <Space wrap><Tag color={entity.enabled ? 'green' : 'default'}>{entity.enabled ? '启用' : '停用'}</Tag>{(['service', 'route', 'consumer'] as const).filter(key => entity[key]?.id).map(key => <span key={key} className="entity-ref-scope"><Tag>{key}</Tag><EntityRef type={`${key}s`} id={entity[key].id} refs={refs} compact /></span>)}{!entity.service && !entity.route && !entity.consumer && <Tag color="purple">全局</Tag>}</Space> });
   if (type === 'upstreams') columns.push({ title: '算法', dataIndex: 'algorithm', width: 190 });
-  if (type === 'snis') columns.push({ title: '证书', width: 240, render: (_: any, entity: any) => <Button type="link" size="small" onClick={() => navigate(`/entities/certificates/${entity.certificate?.id}`)}>{entity.certificate?.id ?? '无证书引用'}</Button> });
+  if (type === 'snis') columns.push({ title: '证书', width: 240, render: (_: any, entity: any) => (entity.certificate?.id ? <EntityRef type="certificates" id={entity.certificate.id} refs={refs} /> : <Typography.Text type="secondary">无证书引用</Typography.Text>) });
   columns.push({ title: '标签', width: 190, render: (_: any, entity: any) => <Space className="entity-tags" wrap size={2}>{entity.tags?.length ? entity.tags.map((tag: string) => <Tag key={tag}>{tag}</Tag>) : <Typography.Text type="secondary">—</Typography.Text>}</Space> }, { title: '创建时间', width: 185, render: (_: any, entity: any) => <Typography.Text type="secondary">{entityTime(entity.created_at)}</Typography.Text> }, { title: '操作', width: approval ? 200 : 140, fixed: 'right', render: (_: any, entity: any) => <Space size={0}><Button type="link" size="small" icon={<PilotIcon name="edit" />} disabled={!ready || writeBlocked || readonlyWorkspace || !abilities.can(type, entity?.id, 'write') || approval && (!preparation.allowed || !!preparation.attempt || preparation.busy)} onClick={() => setEditor({ entity })}>编辑</Button><Button danger type="link" size="small" onClick={() => deleteEntity(entity)} disabled={!ready || writeBlocked || readonlyWorkspace || !abilities.can(type, entity?.id, 'delete') || approval && (!preparation.allowed || !!preparation.attempt || preparation.busy)}>{approval ? '提交删除工单' : '删除'}</Button></Space> });
   if (!isEntityType(type)) return <Alert type="error" message="不支持的实体类型" />;
   return <>

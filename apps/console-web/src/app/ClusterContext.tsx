@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { kongCapabilities, type KongCapabilities } from '../../../../packages/contracts/src/kong-capabilities';
 import { listData, normalizeCluster, type Cluster } from '../api/types';
 
 interface ClusterContextValue {
@@ -9,6 +10,8 @@ interface ClusterContextValue {
   clusterId: string | undefined;
   selectCluster: (id: string) => void;
   query: UseQueryResult<Cluster[], Error>;
+  /** Version capability table for the selected cluster (hide what it lacks). */
+  kong: KongCapabilities;
 }
 const ClusterContext = createContext<ClusterContextValue | null>(null);
 export const clustersQueryKey = ['clusters'];
@@ -23,7 +26,7 @@ export function ClusterProvider({ children }: { children: ReactNode }) {
     else sessionStorage.removeItem('kongos.clusterId');
   }, [cluster?.id]);
   function selectCluster(id: string) { setSelected(id); sessionStorage.setItem('kongos.clusterId', id); }
-  return <ClusterContext.Provider value={{ clusters, cluster, clusterId: cluster?.id, selectCluster, query }}>{children}</ClusterContext.Provider>;
+  return <ClusterContext.Provider value={{ clusters, cluster, clusterId: cluster?.id, selectCluster, query, kong: kongCapabilities(cluster?.version) }}>{children}</ClusterContext.Provider>;
 }
 
 export function useCluster() {
