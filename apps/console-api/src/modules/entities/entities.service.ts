@@ -120,7 +120,7 @@ export class EntityService {
     if (!credential && type !== 'targets') entityType(type);
     await this.authz.assertCluster(actor.user, clusterId, credential ? 'consumers' : type, 'read', actor.workspaceId);
     const schema = stripSensitiveSchemaDefaults(await this.kong.schema(clusterId, credential ? CREDENTIAL_SCHEMAS[credentialKind(type)] : type), this.secrets);
-    if (type === 'certificates' && Array.isArray(schema.fields)) return { ...schema, fields: [...schema.fields, { snis: { type: 'set', elements: { type: 'string' }, default: [], description: 'SNI 名称关联（Kong 1.5 Certificate Admin 路由）', console_relation: true } }] };
+    if (type === 'certificates' && Array.isArray(schema.fields)) return { ...schema, fields: [...schema.fields, { snis: { type: 'set', elements: { type: 'string' }, default: [], description: 'SNI 名称关联（Kong Certificate Admin 路由）', console_relation: true } }] };
     return schema;
   }
 

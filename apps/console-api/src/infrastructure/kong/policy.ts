@@ -49,7 +49,7 @@ export function assertKongPath(method: string, path: string, metrics = false): v
       if (parts.length === 5 && ['healthy', 'unhealthy'].includes(parts[4])) valid = method === 'POST';
     }
   }
-  if (!CRUD.has(method) || !safe || !valid) throw new ForbiddenException({ code: 'KONG_ENDPOINT_FORBIDDEN', message: `Kong 1.5 适配层不允许 ${method} ${path}` });
+  if (!CRUD.has(method) || !safe || !valid) throw new ForbiddenException({ code: 'KONG_ENDPOINT_FORBIDDEN', message: `Kong 适配层不允许 ${method} ${path}` });
 }
 
 export function entityForPath(path: string): string | null {

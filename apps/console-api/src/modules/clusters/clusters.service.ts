@@ -59,7 +59,7 @@ export class ClustersService implements OnModuleInit {
       await tx.one('SELECT version FROM iam_epoch WHERE singleton FOR UPDATE');
       const old=await tx.one('SELECT id FROM clusters WHERE admin_url=$1 AND deleted_at IS NULL',[normalized]);if(old)return old;
       await assertRegistryEndpoint(tx,inspection);const id=randomUUID();
-      await tx.exec("INSERT INTO clusters(id,name,admin_url,labels) VALUES($1,'Kong 1.5 默认集群',$2,ARRAY['bootstrap'])",[id,normalized]);
+      await tx.exec("INSERT INTO clusters(id,name,admin_url,labels) VALUES($1,'默认集群',$2,ARRAY['bootstrap'])",[id,normalized]);
       await this.audit.append({entityType:'clusters',entityId:id,clusterId:id,action:'cluster.bootstrap',after:{id,admin_url:normalized}},tx);return {id};
     });
   }
