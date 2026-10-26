@@ -65,7 +65,7 @@ function redisChecks(): any[] {
 }
 export function pluginRules(name: string) {
   let schema_checks: any[] = [], semantic: any[] = [];
-  const notes = ['Kong 1.5 Admin API 执行最终校验；Lua 自定义校验器不会在控制台执行。'];
+  const notes = ['Kong Admin API 执行最终校验；Lua 自定义校验器不会在控制台执行。'];
   if (['acl', 'ip-restriction'].includes(name)) schema_checks = [{ only_one_of: ['whitelist', 'blacklist'] }, { at_least_one_of: ['whitelist', 'blacklist'] }];
   if (name === 'rate-limiting') {
     schema_checks = [{ at_least_one_of: PERIODS }, ...redisChecks()];

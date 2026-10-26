@@ -55,11 +55,11 @@ export function validatePluginConfiguration(name: string, config: any, schema: a
       }
     }
   }
-  if (Object.keys(errors).length) throw new BadRequestException({ code: 'PLUGIN_CONDITION_FAILED', message: '插件配置不满足 Kong 1.5 条件规则', fields: errors });
+  if (Object.keys(errors).length) throw new BadRequestException({ code: 'PLUGIN_CONDITION_FAILED', message: '插件配置不满足 Kong 条件规则', fields: errors });
 }
 export function validatePluginBindings(name: string, plugin: any): void {
   const metadata = pluginMetadata(name);
   if (!metadata.known) return;
-  for (const binding of ['consumer', 'service', 'route'] as const) if (plugin[binding]?.id && !metadata.constraints[binding]) throw new BadRequestException({ code: 'PLUGIN_BINDING_NOT_SUPPORTED', message: `${name} 在 Kong 1.5 不支持 ${binding} 绑定`, fields: { [binding]: '此绑定范围不可用' } });
+  for (const binding of ['consumer', 'service', 'route'] as const) if (plugin[binding]?.id && !metadata.constraints[binding]) throw new BadRequestException({ code: 'PLUGIN_BINDING_NOT_SUPPORTED', message: `${name} 在 Kong 不支持 ${binding} 绑定`, fields: { [binding]: '此绑定范围不可用' } });
   if (Array.isArray(plugin.protocols) && plugin.protocols.some((protocol: string) => !metadata.constraints.protocols.includes(protocol))) throw new BadRequestException({ code: 'PLUGIN_PROTOCOL_NOT_SUPPORTED', message: '插件不支持所选协议', fields: { protocols: '协议必须符合安装版本的插件限制' } });
 }

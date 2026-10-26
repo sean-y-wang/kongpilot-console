@@ -49,7 +49,7 @@ export class VitalsService {
       configured: settings.enabled, collectorEnabled: collector, catalogRevision: settings.catalogRevision, credentialGeneration: settings.credentialGeneration,
       permissions: { setup: await this.authz.isPlatformAdmin(actor.user), nodeMetrics: whole, clusterMetrics: whole },
       capabilities: { qps: available, statusCodes: available, latency: available, bandwidth: available, serviceTopN: available, consumerTopN: available && collector, nodes: !!native && whole, routeDrilldown: available },
-      limitations: ['Kong 1.5 prometheus 0.6 没有 Consumer 或工作区原生标签；归属由抓取时验证的当前 epoch 提供', '当前 epoch 的首个 counter 样本只作基线；重命名、标签和工作区变更形成历史缺口', '未命中 Service 的请求（包括部分路由前 404）不计入原生请求指标', '节点表示已登记 Admin 端点实际观察到的节点，不能发现负载均衡地址后的完整拓扑', '直连 Admin API 可绕过软隔离，Kong 1.5 缺少配置 CAS'],
+      limitations: ['Kong prometheus 0.6 没有 Consumer 或工作区原生标签；归属由抓取时验证的当前 epoch 提供', '当前 epoch 的首个 counter 样本只作基线；重命名、标签和工作区变更形成历史缺口', '未命中 Service 的请求（包括部分路由前 404）不计入原生请求指标', '节点表示已登记 Admin 端点实际观察到的节点，不能发现负载均衡地址后的完整拓扑', '直连 Admin API 可绕过软隔离，Kong 缺少配置 CAS'],
       setupModes: ['native_prometheus', 'collector'], executionMode: cluster.execution_mode,
     };
     if (connection) await this.sources.assertCurrent(cid, connection);

@@ -132,7 +132,7 @@ export class PluginCenterService {
     await this.authz.assertCluster(actor.user, clusterId, 'plugins', 'read', actor.workspaceId);
     const cluster = await this.db.one<any>('SELECT enabled_plugins FROM clusters WHERE id=$1 AND deleted_at IS NULL', [clusterId]);
     const execution_order = (cluster?.enabled_plugins || []).map((name: string) => pluginMetadata(name)).sort((a: any, b: any) => (executionPriority(b.name) ?? -Infinity) - (executionPriority(a.name) ?? -Infinity) || a.name.localeCompare(b.name));
-    return { levels: PRECEDENCE, disabled_fallback: true, execution_order, notes: ['绑定优先级用于选择同名插件的一个启用配置；禁用的高优先级实例会回退到下一层。', '不同插件按 handler.PRIORITY 从高到低执行；认证后 Consumer 信息可能改变后续阶段的配置选择。', '自定义插件的执行优先级无法从 Kong 1.5 Admin API 得知，返回 null。'] };
+    return { levels: PRECEDENCE, disabled_fallback: true, execution_order, notes: ['绑定优先级用于选择同名插件的一个启用配置；禁用的高优先级实例会回退到下一层。', '不同插件按 handler.PRIORITY 从高到低执行；认证后 Consumer 信息可能改变后续阶段的配置选择。', '自定义插件的执行优先级无法从 Kong Admin API 得知，返回 null。'] };
   }
 
   @KongActorScope({ module: 'plugins', queryArg: 1 })
@@ -177,7 +177,7 @@ export class PluginCenterService {
     }
     const execution_chain = [...selected].sort((a, b) => (executionPriority(b.name) ?? -Infinity) - (executionPriority(a.name) ?? -Infinity) || a.name.localeCompare(b.name));
     const unknown = selected.some(plugin => executionPriority(plugin.name) === null);
-    return { context: { workspace_id: actor.workspaceId, ...bindings, protocol: query.protocol || null }, complete, candidates, selected, execution_chain, scan_budget: { pages: READ_PAGE_BUDGET, page_size: 100 }, warnings: [...(!complete ? ['当前工作区只表示管理范围；其他工作区的全局插件仍可能执行，不能确认完整真实执行链。'] : []), ...(unknown ? ['存在自定义插件，执行优先级未知。'] : []), '这是基于配置的选择诊断；Kong 1.5 按 HTTP 或 stream 子系统筛选插件，实际执行还受运行阶段及认证结果影响。'] };
+    return { context: { workspace_id: actor.workspaceId, ...bindings, protocol: query.protocol || null }, complete, candidates, selected, execution_chain, scan_budget: { pages: READ_PAGE_BUDGET, page_size: 100 }, warnings: [...(!complete ? ['当前工作区只表示管理范围；其他工作区的全局插件仍可能执行，不能确认完整真实执行链。'] : []), ...(unknown ? ['存在自定义插件，执行优先级未知。'] : []), '这是基于配置的选择诊断；Kong 按 HTTP 或 stream 子系统筛选插件，实际执行还受运行阶段及认证结果影响。'] };
   }
 
   @KongActorScope({ module: 'plugins', action: 'write' })
