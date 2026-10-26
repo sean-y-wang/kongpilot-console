@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { ConflictException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { isIP } from 'node:net';
 import { KongService } from '../../infrastructure/kong/kong.service';
@@ -84,7 +85,7 @@ class CaptureRunner {
   private async current(phase: 'capture-page' | 'seal' | 'read' = 'capture-page'): Promise<CaptureFence> {
     this.assertBudget();
     const fence = await this.access.assertCurrent(this.handle, { phase, jobId: this.stage.jobId, scope: this.scope });
-    if (!/^1\.5\.\d+$/.test(fence.kongVersion) || canonicalJson(fence.scope) !== canonicalJson(this.scope)
+    if (!isSupportedKong(fence.kongVersion) || canonicalJson(fence.scope) !== canonicalJson(this.scope)
       || fence.jobId !== undefined && fence.jobId !== this.stage.jobId
       || fence.leaseGeneration !== undefined && fence.leaseGeneration !== this.stage.leaseGeneration) invalidCapture('CONFIGURATION_CAPTURE_SCOPE_CHANGED');
     if (this.firstFence) {
@@ -106,7 +107,7 @@ class CaptureRunner {
 
   private root(value: any): { version: string; nodeId?: string } {
     if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.version !== 'string'
-      || !/^1\.5\.\d+$/.test(value.version) || value.version !== this.firstFence.kongVersion) invalidCapture('CONFIGURATION_KONG_VERSION_CHANGED');
+      || !isSupportedKong(value.version) || value.version !== this.firstFence.kongVersion) invalidCapture('CONFIGURATION_KONG_VERSION_CHANGED');
     const nodeId = value.node_id === undefined || value.node_id === null ? undefined : nativeUuid(value.node_id);
     if (this.firstFence.nodeId !== undefined && nodeId !== this.firstFence.nodeId) invalidCapture('CONFIGURATION_KONG_NODE_CHANGED');
     return { version: value.version, ...(nodeId ? { nodeId } : {}) };

@@ -1,3 +1,4 @@
+import { isSupportedKong } from './kong-capabilities';
 import { ConflictException } from '@nestjs/common';
 import { isIP } from 'node:net';
 import type { SecretService } from '../secret.service';
@@ -181,7 +182,7 @@ export async function readTargetHealthObservation(
   const root = async (): Promise<{ nodeId: string; version: string }> => {
     accountCall();
     const response: unknown = snapshot(await kong.request(clusterId, 'GET', '/'));
-    if (!object(response) || typeof response.version !== 'string' || !/^1\.5\.\d+$/.test(response.version)) throw closed('TARGET_HEALTH_KONG_VERSION_UNSUPPORTED');
+    if (!object(response) || typeof response.version !== 'string' || !isSupportedKong(response.version)) throw closed('TARGET_HEALTH_KONG_VERSION_UNSUPPORTED');
     if (response.console_permission_projection) throw closed('TARGET_HEALTH_NODE_UNVERIFIABLE');
     if (typeof response.node_id !== 'string' || !response.node_id.length || Buffer.byteLength(response.node_id) > 256) throw closed('TARGET_HEALTH_NODE_ID_UNAVAILABLE');
     return { nodeId: response.node_id, version: response.version };

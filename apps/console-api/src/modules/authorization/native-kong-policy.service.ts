@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { ForbiddenException, HttpException, Inject, Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { writeFailureDiagnostic } from '../../infrastructure/kong/write-failure-diagnostics';
 import { DbService } from '../../infrastructure/db.service';
@@ -233,10 +234,10 @@ export class NativeKongPolicyService {
    if(frame.actor||!['probe','indexer','metrics-scrape','metrics-catalog','event-observation'].includes(frame.purpose??''))throw denied();
    if(frame.purpose==='event-observation'){
     this.execution.assertEventObservationRead(frame);
-    if(!/^1\.5\.\d+$/.test(cluster.version??'')||['disabled','incompatible'].includes(String(cluster.status)))throw denied('OBSERVATION_CLUSTER_UNAVAILABLE');
+    if(!isSupportedKong(cluster.version??'')||['disabled','incompatible'].includes(String(cluster.status)))throw denied('OBSERVATION_CLUSTER_UNAVAILABLE');
    }
    if(frame.purpose==='metrics-scrape'||frame.purpose==='metrics-catalog'){
-    if(!/^1\.5\.\d+$/.test(cluster.version??'')||cluster.status==='disabled')throw denied('KONG_METRICS_CLUSTER_UNAVAILABLE');
+    if(!isSupportedKong(cluster.version??'')||cluster.status==='disabled')throw denied('KONG_METRICS_CLUSTER_UNAVAILABLE');
     if(frame.purpose==='metrics-scrape'&&(!Array.isArray(cluster.enabled_plugins)||!cluster.enabled_plugins.includes('prometheus')))throw denied('KONG_METRICS_PLUGIN_UNAVAILABLE');
    }
    return this.decision({frame,clusterId:cluster.id,method,path,kind:'private',platformAdmin:false});

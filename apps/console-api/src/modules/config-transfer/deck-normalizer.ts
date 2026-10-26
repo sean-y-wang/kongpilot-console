@@ -1,3 +1,4 @@
+import { isSupportedKong, kongCapabilities } from '../../infrastructure/kong/kong-capabilities';
 import type { CaptureGraph, CapturedSchemaBundle, ConfigurationEntityType, ConfigurationCredentialKind } from '../configuration/configuration.types';
 import { CREDENTIAL_SCHEMAS } from '../entities/entities.types';
 import { decodeTag, encodeTag, workspaceTag } from '../../infrastructure/kong/tags';
@@ -21,7 +22,7 @@ function list(value: unknown, path: string): unknown[] {
 
 /** Flatten decK nesting into real Kong objects. No names are guessed as foreign UUIDs. */
 export function normalizeDeckDocument(parsed: ParsedDeckDocument, schemas: CapturedSchemaBundle, options: NormalizeOptions): NormalizedTransferGraph {
-  if (!/^1\.5\./.test(schemas.kongVersion)) transferFail('CONFIGURATION_UNSUPPORTED_KONG_VERSION');
+  if (!isSupportedKong(schemas.kongVersion)) transferFail('CONFIGURATION_UNSUPPORTED_KONG_VERSION');
   assertTransferJson(parsed.document);
   if (parsed.document._format_version !== '1.1') transferFail('CONFIGURATION_FORMAT_VERSION');
   const codes = { ...options.workspaceCodesById, [options.scope.workspaceId]: options.workspaceCode };
@@ -85,6 +86,7 @@ export function normalizeDeckDocument(parsed: ParsedDeckDocument, schemas: Captu
     if (type === 'services') list(nesting.routes, `${path}.routes`).forEach((item, i) => add('routes', item, `${path}.routes[${i}]`, result));
     if (type === 'upstreams') list(nesting.targets, `${path}.targets`).forEach((item, i) => add('targets', item, `${path}.targets[${i}]`, result));
     if (type === 'certificates') list(nesting.snis, `${path}.snis`).forEach((item, i) => add('snis', item, `${path}.snis[${i}]`, result));
+    if (type === 'consumers' && !kongCapabilities(schemas.kongVersion).credentialTransfer && Object.keys(credentialFields).some(field => list(nesting[field], `${path}.${field}`).length)) transferFail('CONFIGURATION_CREDENTIALS_UNSUPPORTED_KONG_VERSION', path);
     if (type === 'consumers') for (const [field, credentialKind] of Object.entries(credentialFields)) list(nesting[field], `${path}.${field}`).forEach((item, i) => add('credentials', item, `${path}.${field}[${i}]`, result, credentialKind));
     if (Object.hasOwn(nesting, 'plugins')) list(nesting.plugins, `${path}.plugins`).forEach((item, i) => add('plugins', item, `${path}.plugins[${i}]`, result));
     return result;
