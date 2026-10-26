@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Collapse, Form, Input, InputNumber, Select, Space, Switch, Upload } from 'antd';
+import { useEntityReferences, refKey, type EntityRefMap } from './EntityReference';
+import { abbreviateId } from '../lib/abbreviate-id';
 import type { FormInstance } from 'antd';
 import { DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
@@ -73,6 +75,15 @@ export function formPayload(schema: KongSchema, input: Record<string, any>, edit
   return Object.fromEntries(schemaFields(schema, true).map(([name, field]) => [name, visit(field, input[name], name)]).filter(([, value]) => value !== undefined));
 }
 
+/** Option text: readable label first, abbreviated ID as secondary text. */
+export function foreignOptionLabel(type: string, id: string, item: any, refs: EntityRefMap): string {
+  const ref = refs.get(refKey(type, id));
+  const resolved = ref?.visible && ref.label && ref.label !== id ? ref.label : undefined;
+  const name = item?.name ?? item?.username ?? resolved;
+  const expiry = ref?.expires_at ? (ref.expired ? '已过期' : `到期 ${ref.expires_at.slice(0, 10)}`) : undefined;
+  return [name, resolved && ref?.detail && name === resolved ? ref.detail : undefined, expiry, abbreviateId(id)].filter(Boolean).join(' · ');
+}
+
 export function ForeignLookup({ reference, value, onChange, label, id }: { reference: string; value?: any; onChange?: (value: any) => void; label: string; id?: string }) {
   const { clusterId } = useCluster();
   const { workspaceId, ready } = useWorkspace();
@@ -84,8 +95,11 @@ export function ForeignLookup({ reference, value, onChange, label, id }: { refer
   const query = useQuery({ queryKey: ['foreign', clusterId, workspaceId, type, search, cursor], queryFn: () => api<any>(scopeQuery(`/clusters/${clusterId}/entities/${type}?size=20${search ? `&search=${encodeURIComponent(search)}` : ''}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, clusterId, workspaceId)), enabled: ready });
   useEffect(() => { if (query.data) setState(prev => ({ scope, search, cursor, items: cursor && prev.scope === scope ? [...new Map([...prev.items, ...(query.data.items ?? [])].map(item => [item.id, item])).values()] : query.data.items ?? [] })); }, [query.data, scope, search, cursor]);
   const selectedId = typeof value === 'string' ? value : value?.id;
-  const options = items.map(item => ({ value: item.id, label: `${item.name ?? item.username ?? item.id} · ${item.id.slice(0, 8)}` }));
-  if (selectedId && !options.some(option => option.value === selectedId)) options.unshift({ value: selectedId, label: selectedId });
+  // Certificates (Kong 1.x has no certificate name) and other unnamed entities
+  // resolve to the same server-side label as EntityRef: CN/SAN + expiry.
+  const refs = useEntityReferences(['certificates', 'ca_certificates'].includes(type) ? [...items.map(item => ({ type, id: item.id })), { type, id: selectedId }] : selectedId && !items.some(item => item.id === selectedId) ? [{ type, id: selectedId }] : []);
+  const options = items.map(item => ({ value: item.id, label: foreignOptionLabel(type, item.id, item, refs) }));
+  if (selectedId && !options.some(option => option.value === selectedId)) options.unshift({ value: selectedId, label: foreignOptionLabel(type, selectedId, undefined, refs) });
   return <Select id={id} aria-label={label} showSearch allowClear value={selectedId} options={options} loading={query.isFetching} filterOption={false} placeholder="选择实体，或输入完整名称 / ID 搜索" onSearch={term => setState({ scope, search: term, cursor: undefined, items: [] })} onChange={selected => onChange?.(selected ? { id: selected } : null)} notFoundContent={query.isError ? '查询失败，请检查权限与连接' : query.isFetching ? '正在查询…' : '没有匹配实体'} popupRender={menu => <>{menu}{query.data?.nextCursor && <Button block type="text" size="small" onMouseDown={event => event.preventDefault()} onClick={() => setState({ ...active, cursor: query.data.nextCursor })}>加载下一页</Button>}</>} />;
 }
 

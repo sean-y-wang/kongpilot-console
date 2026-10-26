@@ -82,6 +82,7 @@ export function EntitiesPage() {
     return <div><Button type="link" className="table-name" onClick={() => navigate(`/entities/${type}/${entity.id}`)}>{display || <span className="table-name-empty"> </span>}</Button><div className="table-secondary"><EntityIdText id={entity.id} /></div></div>;
   } }];
   if (type === 'services') columns.push({ title: '连接', width: 250, render: (_: any, entity: any) => <span className="mono">{entity.protocol}://{entity.host}:{entity.port}{entity.path ?? ''}</span> });
+  if (type === 'services') columns.push({ title: '客户端证书', width: 240, render: (_: any, entity: any) => (entity.client_certificate?.id ? <EntityRef type="certificates" id={entity.client_certificate.id} refs={refs} /> : <Typography.Text type="secondary">—</Typography.Text>) });
   if (type === 'routes') columns.push({ title: '匹配规则', width: 290, render: (_: any, entity: any) => <div><Space wrap size={2}>{[...(entity.hosts ?? []), ...(entity.paths ?? [])].map((value: string) => <Tag key={value}>{value}</Tag>)}</Space><div className="table-secondary">{(entity.protocols ?? []).join(' / ')} · {(entity.methods ?? []).join(', ') || '全部方法'}</div></div> });
   if (type === 'routes') columns.push({ title: 'Service', width: 220, render: (_: any, entity: any) => <EntityRef type="services" id={entity.service?.id} refs={refs} /> });
   if (type === 'consumers') columns.push({ title: '业务标识', dataIndex: 'custom_id', width: 200, render: (value: string) => value ?? '—' });
