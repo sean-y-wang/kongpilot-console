@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import {BadRequestException,ForbiddenException,Inject,Injectable,ServiceUnavailableException} from '@nestjs/common';
 import {SecretService} from '../../infrastructure/secret.service';
 import {DECK_UUID,deckPacket} from './deck-protocol';
@@ -66,7 +67,7 @@ export class DeckAdapterService{
    if(authority.locator.purpose!=='write')throw new ForbiddenException({code:'DECK_READ_SESSION_WRITE_FORBIDDEN',message:'只读 decK 会话不能执行同步'});
    const completed=await this.access.executeDeckPacket(authority,packet);if(![200,201,204].includes(completed.status)||packet.method==='DELETE'&&completed.status!==204||packet.method!=='DELETE'&&(completed.status===204||!completed.entity))throw incomplete();if(completed.entity){this.pageValid([completed.entity],null);if(packet.id&&completed.entity.id!==packet.id)throw incomplete();}result={status:completed.status,body:completed.status===204?undefined:this.shape(completed.entity!)};
   }else if(packet.kind==='root'){
-   const root=await this.access.readDeckRoot(authority);if(!/^1\.5\.\d+$/.test(root.version))throw incomplete();result={status:200,body:{version:root.version}};
+   const root=await this.access.readDeckRoot(authority);if(!isSupportedKong(root.version))throw incomplete();result={status:200,body:{version:root.version}};
   }else if(packet.kind==='global-credential')result={status:200,body:await this.globalCredentials(authority,packet,this.cursor(authority,packet))};
   else if(packet.collection){
    const state=this.cursor(authority,packet);if(state?.scan)throw invalid();

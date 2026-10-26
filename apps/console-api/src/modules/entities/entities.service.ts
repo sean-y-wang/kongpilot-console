@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, HttpException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { isIP } from 'node:net';
+import { X509Certificate } from 'node:crypto';
 import { KongService } from '../../infrastructure/kong/kong.service';
 import { decodeTag, encodeTag } from '../../infrastructure/kong/tags';
 import { filteredList } from '../../infrastructure/kong/filtered-list';
@@ -179,6 +180,32 @@ export class EntityService {
     if (reveal) await this.authorizeReveal(clusterId, actor, type, entity);
     if (await this.authz.permissionVersion(actor.user) !== permissionVersion) throw new ForbiddenException({ code: 'PERMISSIONS_CHANGED', message: '查询期间授权已变更，请重新加载' });
     return { entity: this.display(entity, reveal), relations, ...(certificate ? { certificate } : {}) };
+  }
+
+  /** Batch-resolve referenced entity IDs to readable labels in one browser
+   * round-trip. Each reference goes through the same scoped read authorization
+   * as GET /entities/:type/:id; anything the actor may not read (or that no
+   * longer exists) comes back as { visible:false } with only its ID. */
+  async resolveReferences(clusterId: string, body: unknown, query: ListQuery, actor: EntityActor): Promise<{ items: EntityReferenceLabel[] }> {
+    const refs = (body as any)?.refs;
+    if (!Array.isArray(refs) || refs.length > 100) throw new BadRequestException({ code: 'ENTITY_REFERENCES_INVALID', message: '一次最多解析 100 个引用' });
+    const allowed = new Set(['services', 'routes', 'consumers', 'certificates', 'ca_certificates', 'snis', 'upstreams', 'plugins']);
+    const unique = new Map<string, { type: string; id: string }>();
+    for (const ref of refs) {
+      if (!ref || typeof ref.type !== 'string' || typeof ref.id !== 'string' || !allowed.has(ref.type) || !/^[A-Za-z0-9._~-]{1,128}$/.test(ref.id)) throw new BadRequestException({ code: 'ENTITY_REFERENCES_INVALID', message: '引用格式无效' });
+      unique.set(`${ref.type}:${ref.id}`, { type: ref.type, id: ref.id });
+    }
+    const scopedByType = new Map<string, EntityActor | null>();
+    for (const type of new Set([...unique.values()].map(ref => ref.type))) scopedByType.set(type, await this.scoped(clusterId, actor, query.workspaceId, type, 'read').catch(() => null));
+    const queue = [...unique.values()], items: EntityReferenceLabel[] = [];
+    const worker = async () => { for (let ref = queue.shift(); ref; ref = queue.shift()) {
+      const scoped = scopedByType.get(ref.type);
+      if (!scoped) { items.push({ ...ref, visible: false }); continue; }
+      try { items.push({ ...ref, visible: true, ...referenceLabel(ref.type, await this.raw(clusterId, ref.type, ref.id, 'read', scoped)) }); }
+      catch { items.push({ ...ref, visible: false }); }
+    } };
+    await Promise.all(Array.from({ length: Math.min(6, queue.length) }, worker));
+    return { items };
   }
 
   private async optionalRelation(load: () => Promise<any>, collection: boolean): Promise<any> {
@@ -692,4 +719,23 @@ export class EntityService {
     confirmed(body, entity);
     return this.recycle.archiveAndDelete({ ...this.context(clusterId, 'credentials', 'delete', actor, entity.id, entity, undefined, { parentId: consumer.id, credentialKind: kind }), confirmName: objectBody(body).confirm_name }, true);
   }
+}
+
+export interface EntityReferenceLabel { type: string; id: string; visible: boolean; label?: string; detail?: string; expires_at?: string; expired?: boolean }
+/** Human label for a reference; secrets (keys, cert PEM) never leave the server. */
+export function referenceLabel(type: string, e: any): Pick<EntityReferenceLabel, 'label' | 'detail' | 'expires_at' | 'expired'> {
+  if (type === 'certificates' || type === 'ca_certificates') {
+    try {
+      const leaf = new X509Certificate(String(e?.cert ?? '').match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/)?.[0] ?? '');
+      const cn = /(?:^|\n)CN=([^\n]+)/.exec(leaf.subject)?.[1];
+      const sans = (leaf.subjectAltName ?? '').split(/,\s*/).filter(Boolean).map(v => v.replace(/^DNS:/, '')).slice(0, 5);
+      const expiresAt = new Date(leaf.validTo).toISOString();
+      return { label: cn ?? sans[0] ?? e?.id, detail: sans.length ? `SAN: ${sans.join(', ')}` : undefined, expires_at: expiresAt, expired: Date.parse(expiresAt) < Date.now() };
+    } catch { return { label: e?.id }; }
+  }
+  if (type === 'consumers') return { label: e?.username ?? e?.custom_id ?? e?.id, detail: e?.username && e?.custom_id ? `custom_id: ${e.custom_id}` : undefined };
+  if (type === 'services') return { label: e?.name ?? e?.host ?? e?.id, detail: e?.host ? `${e.protocol ?? 'http'}://${e.host}${e.port ? `:${e.port}` : ''}${e.path ?? ''}` : undefined };
+  if (type === 'routes') return { label: e?.name || [...(e?.hosts ?? []), ...(e?.paths ?? [])].slice(0, 2).join(' ') || e?.id, detail: [...(e?.hosts ?? []), ...(e?.paths ?? [])].slice(0, 4).join(' · ') || undefined };
+  if (type === 'plugins') return { label: e?.name ?? e?.id };
+  return { label: e?.name ?? e?.id };
 }

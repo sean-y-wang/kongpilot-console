@@ -39,7 +39,7 @@ export class EventObserverService implements OnModuleInit, OnModuleDestroy {
         return;
       }
       let cluster = await this.db.one<{ id: string }>(`SELECT id FROM clusters WHERE deleted_at IS NULL
-        AND status NOT IN ('disabled','incompatible') AND version ~ '^1\\.5\\.[0-9]+$'
+        AND status NOT IN ('disabled','incompatible') AND version ~ '^1\\.[345]\\.[0-9]+$'
         AND ($1::uuid IS NULL OR id>$1::uuid) ORDER BY id LIMIT 1`, [this.clusterCursor]);
       if (!cluster) { this.clusterCursor = null; this.subjectIndex++; return; }
       this.clusterCursor = cluster.id;
