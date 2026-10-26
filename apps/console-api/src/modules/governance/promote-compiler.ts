@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { randomUUID } from 'node:crypto';
 import { stringify } from 'yaml';
 import { canonicalJson } from '../../infrastructure/secret.service';
@@ -119,7 +120,7 @@ export function compilePromoteDocument(inputSource: ComparisonInventory, target:
   const source = withPrivateMaterial(inputSource,options,blockers), a = normalizeLogicalGraph(source,policy), b = normalizeLogicalGraph(target,policy);
   blockers.push(...a.issues,...b.issues);
   const sourceBundle = comparisonSchemas(source), targetBundle = comparisonSchemas(target);
-  if (!/^1\.5\.\d+$/.test(source.version) || !/^1\.5\.\d+$/.test(target.version) || source.version !== target.version || sourceBundle.adapterVersion !== targetBundle.adapterVersion) blockers.push({code:'GOVERNANCE_PROMOTE_VERSION_CAPABILITY_MISMATCH'});
+  if (!isSupportedKong(source.version) || !isSupportedKong(target.version) || source.version !== target.version || sourceBundle.adapterVersion !== targetBundle.adapterVersion) blockers.push({code:'GOVERNANCE_PROMOTE_VERSION_CAPABILITY_MISMATCH'});
   const selected = selectedObjects(source,a.objects,options), bySource = new Map(source.objects.map(object => [objectIdentity(object),object]));
   const selectedLogical = a.objects.filter(object => selected.has(object.objectKey));
   const writableLogical = selectedLogical.filter(object=>!bySource.get(object.objectKey)?.referenceOnly);

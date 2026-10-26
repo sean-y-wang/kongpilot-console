@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { BadRequestException,ConflictException,Injectable,NotFoundException } from '@nestjs/common';
 import { createHash,randomUUID } from 'node:crypto';
 import { DbService } from '../../infrastructure/db.service';
@@ -41,7 +42,7 @@ export class MetricsRepositoryService {
     const clusters=await db.query<any>('SELECT id,admin_url,transport_scope FROM clusters WHERE deleted_at IS NULL ORDER BY id LIMIT 10001');
     if(clusters.length>10000)throw invalid('METRICS_CLUSTER_BUDGET');
     return {scope,ids:clusters.filter(item=>transportScopeFor(item.admin_url,item.transport_scope)===scope).map(item=>item.id),
-      inactive:['disabled','incompatible'].includes(row.status)||row.version!=null&&!/^1\.5\.\d+$/.test(row.version)};
+      inactive:['disabled','incompatible'].includes(row.status)||row.version!=null&&!isSupportedKong(row.version)};
   }
   private async blocked(scope:string,ids:string[],db=this.db):Promise<boolean>{
     const row=await db.one(`SELECT 1 FROM mutation_operations m WHERE

@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { createHash } from 'node:crypto';
 import { canonicalJson } from '../../infrastructure/secret.service';
 import { decodeTag } from '../../infrastructure/kong/tags';
@@ -81,7 +82,7 @@ export function normalizeLogicalGraph(inventory: ComparisonInventory, policy: Co
   if (!Array.isArray(inventory.objects) || inventory.objects.length > 10_000) comparisonFail('GOVERNANCE_COMPARISON_OBJECT_LIMIT');
   assertComparisonJson(inventory.schemas); assertComparisonJson(inventory.pluginSchemas);
   const issues: ComparisonIssue[] = [], exclusions: FieldExclusion[] = [], bundle = comparisonSchemas(inventory);
-  if (!/^1\.5\.\d+$/.test(inventory.version)) issues.push({ code: 'GOVERNANCE_KONG_VERSION_UNSUPPORTED' });
+  if (!isSupportedKong(inventory.version)) issues.push({ code: 'GOVERNANCE_KONG_VERSION_UNSUPPORTED' });
   if (inventory.completeness !== 'complete' || inventory.projection || inventory.consistency && inventory.consistency !== 'console_fenced_best_effort') issues.push({ code: 'GOVERNANCE_COMPARISON_INCOMPLETE' });
   const source = new Map<string, ComparisonObject>(), names = new Map<string, { key: string; kind: LogicalObject['identityKind'] }>();
   const existingLogical = new Map<string, string>();

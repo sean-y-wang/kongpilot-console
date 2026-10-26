@@ -92,7 +92,7 @@ export class IamWorkflowService implements OnModuleInit {
   for(const resource of [...resources.values()].sort((a,b)=>`${a.clusterId}:${a.workspaceId}`.localeCompare(`${b.clusterId}:${b.workspaceId}`))){
    const c=await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL FOR SHARE',[resource.clusterId]);
    const w=resource.workspaceId?await tx.one<any>("SELECT * FROM workspaces WHERE cluster_id=$1 AND id=$2 AND status='active' AND deleted_at IS NULL FOR SHARE",[resource.clusterId,resource.workspaceId]):null;
-   if(!c||c.status==='disabled'||!/^1\.5\.\d+$/.test(c.version??'')||resource.workspaceId&&!w)throw changed('IAM_WORKFLOW_SCOPE_UNAVAILABLE');
+   if(!c||c.status==='disabled'||resource.workspaceId&&!w)throw changed('IAM_WORKFLOW_SCOPE_UNAVAILABLE');
    const snapshot={clusterId:c.id,revision:c.revision,executionMode:c.execution_mode,workspaceId:resource.workspaceId,workspaceRevision:w?.revision??null,transportScope:transportScopeFor(c.admin_url,c.transport_scope)};
    snapshots.push(snapshot);if(c.execution_mode==='approval')approved.push(snapshot);
   }
