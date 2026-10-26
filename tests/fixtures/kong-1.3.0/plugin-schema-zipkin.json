@@ -1,0 +1,32 @@
+{
+  "fields": [
+    {
+      "http_endpoint": {
+        "type": "string",
+        "required": true
+      }
+    },
+    {
+      "sample_ratio": {
+        "between": [
+          0,
+          1
+        ],
+        "default": 0.001,
+        "type": "number"
+      }
+    },
+    {
+      "default_service_name": {
+        "type": "string"
+      }
+    },
+    {
+      "include_credential": {
+        "type": "boolean",
+        "default": true,
+        "required": true
+      }
+    }
+  ]
+}
