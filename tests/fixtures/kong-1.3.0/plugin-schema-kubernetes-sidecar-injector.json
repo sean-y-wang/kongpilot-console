@@ -1,0 +1,99 @@
+{
+  "fields": [
+    {
+      "initImage": {
+        "default": "istio/proxy_init:1.0.5",
+        "type": "string"
+      }
+    },
+    {
+      "initImagePullPolicy": {
+        "one_of": [
+          "Always",
+          "Never",
+          "IfNotPresent"
+        ],
+        "default": "IfNotPresent",
+        "type": "string"
+      }
+    },
+    {
+      "initArgs": {
+        "elements": {
+          "type": "string"
+        },
+        "default": [
+          "-p",
+          "7000",
+          "-u",
+          "1337",
+          "-m",
+          "TPROXY",
+          "-i",
+          "*",
+          "-b",
+          "*"
+        ],
+        "type": "array"
+      }
+    },
+    {
+      "image": {
+        "default": "kong",
+        "type": "string"
+      }
+    },
+    {
+      "imagePullPolicy": {
+        "one_of": [
+          "Always",
+          "Never",
+          "IfNotPresent"
+        ],
+        "default": "IfNotPresent",
+        "type": "string"
+      }
+    },
+    {
+      "extra_env": {
+        "keys": {
+          "type": "string"
+        },
+        "values": {
+          "type": "string"
+        },
+        "type": "map"
+      }
+    },
+    {
+      "http_port": {
+        "between": [
+          0,
+          65535
+        ],
+        "default": 8000,
+        "type": "integer"
+      }
+    },
+    {
+      "https_port": {
+        "between": [
+          0,
+          65535
+        ],
+        "default": 8443,
+        "type": "integer"
+      }
+    },
+    {
+      "stream_port": {
+        "between": [
+          0,
+          65535
+        ],
+        "default": 7000,
+        "type": "integer"
+      }
+    }
+  ]
+}
