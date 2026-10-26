@@ -23,8 +23,8 @@ export class AuditController {
   @Get('exports/by-key/:key') byKey(@Param('clusterId') cid:string,@Param('key') key:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return this.exports.receipt(req.user,auditScope(cid,query),key);}
   @Get('exports/:id/download') async download(@Param('clusterId') cid:string,@Param('id') id:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>,@Res({passthrough:true}) res:Response){return fileResponse(await this.exports.download(req.user,auditScope(cid,query),id),res);}
   @Get('exports/:id') export(@Param('clusterId') cid:string,@Param('id') id:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return this.exports.get(req.user,auditScope(cid,query),id);}
-  @Get() list(@Param('clusterId') cid:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return this.queries.list(req.user,auditQuery(cid,query));}
-  @Get(':id') get(@Param('clusterId') cid:string,@Param('id') id:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return this.queries.get(req.user,auditScope(cid,query),id);}
+  @Get() async list(@Param('clusterId') cid:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){const page=await this.queries.list(req.user,auditQuery(cid,query));return{...page,items:await this.queries.withActorNames(page.items)};}
+  @Get(':id') async get(@Param('clusterId') cid:string,@Param('id') id:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return(await this.queries.withActorNames([await this.queries.get(req.user,auditScope(cid,query),id)]))[0];}
 }
 
 @ApiTags('全局身份审计')
@@ -36,6 +36,6 @@ export class GlobalAuditController {
   @Get('exports/by-key/:key') byKey(@Param('key') key:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return this.exports.receipt(req.user,auditScope(null,query),key);}
   @Get('exports/:id/download') async download(@Param('id') id:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>,@Res({passthrough:true}) res:Response){return fileResponse(await this.exports.download(req.user,auditScope(null,query),id),res);}
   @Get('exports/:id') export(@Param('id') id:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return this.exports.get(req.user,auditScope(null,query),id);}
-  @Get() list(@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return this.queries.list(req.user,auditQuery(null,query));}
-  @Get(':id') get(@Param('id') id:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return this.queries.get(req.user,auditScope(null,query),id);}
+  @Get() async list(@Req() req:AuditRequest,@Query() query:Record<string,unknown>){const page=await this.queries.list(req.user,auditQuery(null,query));return{...page,items:await this.queries.withActorNames(page.items)};}
+  @Get(':id') async get(@Param('id') id:string,@Req() req:AuditRequest,@Query() query:Record<string,unknown>){return(await this.queries.withActorNames([await this.queries.get(req.user,auditScope(null,query),id)]))[0];}
 }

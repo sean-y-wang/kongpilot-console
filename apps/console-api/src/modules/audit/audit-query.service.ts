@@ -99,6 +99,15 @@ export class AuditQueryService {
     const nextCursor=end||!state.last?null:this.cursors.seal('list',this.binding(user,snapshot.version,query),state);
     return {items,nextCursor,size:query.size,total:null,scanLimitReached:budget};
   }
+  /** Display-only: attach the current username of user actors (one batched read).
+   * Kept out of safeView so exports and integrity material stay unchanged. */
+  async withActorNames<T extends {actorId:string|null;actorType:string}>(views:T[]):Promise<(T&{actorUsername?:string})[]>{
+    const ids=[...new Set(views.filter(v=>v.actorType==='user'&&v.actorId).map(v=>v.actorId as string))];
+    if(!ids.length)return views;
+    const rows=await this.db.query<{id:string;username:string}>('SELECT id,username FROM users WHERE id=ANY($1::uuid[])',[ids]).catch(()=>[]);
+    const names=new Map(rows.map(r=>[r.id,r.username]));
+    return views.map(v=>v.actorType==='user'&&v.actorId&&names.has(v.actorId)?{...v,actorUsername:names.get(v.actorId)}:v);
+  }
   safeView(row:AuditRow,whole:boolean):AuditSafeView {
     const before=this.secrets.redact(whole?row.before:cascadeCounts(row.before));
     const after=this.secrets.redact(whole?row.after:cascadeCounts(row.after));
