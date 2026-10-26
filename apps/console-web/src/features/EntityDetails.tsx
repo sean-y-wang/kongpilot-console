@@ -32,7 +32,7 @@ export function EntityDetails({ type, id, onClose, onEdit, onDelete }: { type: s
   const abilities = useEntityPermissions(entity ? [{ type, id: entity.id }] : []);
   const certificate = query.data?.certificate;
   const relationTypes: Record<string, string> = { service: 'services', route: 'routes', consumer: 'consumers', certificate: 'certificates', client_certificate: 'certificates', upstream: 'upstreams' };
-  const refs = useEntityReferences(entity ? Object.entries(relationTypes).map(([field, target]) => ({ type: target, id: entity[field]?.id })) : []);
+  const refs = useEntityReferences(entity ? [...Object.entries(relationTypes).map(([field, target]) => ({ type: target, id: entity[field]?.id })), ...(Array.isArray(entity.ca_certificates) ? entity.ca_certificates : []).map((v: any) => ({ type: 'ca_certificates', id: typeof v === 'string' ? v : v?.id }))] : []);
   function renderValue(name: string, value: any): React.ReactNode {
     const unavailable = relationTypes[name] && relationUnavailableMessage(query.data?.relations?.[name]);
     if (unavailable) return <Typography.Text type="secondary">{unavailable}</Typography.Text>;
@@ -41,6 +41,7 @@ export function EntityDetails({ type, id, onClose, onEdit, onDelete }: { type: s
     if (name === 'created_at' || name === 'updated_at') return entityTime(value);
     if (name === 'tags') return <Space wrap>{value.map((tag: string) => <Tag key={tag}>{tag}</Tag>)}</Space>;
     if (relationTypes[name] && value.id) return <EntityRef type={relationTypes[name]} id={value.id} refs={refs} />;
+    if (name === 'ca_certificates' && Array.isArray(value)) return value.length ? <Space direction="vertical" size={2}>{value.map((v: any) => { const cid = typeof v === 'string' ? v : v?.id; return <EntityRef key={cid} type="ca_certificates" id={cid} refs={refs} />; })}</Space> : <Typography.Text type="secondary">—</Typography.Text>;
     if (typeof value === 'boolean') return <Tag color={value ? 'green' : 'default'}>{value ? 'true' : 'false'}</Tag>;
     if (typeof value === 'object') return <pre className="detail-value-json">{JSON.stringify(value, null, 2)}</pre>;
     return <Typography.Text className={['id', 'cert', 'key'].includes(name) ? 'mono' : undefined} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{String(value)}</Typography.Text>;

@@ -6,3 +6,9 @@ export function abbreviateId(id: string, head = 8, tail = 4): string {
   if (id.length <= keep) return id;
   return `${id.slice(0, head)}…${id.slice(-tail)}`;
 }
+
+/** Select/option text: readable name first (omitted when unnamed), abbreviated ID secondary. */
+export function entityOptionLabel(name: string | null | undefined, id: string): string {
+  const shown = typeof name === 'string' && name.trim() && name !== id ? name.trim() : '';
+  return shown ? `${shown} · ${abbreviateId(id)}` : abbreviateId(id);
+}

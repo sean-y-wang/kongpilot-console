@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, Select } from 'antd';
+import { abbreviateId, entityOptionLabel } from '../lib/abbreviate-id';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { scopeQuery } from '../api/workspace-scope';
@@ -43,7 +44,7 @@ export function ScopedEntityLookup({ type, clusterId, workspaceId, parentId, val
   const params = new URLSearchParams({ size: '20' }); if (!nested && search) params.set('search', search); if (cursor) params.set('cursor', cursor);
   const resource = nested ? type === 'targets' ? `upstreams/${parentId}/targets` : `consumers/${parentId}/credentials/${type}` : `entities/${type}`;
   const query = useQuery({ queryKey: ['iam-entity-lookup', user?.id, clusterId, workspaceId, type, parentId, version, search, cursor], queryFn: () => api<IAMPageData<any>>(scopeQuery(`/clusters/${clusterId}/${resource}?${params}`, clusterId, workspaceId)), enabled: !!clusterId && !!workspaceId && !!type && (!nested || !!parentId) });
-  useEffect(() => { if (query.data) receive(query.data.items.map(entity => ({ value: entity.id, label: `${entityName(entity)} · ${entity.id.slice(0, 8)}`, row: entity }))); }, [query.data, scope, search, cursor]);
+  useEffect(() => { if (query.data) receive(query.data.items.map(entity => ({ value: entity.id, label: entityOptionLabel(entityName(entity), entity.id), row: entity }))); }, [query.data, scope, search, cursor]);
   return <><Select key={scope} aria-label={label} value={value} showSearch allowClear filterOption={nested ? true : false} optionFilterProp="label" loading={query.isFetching} disabled={!clusterId || !workspaceId || nested && !parentId} options={options} onSearch={nested ? undefined : onSearch} onChange={id => { onChange?.(id); onSelected?.(options.find(option => option.value === id)?.row); }} placeholder={nested ? '在当前已加载分页内选择；可加载下一页' : '按名称搜索授权实体'} popupRender={menu => <>{menu}{query.data?.nextCursor && <Button block type="text" onMouseDown={event => event.preventDefault()} onClick={() => next(query.data!.nextCursor!)}>加载下一页</Button>}</>} />{query.isError && <QueryError error={query.error} retry={() => void query.refetch()} />}</>;
 }
 export function IAMWorkspaceLookup({ clusterId, value, onChange, multiple = false, label }: { clusterId?: string; value?: string | string[]; onChange?: (value: any) => void; multiple?: boolean; label: string }) {
@@ -61,6 +62,6 @@ export function PortalEntityLookup({ type, module, purpose = 'permission', disab
   const params = new URLSearchParams({ size: '20', search }); if (cursor) params.set('cursor', cursor); if (purpose !== 'publication') { params.set('type', type); params.set('module', module); }
   const resource = purpose === 'publication' ? 'service-identities' : 'entity-identities';
   const query = useQuery({ queryKey: ['portal-identity-lookup', user?.id, version, clusterId, workspaceId, module, type, purpose, search, cursor], queryFn: ({ signal }) => api<IAMPageData<any>>(scopeQuery(`/clusters/${clusterId}/portal/${resource}?${params}`, clusterId, workspaceId), { signal }), enabled: !!clusterId && !!workspaceId && supported, retry: false, gcTime: 0 });
-  useEffect(() => { if (query.data) receive(query.data.items.map(row => ({ value: row.id, label: `${row.name ?? row.id} · ${row.id.slice(0, 8)}` }))); }, [query.data, scope, search, cursor]);
+  useEffect(() => { if (query.data) receive(query.data.items.map(row => ({ value: row.id, label: entityOptionLabel(row.name, row.id) }))); }, [query.data, scope, search, cursor]);
   return <><Select key={scope} value={value} aria-label={label} showSearch allowClear filterOption={false} disabled={disabled || !clusterId || !workspaceId || !supported} loading={query.isFetching} options={options} onSearch={onSearch} onChange={onChange} placeholder="搜索有权管理的最小实体身份" popupRender={menu => <>{menu}{query.data?.nextCursor && <Button block type="text" onMouseDown={event => event.preventDefault()} onClick={() => next(query.data!.nextCursor!)}>加载下一页</Button>}</>} />{query.error && <QueryError error={query.error} retry={() => void query.refetch()} />}</>;
 }
