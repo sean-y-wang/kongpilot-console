@@ -1,0 +1,17 @@
+{
+  "fields": [
+    {
+      "anonymous": {
+        "legacy": true,
+        "uuid": true,
+        "type": "string"
+      }
+    },
+    {
+      "hide_credentials": {
+        "default": false,
+        "type": "boolean"
+      }
+    }
+  ]
+}

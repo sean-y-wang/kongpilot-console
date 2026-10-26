@@ -1,0 +1,138 @@
+{
+  "fields": [
+    {
+      "timeout": {
+        "type": "number",
+        "default": 60000,
+        "required": true
+      }
+    },
+    {
+      "keepalive": {
+        "type": "number",
+        "default": 60000,
+        "required": true
+      }
+    },
+    {
+      "aws_key": {
+        "required": true,
+        "type": "string"
+      }
+    },
+    {
+      "aws_secret": {
+        "required": true,
+        "type": "string"
+      }
+    },
+    {
+      "aws_region": {
+        "one_of": [
+          "ap-northeast-1",
+          "ap-northeast-2",
+          "ap-south-1",
+          "ap-southeast-1",
+          "ap-southeast-2",
+          "ca-central-1",
+          "cn-north-1",
+          "cn-northwest-1",
+          "eu-central-1",
+          "eu-west-1",
+          "eu-west-2",
+          "sa-east-1",
+          "us-east-1",
+          "us-east-2",
+          "us-gov-west-1",
+          "us-west-1",
+          "us-west-2"
+        ],
+        "type": "string",
+        "required": true
+      }
+    },
+    {
+      "function_name": {
+        "required": true,
+        "type": "string"
+      }
+    },
+    {
+      "qualifier": {
+        "type": "string"
+      }
+    },
+    {
+      "invocation_type": {
+        "type": "string",
+        "one_of": [
+          "RequestResponse",
+          "Event",
+          "DryRun"
+        ],
+        "default": "RequestResponse",
+        "required": true
+      }
+    },
+    {
+      "log_type": {
+        "type": "string",
+        "one_of": [
+          "Tail",
+          "None"
+        ],
+        "default": "Tail",
+        "required": true
+      }
+    },
+    {
+      "port": {
+        "between": [
+          0,
+          65535
+        ],
+        "default": 443,
+        "type": "integer"
+      }
+    },
+    {
+      "unhandled_status": {
+        "between": [
+          100,
+          999
+        ],
+        "type": "integer"
+      }
+    },
+    {
+      "forward_request_method": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "forward_request_uri": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "forward_request_headers": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "forward_request_body": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "is_proxy_integration": {
+        "default": false,
+        "type": "boolean"
+      }
+    }
+  ]
+}

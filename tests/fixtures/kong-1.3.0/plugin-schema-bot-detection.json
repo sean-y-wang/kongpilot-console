@@ -1,0 +1,24 @@
+{
+  "fields": [
+    {
+      "whitelist": {
+        "elements": {
+          "is_regex": true,
+          "type": "string"
+        },
+        "default": [],
+        "type": "array"
+      }
+    },
+    {
+      "blacklist": {
+        "elements": {
+          "is_regex": true,
+          "type": "string"
+        },
+        "default": [],
+        "type": "array"
+      }
+    }
+  ]
+}
