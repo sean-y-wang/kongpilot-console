@@ -51,7 +51,7 @@ export class GovernanceMetadataService implements OnModuleInit {
   const wid=governanceId(actor.workspaceId),ws=await this.workspaces.get(cid,wid,false,tx);
   await this.authz.assertWholeWorkspace(actor.user,cid,wid,module,action,tx);
   const c=await tx.one<any>('SELECT admin_url,transport_scope,revision,execution_mode,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL'+(lock?' FOR SHARE':''),[cid]);
-  if(!c)throw new NotFoundException({code:'CLUSTER_NOT_FOUND'});if(action!=='read'&&(ws.status!=='active'||c.status==='disabled'||!/^1\.5\.\d+$/.test(c.version??'')))throw conflict('GOVERNANCE_SCOPE_UNAVAILABLE');
+  if(!c)throw new NotFoundException({code:'CLUSTER_NOT_FOUND'});if(action!=='read'&&(ws.status!=='active'||c.status==='disabled'))throw conflict('GOVERNANCE_SCOPE_UNAVAILABLE');
   return{clusterId:cid,workspaceId:wid,transportScope:transportScopeFor(c.admin_url,c.transport_scope),clusterRevision:c.revision,workspaceRevision:ws.revision,executionMode:c.execution_mode,permissionVersion:await this.authz.permissionVersion(actor.user,tx)};
  }
  private async assertSnapshot(scope:GovernanceScopeSnapshot,actor:EntityActor,module:string,action:'read'|'write'|'delete',tx=this.db):Promise<void>{
@@ -89,7 +89,7 @@ export class GovernanceMetadataService implements OnModuleInit {
   const grants=(await tx.query<any>('SELECT * FROM iam_effective_grants WHERE user_id=$1',[userId])).filter(validGrant);
   const whole=(cid:string,wid:string,module:string,action:string)=>row.super_admin===true||grants.some(g=>g.module===module&&g.action===action&&(g.cluster_id===null||g.cluster_id===cid)&&(g.workspace_id===null||g.workspace_id===wid)&&(g.scope_type==='global'||g.scope_type==='workspace'&&g.cluster_id===cid&&g.workspace_id===wid&&g.scope_values.length===1&&g.scope_values[0]===wid));
   const c=await tx.one<any>('SELECT admin_url,transport_scope,revision,execution_mode,status,version FROM clusters WHERE id=$1 AND deleted_at IS NULL',[i.clusterId]),w=await tx.one<any>('SELECT revision,status FROM workspaces WHERE cluster_id=$1 AND id=$2',[i.clusterId,i.workspaceId]);
-  if(!c||!w||c.execution_mode!=='approval'||c.status==='disabled'||w.status!=='active'||!/^1\.5\.\d+$/.test(c.version??'')||c.revision!==i.scope.clusterRevision||w.revision!==i.scope.workspaceRevision||transportScopeFor(c.admin_url,c.transport_scope)!==i.scope.transportScope)throw conflict('GOVERNANCE_REVIEWER_SCOPE_CHANGED');
+  if(!c||!w||c.execution_mode!=='approval'||c.status==='disabled'||w.status!=='active'||c.revision!==i.scope.clusterRevision||w.revision!==i.scope.workspaceRevision||transportScopeFor(c.admin_url,c.transport_scope)!==i.scope.transportScope)throw conflict('GOVERNANCE_REVIEWER_SCOPE_CHANGED');
   const requester=userId===i.actorId;
   if(!whole(i.clusterId,i.workspaceId,'workflows',requester?'write':'approve')||!whole(i.clusterId,i.workspaceId,governanceMetadataModule(i.resourceType),requester?governanceMetadataAction(i.operation):'read'))throw new ForbiddenException({code:'GOVERNANCE_REVIEWER_SCOPE_DENIED'});
   if(i.resourceType==='governance_schedules'&&i.payload.kind==='drift'&&i.payload.target){const t=i.payload.target,live=await tx.one('SELECT w.id FROM workspaces w JOIN clusters c ON c.id=w.cluster_id WHERE c.id=$1 AND w.id=$2 AND c.deleted_at IS NULL AND c.status<>\'disabled\' AND w.status=\'active\'',[t.clusterId,t.workspaceId]);if(!live||!whole(t.clusterId,t.workspaceId,'drift','read'))throw new ForbiddenException({code:'GOVERNANCE_TARGET_REVIEWER_DENIED'});}

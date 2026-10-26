@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import {ForbiddenException,ConflictException,Injectable,OnModuleInit} from '@nestjs/common';
 import {DbService} from '../../infrastructure/db.service';
 import {SecretService} from '../../infrastructure/secret.service';
@@ -42,7 +43,7 @@ export class GovernancePromotionSourceService implements OnModuleInit {
   const whole=(inv:GovernanceInventory,module:string,op:string)=>u.super_admin===true||grants.some(g=>g.module===module&&g.action===op&&(g.cluster_id===null||g.cluster_id===inv.scope.clusterId)&&(g.workspace_id===null||g.workspace_id===inv.scope.workspaceId)&&(g.scope_type==='global'||g.scope_type==='workspace'&&g.cluster_id===inv.scope.clusterId&&g.workspace_id===inv.scope.workspaceId&&g.scope_values.length===1&&g.scope_values[0]===inv.scope.workspaceId));
   for(const inv of [m.source,m.target]){
    const c=await tx.one<any>('SELECT admin_url,transport_scope,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL',[inv.scope.clusterId]),w=await tx.one<any>('SELECT code,status FROM workspaces WHERE cluster_id=$1 AND id=$2',[inv.scope.clusterId,inv.scope.workspaceId]);
-   if(!c||!w||c.status==='disabled'||w.status!=='active'||!/^1\.5\.\d+$/.test(c.version??'')||transportScopeFor(c.admin_url,c.transport_scope)!==inv.scope.transportScope)throw changed('GOVERNANCE_PROMOTE_SCOPE_CHANGED');
+   if(!c||!w||c.status==='disabled'||w.status!=='active'||!isSupportedKong(c.version??'')||transportScopeFor(c.admin_url,c.transport_scope)!==inv.scope.transportScope)throw changed('GOVERNANCE_PROMOTE_SCOPE_CHANGED');
    if(inv===m.target&&w.code!==m.options.targetWorkspaceCode)throw changed('GOVERNANCE_PROMOTE_WORKSPACE_CHANGED');
    if(!whole(inv,'promote',action==='write'?'write':'read'))throw deny('GOVERNANCE_PROMOTE_SCOPE_DENIED');
    for(const object of inv.objects){if(!object.objectWorkspaceId)throw changed('GOVERNANCE_PROMOTE_OBJECT_SCOPE_INVALID');const entity={...object.payload,id:object.nativeId,tags:Array.isArray(object.payload.tags)?object.payload.tags.map(t=>encodeTag(String(t))):[]},nativeModule=object.entityType==='targets'?'upstreams':object.entityType;

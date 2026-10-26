@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { ConflictException, ForbiddenException, HttpException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { SecretService } from '../../infrastructure/secret.service';
@@ -52,7 +53,7 @@ export class GovernanceInventoryService {
   }
   private async probeCapabilities(handle:GovernanceReadHandle,cid:string,expectedVersion:string):Promise<string[]>{
     const root=await this.kong.request(cid,'GET','/');
-    if(!/^1\.5\.\d+$/.test(root?.version??'')||root.version!==expectedVersion)throw new ConflictException({code:'GOVERNANCE_VERSION_CHANGED',message:'实际 Kong 版本不符合当前已探测的 1.5.x 巡检适配层'});
+    if(!isSupportedKong(root?.version??'')||root.version!==expectedVersion)throw new ConflictException({code:'GOVERNANCE_VERSION_CHANGED',message:'实际 Kong 版本不符合当前已探测的 1.5.x 巡检适配层'});
     const enabled=await this.kong.request(cid,'GET','/plugins/enabled'),names=enabled?.enabled_plugins;
     if(!Array.isArray(names)||names.length>200||names.some((name:any)=>typeof name!=='string'||!PLUGIN_NAME.test(name)))throw new ConflictException({code:'GOVERNANCE_ENABLED_INVALID',message:'网关插件能力清单无效'});
     const normalized=[...new Set(names as string[])].sort(),enabledHmac=this.secrets.fingerprint(normalized),previous=this.capabilities.get(handle);

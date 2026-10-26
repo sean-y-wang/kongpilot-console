@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException,HttpException} from '@nestjs/common';
 import {randomUUID} from 'node:crypto';
 import {DbService} from '../../infrastructure/db.service';
@@ -108,7 +109,7 @@ export class GovernanceService {
  }
  async capabilities(cid:string,actor:EntityActor):Promise<any>{const s=await this.discoveryScope(cid,actor),c=await this.db.one<any>('SELECT execution_mode,version FROM clusters WHERE id=$1 AND deleted_at IS NULL',[cid]),can=(module:string,action='read')=>this.authz.hasWholeWorkspace(actor.user,cid,s.wid,module,action);
   const [ruleRead,ruleWrite,ruleDelete,scheduleRead,scheduleWrite,scheduleDelete,driftRead,promotePlan]=await Promise.all([can('lint'),can('lint','write'),can('lint','delete'),can('governance'),can('governance','write'),can('governance','delete'),can('drift'),can('promote','write')]);await this.fence(actor,s.version);
-  const adapterAvailable=/^1\.5\.\d+$/.test(c?.version??'');return{clusterId:cid,workspaceId:s.wid,executionMode:c.execution_mode,inspection:adapterAvailable,ruleRead,ruleWrite,ruleDelete,scheduleRead,scheduleWrite,scheduleDelete,driftRead,driftCompare:adapterAvailable&&driftRead,promotePlan:adapterAvailable&&promotePlan,adapterAvailable};
+  const adapterAvailable=isSupportedKong(c?.version??'');return{clusterId:cid,workspaceId:s.wid,executionMode:c.execution_mode,inspection:adapterAvailable,ruleRead,ruleWrite,ruleDelete,scheduleRead,scheduleWrite,scheduleDelete,driftRead,driftCompare:adapterAvailable&&driftRead,promotePlan:adapterAvailable&&promotePlan,adapterAvailable};
  }
  async catalog(cid:string,actor:EntityActor):Promise<any>{const s=await this.discoveryScope(cid,actor);await this.fence(actor,s.version);return{engineVersion:GOVERNANCE_ENGINE_VERSION,builtinRules:BUILTIN_LINT_RULES,predicates:['required','exists','type','enum','equals','includes','min','max','length','tags_contains','https_only','reference_exists','matches'],fixActions:fixCatalog,globalBaselinePolicy:{scope:'cluster',plugins:['rate-limiting'],automaticFix:false},limits:{nativePages:100,nativeRecords:10000,nativeBytes:33554432,nativeCalls:500,nativeDeadlineMs:120000,ruleLimit:200}};}
  private receiptOfRun(row:any,entity?:Record<string,unknown>):GovernanceReceipt{return{id:row.id,actorId:row.actor_id,clusterId:row.cluster_id,workspaceId:row.workspace_id,idempotencyKey:row.idempotency_key,domain:'governance',kind:row.kind,state:row.state,registrationCompleted:true,submissionCompleted:false,executionCompleted:['succeeded','incomplete','failed'].includes(row.state),nativeExecutionRequested:false,...(entity?{entity}:{})};}
