@@ -83,7 +83,7 @@ describe('M11 bounded target-health observation, source-only reader fixtures', (
   });
 
   it.each([
-    { version: '1.4.3', node_id: 'node' }, { version: '1.5.1-enterprise', node_id: 'node' },
+    { version: '1.2.0', node_id: 'node' }, { version: '1.5.1-enterprise', node_id: 'node' },
     { version: undefined, node_id: 'node' },
   ])('rejects unsupported initial version before health reads (%j)', async root => {
     const f = fixture(); f.roots[0] = root as any;

@@ -281,13 +281,17 @@ describe('M11 actual IAM workflow prepare/submit/current authority', () => {
     expect(f.state().intents.size).toBe(0); expect(f.state().operations.size).toBe(0); expect(f.writes).toEqual([]);
   });
 
-  it.each(['registry-url', 'cluster-revision', 'workspace-revision', 'execution-mode', 'kong-version'])('refuses %s drift in the second affected cluster', async variant => {
+  it.each(['1.3.0', '1.4.2', '2.8.0'])('does not gate the console-only IAM flow on Kong version %s', async version => {
+    const f = fixture(true); for (const c of f.state().clusters.values()) c.version = version;
+    await expect(f.prepare()).resolves.toBeTruthy();
+  });
+
+  it.each(['registry-url', 'cluster-revision', 'workspace-revision', 'execution-mode'])('refuses %s drift in the second affected cluster', async variant => {
     const f = fixture(true), receipt = await f.prepare();
     if (variant === 'registry-url') f.state().clusters.get(f.cid2).admin_url = 'http://other-kong:8001';
     if (variant === 'cluster-revision') f.state().clusters.get(f.cid2).revision++;
     if (variant === 'workspace-revision') f.state().workspaces.get(f.wid2).revision++;
     if (variant === 'execution-mode') f.state().clusters.get(f.cid2).execution_mode = 'direct';
-    if (variant === 'kong-version') f.state().clusters.get(f.cid2).version = '2.8.0';
     await expect(f.submit(receipt)).rejects.toThrow(); expect(f.plans.persist).not.toHaveBeenCalled();
   });
 

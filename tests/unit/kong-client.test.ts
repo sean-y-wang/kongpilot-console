@@ -209,7 +209,7 @@ describe('M0 Kong client reliability, version gating and scoped pagination', () 
     expect(result.status).toBe('healthy');
     expect(result.capabilities.plugins_schema_path).toBe('/plugins/schema/{name}');
     expect(result.capabilities.native_workspaces).toBe(false);
-    expect(result.capabilities).toMatchObject({ endpoint_discovery: false, endpoint_discovery_source: 'unavailable', endpoints: null, derived_capability_source: 'fixed-1.5-allowlist-and-schemas' });
+    expect(result.capabilities).toMatchObject({ endpoint_discovery: false, endpoint_discovery_source: 'unavailable', endpoints: null, derived_capability_source: 'fixed-allowlist-and-schemas' });
     expect(result.capabilities.derived_endpoints).toContain('/services');
     expect(audit.append).toHaveBeenCalledWith(expect.objectContaining({ actorId: 'actor', action: 'probe', clusterId }), db);
     expect(db.exec).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO cluster_probes'), expect.any(Array));
