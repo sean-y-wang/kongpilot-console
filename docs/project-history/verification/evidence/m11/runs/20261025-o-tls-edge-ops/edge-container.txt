@@ -1,0 +1,1 @@
+nginx:alpine net=host ro=true capdrop=[ALL]

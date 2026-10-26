@@ -1,0 +1,12 @@
+import {login,op,save,api} from './h.mjs'; import fs from 'node:fs';
+const tag=process.argv[2]||'run';const {A,wid}=JSON.parse(fs.readFileSync('ctx.json'));const c2=JSON.parse(fs.readFileSync('ctx2.json'));
+const s=await login();const q=o=>new URLSearchParams({workspaceId:wid,...o}).toString();const V=p=>`/api/v1/clusters/${A}/vitals/${p}`;
+const end=new Date(Math.floor(Date.now()/1000)*1000),start=new Date(end-15*60000);const iso=d=>d.toISOString().replace(/\.\d{3}Z$/,'Z');
+for(let i=0;i<3;i++)await op('vitals',`${tag} overview workspace #${i}`,()=>api(s,V('overview?'+q({scope:'workspace',start:iso(start),end:iso(end),step:'60'}))));
+await op('vitals',`${tag} overview cluster`,()=>api(s,V('overview?'+q({scope:'cluster',start:iso(start),end:iso(end)}))));
+const ap=await login(c2.apprUser,c2.pass);
+await op('vitals',`${tag} approver overview`,()=>api(ap,V('overview?'+q({scope:'workspace',start:iso(start),end:iso(end)}))));
+const ids=v=>JSON.stringify(v,(k,x)=>['evaluationAt','generatedAt','value','values','points','rate','p50','p95','p99','count'].includes(k)?undefined:x);const ro=await login(c2.roUser,c2.pass);await op('vitals',`${tag} read-only user overview`,()=>api(ro,V('overview?'+q({scope:'workspace',start:iso(start),end:iso(end)}))));await op('vitals',`${tag} read-only user cluster scope (role has whole-cluster read)`,()=>api(ro,V('overview?'+q({scope:'cluster',start:iso(start),end:iso(end)}))));const r2=await api(ro,V('overview?'+q({scope:'workspace',start:iso(start),end:iso(end)})));
+const shape=d=>({quality:d?.quality,topN:ids(d?.topN),series:ids(d?.series)?.length,cards:ids(d?.cards)});
+const w=await api(s,V('overview?'+q({scope:'workspace',start:iso(start),end:iso(end),step:'60'})));const a=await api(ap,V('overview?'+q({scope:'workspace',start:iso(start),end:iso(end)})));fs.writeFileSync(`p10-vitals-shape-${tag}.json`,JSON.stringify({owner:shape(w.data),approver:shape(a.data),readonly:shape(r2.data)},null,1));
+save(`p10-vitals-perf-${tag}.json`);

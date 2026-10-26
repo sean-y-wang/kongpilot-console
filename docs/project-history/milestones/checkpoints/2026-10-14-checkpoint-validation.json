@@ -1,0 +1,63 @@
+{
+  "snapshot": "work/m11-checkpoint-20261014",
+  "started": "2026-10-14T09:08:55.696192+00:00",
+  "commercialAcceptance": false,
+  "fullRegressionPerformed": false,
+  "runtimeAcceptancePerformed": false,
+  "sourceBefore": {
+    "sha256": "2531e0551e577ccf1ee8116fcbf1efd4864a343e6d614ead8badc05ec15475c7",
+    "files": 553,
+    "canonicalOrder": "POSIX relative path string"
+  },
+  "checks": [
+    {
+      "name": "api-typecheck",
+      "exitCode": 0,
+      "passed": true,
+      "privateLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "web-typecheck",
+      "exitCode": 0,
+      "passed": true,
+      "privateLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "portal-typecheck",
+      "exitCode": 0,
+      "passed": true,
+      "privateLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "git-diff-check",
+      "passed": true,
+      "exitCode": 0
+    }
+  ],
+  "sourceAfter": {
+    "sha256": "2531e0551e577ccf1ee8116fcbf1efd4864a343e6d614ead8badc05ec15475c7",
+    "files": 553,
+    "canonicalOrder": "POSIX relative path string"
+  },
+  "sourceUnchangedDuringChecks": true,
+  "passed": true,
+  "completed": "2026-10-14T09:09:40.527045+00:00",
+  "precommitSecretScan": {
+    "passed": true,
+    "evidencePath": "artifacts/M11/checkpoint-source-secret-scan-linked-final-20261014.json",
+    "evidenceSha256": "0ccc7521f9aefc52e8d5c8558c803dc8e06893095f5e3608ac9077c536c4474f",
+    "files": 4580,
+    "bytes": 308215278,
+    "findingCount": 0,
+    "runtimeLogsOrDatabaseScanned": false,
+    "screenshotOcrPerformed": false
+  },
+  "stagingWhitespaceNormalization": {
+    "files": [
+      "tests/unit/m11-partial-no-send-terminal-repair.test.ts",
+      "tests/unit/m11-partial-restore-known-zero-reader.test.ts",
+      "tests/unit/m11-target-schedules-web.test.ts"
+    ],
+    "scope": "remove trailing blank lines at EOF; no test or production behavior changes"
+  }
+}

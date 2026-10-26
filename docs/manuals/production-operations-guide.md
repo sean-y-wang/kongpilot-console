@@ -138,8 +138,8 @@ KP_PROJECT=kongpilot-production
 KP_ENV=deploy/private/kongpilot-production/.env
 kpc() {
   docker compose --project-name "$KP_PROJECT" --env-file "$KP_ENV" \
-    -f docker-compose.yml -f deploy/compose.production.yml \
-    -f deploy/compose.external-kong.yml "$@"
+    -f docker-compose.yml -f deploy/compose/compose.production.yml \
+    -f deploy/compose/compose.external-kong.yml "$@"
 }
 kpc build console-api console-web portal-web
 kpc up -d --no-build --wait --wait-timeout 180
@@ -291,7 +291,7 @@ Webhook/Slack/飞书使用 HTTPS、精确 host:port allowlist，禁止 redirect�
 
 从较早的平台备份恢复后，活动 Kong 可能保留恢复点之后已完成的配置，而平台库缺少对应最新工单/来源/基线/原回执。此时保持写入、发证和 worker 停止，核验实际网关及备份范围，保留外部已存的原操作证据；**原键 GET404 或空工单列表不能证明网关没有执行**。不能重建旧 packet/source/票或把旧验证报告补写成当前库恢复事实；明确收口缺口后按当前配置新建独立计划，再完成恢复环境自身验收。
 
-仓库的 `coordinated-production-backup.mjs` 用于已声明的独立联合实验，**不能不审阅直接指向现有生产 Kong**。异机存储、恢复密钥独立权限域和生产 SLA 尚需现场验证。
+仓库的 `coordinated-backup.mjs` 用于已声明的独立联合实验，**不能不审阅直接指向现有生产 Kong**。异机存储、恢复密钥独立权限域和生产 SLA 尚需现场验证。
 
 PostgreSQL 恢复需留意旧 PL/pgSQL CHECK 函数的 search_path：原 dump 的空 search_path 可能使未限定名称的校验 helper 失败。历史实验已采用验证过的事务式恢复方案，详见 [技术参考](technical-operations-reference.md)。不能为导入成功删除 CHECK、篡改审计或忽略恢复错误。最终 sec7 运行已验证对实际 sec6 恢复库的兼容，不能据此声称品牌版新镜像已完成全新冷恢复。
 
@@ -616,7 +616,7 @@ Upstream 详情的 Targets 页提供「添加 Target / 编辑 / 健康 / 不健�
 
 ### 验收环境与正式生产分开
 
-`deploy/compose.release-persistent.yml` 是隔离验收入口，使用验收配置和 `NODE_ENV=test`，不能作为本手册第 7 节的正式生产替代品。named volume 只说明该 daemon 下的存储挂载；若 daemon 的 data-root 位于 RAM、临时容器或未持久化目录，仍不具备主机重启持久性。
+`deploy/compose/compose.release-persistent.yml` 是隔离验收入口，使用验收配置和 `NODE_ENV=test`，不能作为本手册第 7 节的正式生产替代品。named volume 只说明该 daemon 下的存储挂载；若 daemon 的 data-root 位于 RAM、临时容器或未持久化目录，仍不具备主机重启持久性。
 
 验收工具 OOM、临时 daemon 或 RAM 丢失时，保留已落盘的公开报告和原失败，明确缺失的私密账本及数据库范围。不得重建旧会话、原批准或原请求来补出“恢复成功”；需在新的独立验收 run 中创建新材料，并将其与旧证据分开。生产必须使用受管持久数据目录、专用平台数据库、Redis 持久策略、独立密钥保管、加密备份和实际隔离恢复。
 

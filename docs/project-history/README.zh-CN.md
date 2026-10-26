@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-本页概述 KongPilot 走到 v1.0.0 的过程，是原始开发记录的整理摘要；逐次运行证据和实验环境日志未公开。
+本页概述 KongPilot 走到 v1.0.0 的过程，是原始开发记录的整理摘要；脱敏后的原始文档和证据摘要见文末“归档与证据”；原始实验日志和凭据不公开。
 
 ## 里程碑
 
@@ -46,3 +46,11 @@
 ## 经验
 
 不放宽门禁换绿灯；不同时间点的证据不等于发布，要在同一标签上一次性重跑；离线环境是真实环境；默认值很重要；区分实验环境问题和产品问题；有界接口就是契约。
+
+## 归档与证据
+
+- [里程碑文档](milestones/README.md) — M0–M11 plans, contracts, checkpoints
+- [验收](acceptance/README.md) — M11 commercial acceptance checklist
+- [验证证据](verification/README.md) — rc.2 final regression, milestone verification reports, release-candidate manifests
+- [安全设计与评审](../architecture/security/README.md)
+- [归档清单](ARCHIVE-MANIFEST.md) — published / covered / private for every internal path

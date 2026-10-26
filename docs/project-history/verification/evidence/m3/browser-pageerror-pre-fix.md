@@ -1,0 +1,301 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - complementary [ref=e5]:
+      - generic [ref=e6]:
+        - link "K KongOS Console" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e8]: K
+          - generic [ref=e9]:
+            - text: KongOS
+            - strong [ref=e10]: Console
+        - generic [ref=e11]: 控制台
+        - menu [ref=e12]:
+          - menuitem "appstore 总览" [ref=e13] [cursor=pointer]:
+            - img "appstore" [ref=e14]:
+              - img [ref=e15]
+            - generic [ref=e17]: 总览
+          - menuitem "cluster 集群管理" [ref=e18] [cursor=pointer]:
+            - img "cluster" [ref=e19]:
+              - img [ref=e20]
+            - generic [ref=e22]: 集群管理
+          - menuitem "database 数据源管理" [ref=e23] [cursor=pointer]:
+            - img "database" [ref=e24]:
+              - img [ref=e25]
+            - generic [ref=e27]: 数据源管理
+          - menuitem "thunderbolt 插件中心" [ref=e28] [cursor=pointer]:
+            - img "thunderbolt" [ref=e29]:
+              - img [ref=e30]
+            - generic [ref=e32]: 插件中心
+          - menuitem "team 工作区管理" [ref=e33] [cursor=pointer]:
+            - img "team" [ref=e34]:
+              - img [ref=e35]
+            - generic [ref=e37]: 工作区管理
+        - generic [ref=e38]:
+          - text: 网关实体
+          - generic [ref=e39]: "1.5"
+        - menu [ref=e40]:
+          - menuitem "api Services" [ref=e41] [cursor=pointer]:
+            - img "api" [ref=e42]:
+              - img [ref=e43]
+            - generic [ref=e45]: Services
+          - menuitem "branches Routes" [ref=e46] [cursor=pointer]:
+            - img "branches" [ref=e47]:
+              - img [ref=e48]
+            - generic [ref=e50]: Routes
+          - menuitem "team Consumers" [ref=e51] [cursor=pointer]:
+            - img "team" [ref=e52]:
+              - img [ref=e53]
+            - generic [ref=e55]: Consumers
+          - menuitem "thunderbolt Plugins" [ref=e56] [cursor=pointer]:
+            - img "thunderbolt" [ref=e57]:
+              - img [ref=e58]
+            - generic [ref=e60]: Plugins
+          - menuitem "cloud-server Upstreams" [ref=e61] [cursor=pointer]:
+            - img "cloud-server" [ref=e62]:
+              - img [ref=e63]
+            - generic [ref=e67]: Upstreams
+          - menuitem "safety-certificate Certificates" [ref=e68] [cursor=pointer]:
+            - img "safety-certificate" [ref=e69]:
+              - img [ref=e70]
+            - generic [ref=e72]: Certificates
+          - menuitem "key CA Certificates" [ref=e73] [cursor=pointer]:
+            - img "key" [ref=e74]:
+              - img [ref=e75]
+            - generic [ref=e77]: CA Certificates
+          - menuitem "global SNIs" [ref=e78] [cursor=pointer]:
+            - img "global" [ref=e79]:
+              - img [ref=e80]
+            - generic [ref=e82]: SNIs
+        - generic [ref=e83]: 管理与治理
+        - menu [ref=e84]:
+          - menuitem "delete 回收站" [ref=e85] [cursor=pointer]:
+            - img "delete" [ref=e86]:
+              - img [ref=e87]
+            - generic [ref=e89]: 回收站
+          - menuitem "branches 工作区迁移" [ref=e90] [cursor=pointer]:
+            - img "branches" [ref=e91]:
+              - img [ref=e92]
+            - generic [ref=e94]: 工作区迁移
+          - menuitem "bar-chart Vitals 监控" [disabled] [ref=e95]:
+            - img "bar-chart" [ref=e96]:
+              - img [ref=e97]
+            - generic [ref=e99]: Vitals 监控
+          - menuitem "file-protect 审计日志" [disabled] [ref=e100]:
+            - img "file-protect" [ref=e101]:
+              - img [ref=e102]
+            - generic [ref=e104]: 审计日志
+          - menuitem "tool 运维工具箱" [disabled] [ref=e105]:
+            - img "tool" [ref=e106]:
+              - img [ref=e107]
+            - generic [ref=e109]: 运维工具箱
+          - menuitem "setting 权限与设置" [disabled] [ref=e110]:
+            - img "setting" [ref=e111]:
+              - img [ref=e112]
+            - generic [ref=e114]: 权限与设置
+        - generic [ref=e115]:
+          - generic [ref=e117]:
+            - strong [ref=e118]: 多工作区管理
+            - generic [ref=e119]: 面向 Kong Gateway 1.5.x
+          - generic [ref=e120]: M3
+    - generic [ref=e121]:
+      - banner [ref=e122]:
+        - generic [ref=e123]:
+          - generic [ref=e124]: 集群
+          - generic "选择集群" [ref=e125] [cursor=pointer]:
+            - generic [ref=e127]:
+              - combobox "选择集群" [ref=e129]
+              - generic "Kong 1.5 默认集群 · default" [ref=e130]
+            - generic:
+              - img:
+                - img
+          - generic "选择工作区" [ref=e132] [cursor=pointer]:
+            - generic [ref=e134]:
+              - combobox "选择工作区" [ref=e136]
+              - generic "m3-security-c0b5a929-B" [ref=e137]
+            - generic:
+              - img:
+                - img
+        - generic [ref=e138]:
+          - generic [ref=e140]: Kong 1.5.x
+          - button "A admin down" [ref=e142] [cursor=pointer]:
+            - generic [ref=e144]: A
+            - generic [ref=e145]: admin
+            - img "down" [ref=e146]:
+              - img [ref=e147]
+      - main [ref=e149]:
+        - generic [ref=e150]:
+          - generic [ref=e151]:
+            - generic [ref=e152]: REVIEWED CHANGES
+            - heading "工作区迁移" [level=2] [ref=e153]
+            - generic [ref=e154]: 先生成带依赖关系的只读差异，再确认目标名称执行；部分完成与响应中断均需显式核验。
+          - button "reload 刷新计划" [ref=e157] [cursor=pointer]:
+            - img "reload" [ref=e159]:
+              - img [ref=e160]
+            - generic [ref=e162]: 刷新计划
+        - alert [ref=e163]:
+          - img "exclamation-circle" [ref=e164]:
+            - img [ref=e165]
+          - generic [ref=e167]:
+            - generic [ref=e168]: 迁移改变管理归属，采用标签软隔离
+            - generic [ref=e169]: 服务关联路由与插件等会按依赖关系纳入预览。Targets 和凭证继承父对象归属；Target 历史标签可能不同。共享引用、跨区依赖和冲突必须在执行前确认。
+        - alert [ref=e170]:
+          - img "info-circle" [ref=e171]:
+            - img [ref=e172]
+          - generic [ref=e174]:
+            - generic [ref=e175]: 当前正在查看原工作区的迁移计划
+            - generic [ref=e176]: 原工作区：7b0300db-5cde-47da-bd1e-445332da17fb。切换选择器不会重发此操作；返回原工作区后才能执行新的迁移。
+        - generic [ref=e177]:
+          - generic [ref=e180]: 选择源对象 · m3-security-c0b5a929-B
+          - generic [ref=e182]:
+            - generic [ref=e184]:
+              - generic "目标工作区" [ref=e186]: "* 目标工作区"
+              - generic "target_workspace_id" [ref=e190] [cursor=pointer]:
+                - combobox "target_workspace_id" [ref=e194]
+                - generic:
+                  - img:
+                    - img
+            - generic [ref=e195]:
+              - generic [ref=e196]: "1"
+              - generic [ref=e197]:
+                - generic [ref=e199]:
+                  - generic "对象类型" [ref=e201]: "* 对象类型"
+                  - generic "type" [ref=e205] [cursor=pointer]:
+                    - generic [ref=e207]:
+                      - combobox "type" [ref=e209]
+                      - generic "Services" [ref=e210]
+                    - generic:
+                      - img:
+                        - img
+                - generic [ref=e212]:
+                  - generic "原对象" [ref=e214]: "* 原对象"
+                  - generic "id" [ref=e218] [cursor=pointer]:
+                    - generic [ref=e220]:
+                      - combobox "id" [ref=e222]
+                      - generic: 选择实体，或输入完整名称 / ID 搜索
+                    - generic:
+                      - img:
+                        - img
+              - button "移除迁移对象 1" [ref=e223] [cursor=pointer]:
+                - img "delete" [ref=e225]:
+                  - img [ref=e226]
+            - generic [ref=e228]:
+              - button "plus 添加迁移对象" [ref=e230] [cursor=pointer]:
+                - img "plus" [ref=e232]:
+                  - img [ref=e233]
+                - generic [ref=e236]: 添加迁移对象
+              - button "预览迁移差异" [ref=e238] [cursor=pointer]:
+                - generic [ref=e239]: 预览迁移差异
+        - generic [ref=e240]:
+          - generic [ref=e242]:
+            - generic [ref=e243]: 迁移差异与执行计划
+            - generic [ref=e245]: 已完成
+          - generic [ref=e246]:
+            - table [ref=e249]:
+              - rowgroup [ref=e250]:
+                - 'row "计划 ID : a3c7fe02-e5da-44a2-9fc0-14593c1d8ff8 复制 目标工作区 : m3-security-c0b5a929-B 有效至 : 2026/10/10 16:44:47" [ref=e251]':
+                  - 'cell "计划 ID : a3c7fe02-e5da-44a2-9fc0-14593c1d8ff8 复制" [ref=e252]':
+                    - generic [ref=e253]:
+                      - generic [ref=e254]: "计划 ID :"
+                      - generic [ref=e256]:
+                        - text: a3c7fe02-e5da-44a2-9fc0-14593c1d8ff8
+                        - button "复制" [ref=e257] [cursor=pointer]:
+                          - img "copy" [ref=e258]:
+                            - img [ref=e259]
+                  - 'cell "目标工作区 : m3-security-c0b5a929-B" [ref=e261]':
+                    - generic [ref=e262]:
+                      - generic [ref=e263]: "目标工作区 :"
+                      - generic [ref=e264]: m3-security-c0b5a929-B
+                  - 'cell "有效至 : 2026/10/10 16:44:47" [ref=e265]':
+                    - generic [ref=e266]:
+                      - generic [ref=e267]: "有效至 :"
+                      - generic [ref=e268]: 2026/10/10 16:44:47
+                - 'row "读取预算 : 10 页 / 333 条 / 244 节点" [ref=e269]':
+                  - 'cell "读取预算 : 10 页 / 333 条 / 244 节点" [ref=e270]':
+                    - generic [ref=e271]:
+                      - generic [ref=e272]: "读取预算 :"
+                      - generic [ref=e273]: 10 页 / 333 条 / 244 节点
+            - alert [ref=e274]:
+              - img "exclamation-circle" [ref=e275]:
+                - img [ref=e276]
+              - generic [ref=e279]: 工作区仅限制控制台管理范围；直连 Admin API 可以绕过，Kong 名称与 Consumer 仍属于同一运行空间。
+            - alert [ref=e280]:
+              - img "exclamation-circle" [ref=e281]:
+                - img [ref=e282]
+              - generic [ref=e285]: 全局插件的运行效果不受工作区标签限制。
+            - alert [ref=e286]:
+              - img "exclamation-circle" [ref=e287]:
+                - img [ref=e288]
+              - generic [ref=e291]: Target 继承 Upstream 工作区；迁移不追加 Target 历史。
+            - alert [ref=e292]:
+              - img "exclamation-circle" [ref=e293]:
+                - img [ref=e294]
+              - generic [ref=e297]: Kong 不提供多对象事务；部分失败后须先核验，再明确确认继续。
+            - alert [ref=e298]:
+              - img "exclamation-circle" [ref=e299]:
+                - img [ref=e300]
+              - generic [ref=e303]: 回收站历史归属保持不变，恢复时会重新校验共享依赖。
+            - generic [ref=e306]:
+              - table [ref=e310]:
+                - rowgroup [ref=e317]:
+                  - row "对象 迁移前标签 迁移后标签 处理方式 执行状态" [ref=e318]:
+                    - columnheader "对象" [ref=e319]
+                    - columnheader "迁移前标签" [ref=e320]
+                    - columnheader "迁移后标签" [ref=e321]
+                    - columnheader "处理方式" [ref=e322]
+                    - columnheader "执行状态" [ref=e323]
+                - rowgroup [ref=e324]:
+                  - row "m3-browser-1791648883164-service Services · 3326c20d-da7f-4d19-b144-653f6ea85b0f m3-browser workspace:m3_c0b5a929_a m3-browser workspace:m3_c0b5a929_b 更新归属标签 已完成" [ref=e325]:
+                    - cell "m3-browser-1791648883164-service Services · 3326c20d-da7f-4d19-b144-653f6ea85b0f" [ref=e326]:
+                      - generic [ref=e327]:
+                        - strong [ref=e328]: m3-browser-1791648883164-service
+                        - generic [ref=e329]: Services · 3326c20d-da7f-4d19-b144-653f6ea85b0f
+                    - cell "m3-browser workspace:m3_c0b5a929_a" [ref=e330]:
+                      - generic [ref=e331]:
+                        - generic [ref=e333]: m3-browser
+                        - generic [ref=e335]: workspace:m3_c0b5a929_a
+                    - cell "m3-browser workspace:m3_c0b5a929_b" [ref=e336]:
+                      - generic [ref=e337]:
+                        - generic [ref=e339]: m3-browser
+                        - generic [ref=e341]: workspace:m3_c0b5a929_b
+                    - cell "更新归属标签" [ref=e342]:
+                      - generic [ref=e343]: 更新归属标签
+                    - cell "已完成" [ref=e344]
+              - list [ref=e345]:
+                - listitem "上一页" [ref=e346]:
+                  - button "left" [disabled] [ref=e347]:
+                    - img "left" [ref=e348]:
+                      - img [ref=e349]
+                - listitem "1" [ref=e351] [cursor=pointer]:
+                  - generic [ref=e352]: "1"
+                - listitem "下一页" [ref=e353]:
+                  - button "right" [disabled] [ref=e354]:
+                    - img "right" [ref=e355]:
+                      - img [ref=e356]
+            - generic [ref=e358]:
+              - button "执行迁移" [disabled] [ref=e360]:
+                - generic: 执行迁移
+              - button "核验迁移状态" [ref=e362] [cursor=pointer]:
+                - generic [ref=e363]: 核验迁移状态
+              - button "新建迁移计划" [ref=e365] [cursor=pointer]:
+                - generic [ref=e366]: 新建迁移计划
+            - generic [ref=e367]: 预览与核验不修改网关配置。继续部分迁移须先核验原回执和全部步骤，再审阅最新差异、输入目标名称，并显式使用新的幂等键；不会自动重试或继续。
+      - contentinfo [ref=e368]:
+        - generic [ref=e369]: KongOS Console
+        - generic [ref=e370]: 所有网关请求经控制台后端转发
+  - generic [ref=e371]:
+    - dialog "操作核验结果":
+      - generic [ref=e374]:
+        - generic [ref=e375]:
+          - img "info-circle" [ref=e376]:
+            - img [ref=e377]
+          - generic [ref=e379]:
+            - generic [ref=e380]: 操作核验结果
+            - generic [ref=e381]:
+              - generic [ref=e382]: 这是只读核验。回执已证明远程执行结束，原范围的写入阻止已解除。
+              - generic [ref=e383]: "{ \"id\": \"0103616d-6cc3-48d8-896b-af06f2c15fa3\", \"cluster_id\": \"dff45535-ed8d-4851-b7a6-6376feac7f59\", \"workspace_id\": \"7b0300db-5cde-47da-bd1e-445332da17fb\", \"actor_id\": \"eb0b58a1-e79c-4a41-a4d3-d20596c6d340\", \"action\": \"migrate\", \"entity_type\": \"workspace_migration\", \"entity_id\": \"a3c7fe02-e5da-44a2-9fc0-14593c1d8ff8\", \"state\": \"succeeded\", \"remote_started\": true, \"remote_completed\": true, \"error_code\": null, \"safe_result\": { \"id\": \"a3c7fe02-e5da-44a2-9fc0-14593c1d8ff8\", \"state\": \"succeeded\", \"steps\": [ { \"id\": \"3326c20d-da7f-4d19-b144-653f6ea85b0f\", \"key\": \"[REDACTED]\", \"type\": \"services\", \"status\": \"succeeded\" } ], \"budget\": { \"bytes\": 183665, \"nodes\": 244, \"pages\": 10, \"records\": 333 }, \"affected\": [ { \"id\": \"3326c20d-da7f-4d19-b144-653f6ea85b0f\", \"key\": \"[REDACTED]\", \"name\": \"m3-browser-1791648883164-service\", \"type\": \"services\", \"status\": \"succeeded\", \"after_tags\": [ \"m3-browser\", \"workspace:m3_c0b5a929_b\" ], \"before_tags\": [ \"m3-browser\", \"workspace:m3_c0b5a929_a\" ], \"inherited_only\": false, \"source_workspace_id\": \"7b0300db-5cde-47da-bd1e-445332da17fb\", \"target_workspace_id\": \"2808aebd-3e44-414d-bbb6-95141351b4c0\" } ], \"warnings\": [ \"工作区仅限制控制台管理范围；直连 Admin API 可以绕过，Kong 名称与 Consumer 仍属于同一运行空间。\", \"全局插件的运行效果不受工作区标签限制。\", \"Target 继承 Upstream 工作区；迁移不追加 Target 历史。\", \"Kong 不提供多对象事务；部分失败后须先核验，再明确确认继续。\", \"回收站历史归属保持不变，恢复时会重新校验共享依赖。\" ], \"conflicts\": [], \"plan_hash\": \"bf0b3e7e792139ed1f142c99b1604b668c441be44a42cc3a32aba76b4252b463\", \"cluster_id\": \"dff45535-ed8d-4851-b7a6-6376feac7f59\", \"expires_at\": \"2026-10-10T16:44:47.587Z\", \"references\": [], \"operation_id\": \"0103616d-6cc3-48d8-896b-af06f2c15fa3\", \"source_workspace_id\": \"7b0300db-5cde-47da-bd1e-445332da17fb\", \"target_workspace_id\": \"2808aebd-3e44-414d-bbb6-95141351b4c0\", \"target_workspace_name\": \"m3-security-c0b5a929-B\" }, \"created_at\": \"2026-10-10T16:14:48.351Z\", \"updated_at\": \"2026-10-10T16:14:48.461Z\" }"
+        - button "知道了" [ref=e385] [cursor=pointer]:
+          - generic [ref=e386]: 知道了
+```

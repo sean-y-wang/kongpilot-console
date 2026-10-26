@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "kind": "m11-console-pg-backup-restore-drill",
+  "commercialClosed": false,
+  "startedAt": "2026-10-25T16:59:35.464Z",
+  "completedAt": "2026-10-25T16:59:45.909Z",
+  "timezoneNote": "UTC; report Asia/Shanghai",
+  "secretsPrinted": false,
+  "dumpCommitted": false,
+  "mode": "inplace",
+  "project": "kp-bridge",
+  "timingsMs": {
+    "quiesce": 419,
+    "checksumBefore": 336,
+    "pgDump": 565,
+    "dropRecreate": 315,
+    "pgRestore": 2806,
+    "checksumAfter": 328,
+    "apiReadyAfterRestore": 2068
+  },
+  "dump": {
+    "bytes": 3382867,
+    "sha256": "5dc3aa2229a64f7da62198fdbb3df2774bf44fb87dcbe65f5cbbb2bd3960f42f"
+  },
+  "totals": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "id": "backup_created",
+      "passed": true,
+      "format": "pg_dump custom (-Fc -Z6)",
+      "bytes": 3382867,
+      "sha256": "5dc3aa2229a64f7da62198fdbb3df2774bf44fb87dcbe65f5cbbb2bd3960f42f",
+      "tableDataEntries": 189,
+      "storedAt": "private dir (not committed)"
+    },
+    {
+      "id": "disaster_database_gone",
+      "passed": true,
+      "publicTablesAfterDrop": 0
+    },
+    {
+      "id": "restore_all_tables_byte_identical",
+      "passed": true,
+      "tables": 189,
+      "totalRows": 10110,
+      "mismatched": [],
+      "key": {
+        "workflows": {
+          "rows": 0,
+          "equal": true
+        },
+        "workflow_approvals": {
+          "rows": 0,
+          "equal": true
+        },
+        "workflow_versions": {
+          "rows": 0,
+          "equal": true
+        },
+        "workflow_events": {
+          "rows": 0,
+          "equal": true
+        },
+        "workflow_executions": {
+          "rows": 0,
+          "equal": true
+        },
+        "audit_events": {
+          "rows": 2528,
+          "equal": true
+        },
+        "audit_chain_heads": {
+          "rows": 2,
+          "equal": true
+        },
+        "clusters": {
+          "rows": 1,
+          "equal": true
+        },
+        "users": {
+          "rows": 61,
+          "equal": true
+        },
+        "roles": {
+          "rows": 7,
+          "equal": true
+        },
+        "credential_refs": {
+          "rows": 0,
+          "equal": true
+        },
+        "auth_sessions": {
+          "rows": 130,
+          "equal": true
+        }
+      }
+    },
+    {
+      "id": "audit_chain_linkage_intact_after_restore",
+      "passed": true,
+      "before": {
+        "events": 2528,
+        "scopes": 2,
+        "prevHashBreaks": 0,
+        "sequenceGaps": 0
+      },
+      "after": {
+        "events": 2528,
+        "scopes": 2,
+        "prevHashBreaks": 0,
+        "sequenceGaps": 0
+      }
+    },
+    {
+      "id": "console_api_ready_after_restore",
+      "passed": true
+    },
+    {
+      "id": "admin_login_after_restore",
+      "passed": true,
+      "status": 201
+    },
+    {
+      "id": "product_audit_integrity_after_restore",
+      "passed": true,
+      "ok": true,
+      "httpStatus": 200,
+      "pages": [
+        {
+          "status": "verified",
+          "checkedRows": 991,
+          "complete": true,
+          "verifiedInterval": {
+            "fromSequence": "1",
+            "toSequence": "991"
+          },
+          "reasonCodes": []
+        }
+      ],
+      "checkedRows": 991
+    },
+    {
+      "id": "config_and_iam_visible_after_restore",
+      "passed": true,
+      "clusters": 1,
+      "users": 61
+    },
+    {
+      "id": "post_restore_write_and_chain_continues",
+      "passed": true,
+      "writeStatus": 201,
+      "eventsAfterRestore": 2528,
+      "eventsAfterWrite": 2532
+    }
+  ]
+}

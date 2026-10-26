@@ -1,5 +1,7 @@
 # Architecture
 
+[简体中文](README.zh-CN.md)
+
 ```mermaid
 flowchart LR
   Ops[Operators] --> Web[console-web<br/>React + Nginx]

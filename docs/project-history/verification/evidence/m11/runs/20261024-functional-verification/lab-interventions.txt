@@ -1,0 +1,4 @@
+LAB-ONLY SQL break-glass: super-admin binding inserted for fv2mvml42e0-appr at 2026-10-25T00:01:09+08:00 (no product path; see defect)
+LAB-ONLY SQL correction 2026-10-25T00:53:10+08:00: set users.super_admin=true for fv2mvml42e0-appr to match its earlier lab-inserted super-admin binding (the product grant path sets both; the earlier lab insert set only the binding)
+LAB-ONLY 2026-10-25T00:50+08:00: started kp-fv-prom (prom/prometheus:v2.53.0, host net 127.0.0.1:39090); enrolled metrics credentials gen 1 for clusters A and B via dist/infrastructure/metrics-enroll.js (lab script $PRIVATE/enroll-lab.mjs, tokens not printed); BFF restarted with METRICS_BRIDGE_ENABLED=true METRICS_BRIDGE_HOST=127.0.0.1 METRICS_BRIDGE_PORT=39092.
+2026-10-25T01:50:14+08:00 p10: created 55 services + 55 routes tagged fvperf (kos-ws-default) on Kong A admin 38001 to enlarge vitals catalog for perf measurement

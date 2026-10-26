@@ -1,6 +1,6 @@
 # 控制台 PostgreSQL 备份与恢复（单机 compose）
 
-适用：`docker-compose.yml` + `deploy/compose.production.yml` 部署的控制台数据库 `console-db`（PostgreSQL 16）。
+适用：`docker-compose.yml` + `deploy/compose/compose.production.yml` 部署的控制台数据库 `console-db`（PostgreSQL 16）。
 范围：控制台配置（集群登记、工作区、IAM、凭据引用）、工单/审批、审计链等全部 `public` 表。
 不含：Kong 自身数据库 `kong-db`（网关配置以 Kong 为准，另行备份）；异地/第二机房 DR 不在验收范围（见进度 §44）。
 
@@ -14,7 +14,7 @@
 ## 备份
 
 ```bash
-DC="docker compose --env-file <私有env> -f docker-compose.yml -f deploy/compose.production.yml"
+DC="docker compose --env-file <私有env> -f docker-compose.yml -f deploy/compose/compose.production.yml"
 # 在线备份即可：pg_dump 本身读取一致性快照。
 # 如需与其他系统对齐时点，可先停写入方：$DC stop console-api
 $DC exec -T console-db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -Z6' > console-$(date +%Y%m%d-%H%M).dump
@@ -48,7 +48,7 @@ $DC up -d console-api                      # 迁移服务会先运行，对已�
 
 把转储恢复到一个临时容器里核对：`docker run --network none postgres:16-alpine`，然后执行 `pg_restore --no-owner --no-acl`。逐表比对行数和内容 md5，并检查审计链：每个 chain_scope 内 `sequence` 连续，且 `prev_hash` 等于前一条的 `event_hash`。
 
-脚本：`deploy/scripts/m11-console-pg-backup-restore-drill.mjs`，有两种模式：
+脚本：`scripts/verification/pg-backup-restore-drill.mjs`，有两种模式：
 - `DRILL_MODE=scratch`：源库只读，在同一个一致性快照下导出并计算校验和。
 - `DRILL_MODE=inplace`：对实验部署做破坏性的整库删除与恢复。
 

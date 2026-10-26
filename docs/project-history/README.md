@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-This page summarizes how KongPilot reached v1.0.0. It is a curated summary of the original development record; per-run evidence and lab logs were intentionally not published.
+This page summarizes how KongPilot reached v1.0.0. It is a curated summary of the original development record; sanitized originals and evidence summaries are linked under [Archive & evidence](#archive--evidence); raw lab logs and credentials stay private.
 
 ## Milestone timeline
 
@@ -73,3 +73,11 @@ Pinned grype 0.120.1, gates not relaxed: 39/39 acceptance checks, **0 Critical**
 - **Defaults matter.** `auto` worker count looked harmless until it OOM-killed Kong on a bigger host.
 - **Distinguish lab from product.** Shared source IPs hitting rate limits, wrong time zones for schedule inputs and leftover Kong data were test-harness issues, fixed in the harness.
 - **Bounded APIs are contracts.** Paginated audit verification is by design; clients must follow the cursor.
+
+## Archive & evidence
+
+- [Milestones](milestones/README.md) — M0–M11 plans, contracts, checkpoints
+- [Acceptance](acceptance/README.md) — M11 commercial acceptance checklist
+- [Verification](verification/README.md) — rc.2 final regression, milestone verification reports, release-candidate manifests
+- [Security plans & reviews](../architecture/security/README.md)
+- [Archive manifest](ARCHIVE-MANIFEST.md) — published / covered / private for every internal path

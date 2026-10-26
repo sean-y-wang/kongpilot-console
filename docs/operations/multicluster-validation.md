@@ -1,6 +1,6 @@
 # 双 Kong 1.5.1 真实验收环境
 
-第二套真实 Kong 已在 M4 用于 RBAC/IDOR 验收准备，之后用于 M10 漂移和 Promote。补充文件 `deploy/compose.multicluster-test.yml` 的 `multicluster-test` profile 默认为关闭；基础生产 Compose 不会自动启动它。执行 `node deploy/scripts/verify-multicluster-plan.mjs M4` 可重现31项只读配置检查，包括管理网与存储网地址范围不重叠；临时随机凭证会自动移除。网络先行部署通过34项，M4统一应用/固定存储网络部署后通过37项真实检查，分别见 `artifacts/M4/admin-network-verification.json` 与 `artifacts/M4/admin-network-final-verification.json`；这些部署证据不宣称独立 M4 权限测试或 M10 已验收。
+第二套真实 Kong 已在 M4 用于 RBAC/IDOR 验收准备，之后用于 M10 漂移和 Promote。补充文件 `deploy/compose/compose.multicluster-test.yml` 的 `multicluster-test` profile 默认为关闭；基础生产 Compose 不会自动启动它。执行 `node deploy/scripts/verify-multicluster-plan.mjs M4` 可重现31项只读配置检查，包括管理网与存储网地址范围不重叠；临时随机凭证会自动移除。网络先行部署通过34项，M4统一应用/固定存储网络部署后通过37项真实检查，分别见 `artifacts/M4/admin-network-verification.json` 与 `artifacts/M4/admin-network-final-verification.json`；这些部署证据不宣称独立 M4 权限测试或 M10 已验收。
 
 第二集群使用独立 PG11 容器、`kong_secondary` 数据库、账号与密码、数据卷和内网。控制台只经 `http://kong-secondary:8001` 使用 Admin API，禁止连接该数据库。Admin8001 不发布到主机，仅监听第二集群专用 Admin IPv4与loopback，且 ACL 只放行精确的 BFF 管理 IPv4，拒绝自身和 loopback来源；该 Admin 网络仅含第二 Kong 和 console-api，代理在 `127.0.0.1:9000` 访问。共享 `proxy-edge` 让两个 Kong 可以访问同一无凭证 echo 上游，便于验证真实代理行为。
 
@@ -9,17 +9,17 @@
 ```sh
 node deploy/scripts/generate-multicluster-env.mjs
 docker compose --env-file .env --env-file .env.multicluster \
-  -f docker-compose.yml -f deploy/compose.multicluster-test.yml \
+  -f docker-compose.yml -f deploy/compose/compose.multicluster-test.yml \
   --profile multicluster-test config --quiet
 docker compose --env-file .env --env-file .env.multicluster \
-  -f docker-compose.yml -f deploy/compose.multicluster-test.yml \
+  -f docker-compose.yml -f deploy/compose/compose.multicluster-test.yml \
   --profile multicluster-test up -d kong-secondary-db kong-secondary-migrations kong-secondary
 docker compose --env-file .env --env-file .env.multicluster \
-  -f docker-compose.yml -f deploy/compose.multicluster-test.yml \
+  -f docker-compose.yml -f deploy/compose/compose.multicluster-test.yml \
   up -d console-api
 ```
 
-使用开发编译绑定时，在上述 `-f` 参数中保留 `-f deploy/compose.development.yml`，避免撤掉已部署代码挂载。生成器不会覆盖已有凭证或输出秘密；`.env.multicluster` 被 git/image 忽略，权限0600。合并配置对 API allowlist 添加 `kong-secondary`，并将两套独立 Kong 数据库的固定 IPv4 加入受保护管理目标。API 不连接这两套数据库网络，普通私有业务上游仍可用。
+使用开发编译绑定时，在上述 `-f` 参数中保留 `-f deploy/compose/compose.development.yml`，避免撤掉已部署代码挂载。生成器不会覆盖已有凭证或输出秘密；`.env.multicluster` 被 git/image 忽略，权限0600。合并配置对 API allowlist 添加 `kong-secondary`，并将两套独立 Kong 数据库的固定 IPv4 加入受保护管理目标。API 不连接这两套数据库网络，普通私有业务上游仍可用。
 
 通过控制台注册该集群并选择所需环境；探测应显示真实 `1.5.1` 和34个已启用插件。本会话 M4 的真实连接是 `d1dfaec8-2a10-4170-8a15-20a600a4bd4f`，环境 `m4-secondary`；主连接是 `dff45535-ed8d-4851-b7a6-6376feac7f59`。M4 通过后仍须在 M10 完成以下真实检查并保存请求 ID、结果与截图，秘密不进入证据：
 

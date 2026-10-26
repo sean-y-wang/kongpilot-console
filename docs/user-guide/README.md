@@ -1,5 +1,7 @@
 # User guide
 
+[简体中文](README.zh-CN.md)
+
 The manuals are written in Chinese (`zh-CN`) and are also bundled into the console's built-in **Manual** page, so they live in [`docs/manuals/`](../manuals/README.md).
 
 - [Console user guide / 控制台用户手册](../manuals/console-user-guide.md)

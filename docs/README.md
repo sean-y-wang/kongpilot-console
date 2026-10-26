@@ -8,8 +8,9 @@
 | [User guide](user-guide/README.md) | Console user guide and manuals (zh-CN) |
 | [Operations](operations/README.md) | Production deployment, backup/restore, upgrade, TLS, monitoring, recovery |
 | [Architecture](architecture/README.md) | Components, security model, approval workflow, audit integrity |
+| [Security plans & reviews](architecture/security/README.md) | Per-milestone security test plans, RBAC test plan, dependency inventory |
 | [Decisions (ADRs)](decisions/README.md) | Why things are the way they are |
 | [Reference](reference/README.md) | Configuration / environment variables, API overview, Kong & decK compatibility |
 | [Development](development/README.md) | Local setup, testing, release process |
 | [Project history](project-history/README.md) | Milestones, M11 acceptance journey, lessons learned |
-| [Design](design/brand-identity.md) | Brand identity and CSS variables |
+| [Design](design/README.md) | Brand identity and CSS variables |

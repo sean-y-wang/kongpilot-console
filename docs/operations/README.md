@@ -1,5 +1,7 @@
 # Operations
 
+[简体中文](README.zh-CN.md)
+
 | Topic | Document |
 |---|---|
 | Production deployment, upgrade, TLS, monitoring | [Production operations guide (zh-CN)](../manuals/production-operations-guide.md) |

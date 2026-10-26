@@ -1,0 +1,5 @@
+f80f51b0e9313e397ae35920f164798d280b5da828f8d8af982747e3fdacc410  deploy/metrics-collector/sanitize.mjs
+4aad0e68abd7bc2369059f6928c9c94aaa2e71b593472e54d3d15752a43fdf4c  tests/security/m5-collector-sanitization.test.ts
+272f6e3164ea37a9a0b32f58b5090bfc52bf85aeac868df5acd5a39ca49b3510  apps/console-api/src/modules/vitals/providers/loki-window.ts
+8f9b5c4a99858ca58935c5969e77229d6c6dc298557d391038f814876b31511e  apps/console-api/src/modules/vitals/vitals.service.ts
+a8e9987a4338bddfa840c3b916cfc7a68c77c88f55a74d4c189870a57413a657  tests/security/m5-loki-grid-review.test.ts

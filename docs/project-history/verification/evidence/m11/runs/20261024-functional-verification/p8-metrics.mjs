@@ -1,0 +1,13 @@
+import {login,op,save,api} from './h.mjs'; import fs from 'node:fs';
+const ctx=JSON.parse(fs.readFileSync('ctx.json'));const c4=JSON.parse(fs.readFileSync('ctx4.json'));
+const CID=process.argv[2]==='A'?ctx.A:ctx.B, wid=process.argv[2]==='A'?ctx.wid:c4.widB;
+const s=await login();const ent=d=>d?.entity??d;const k=()=>'fv-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+const cl=ent((await api(s,`/api/v1/clusters/${CID}`)).data);
+const ds=await op('vitals','register prometheus data source',()=>api(s,`/api/v1/clusters/${CID}/data-sources`,'POST',{name:'fv-prom-'+Date.now(),type:'prometheus',base_url:'http://127.0.0.1:39090',enabled:true},{'x-idempotency-key':k()}));
+const sid=ent(ds.data)?.id;
+await op('vitals','probe data source',()=>api(s,`/api/v1/clusters/${CID}/data-sources/${sid}/probe`,'POST',{},{'x-idempotency-key':k()}));
+const pr=await op('vitals','setup prepare (native_prometheus)',()=>api(s,`/api/v1/clusters/${CID}/vitals/setup/prepare?workspaceId=${wid}`,'POST',{sourceId:sid,mode:'native_prometheus',confirmed:true,confirm_name:cl?.name},{'x-idempotency-key':k()}));
+const I=ent(pr.data);fs.writeFileSync('p8-intent-'+process.argv[2]+'.json',JSON.stringify({sid,I},null,1));
+const sb=await op('vitals','setup submit',()=>api(s,`/api/v1/clusters/${CID}/vitals/setup/intents/${I?.id}/submit?workspaceId=${wid}`,'POST',{revision:I?.revision,materialHmac:I?.materialHmac,confirmed:true,confirm_name:cl?.name},{'x-idempotency-key':k()}));
+fs.writeFileSync('p8-submit-'+process.argv[2]+'.json',JSON.stringify(sb.data,null,1));
+save('p8-metrics-'+process.argv[2]+'.json');

@@ -139,7 +139,7 @@ Redis 使用全新空库，不重放旧锁、OIDC state 或限流缓存。SQL �
 5. 根据已验收功能明确启用每个 worker/collector/通知出口和防火墙规则。不能只关两个排程 flag 就声称全部写入关闭；未知状态保持原样阻断。
 6. 保存停写与接管事实、发布镜像/迁移 SHA、备份恢复点、实际代理/认证与审计结果，完成正常运行监测后开放入口。
 
-异地灾备另需在独立主机/权限域使用离机材料实际恢复并验证镜像、秘密访问、网络与应用切换。RPO 应按最后已确认源写入与实际恢复点计算；RTO 应覆盖命令开始、存储恢复、应用验证和安全业务接管，不能用仅 `pg_restore` 或离线密文扫描耗时代替。 同机第二环境证据（`deploy/scripts/kp010-platform-second-env-restore-evidence.mjs`）**不等于**异地灾备。操作排练清单与探针见 `deploy/scripts/kp010-geographic-dr-rehearsal.mjs`（只读排练，不宣称关闭）。
+异地灾备另需在独立主机/权限域使用离机材料实际恢复并验证镜像、秘密访问、网络与应用切换。RPO 应按最后已确认源写入与实际恢复点计算；RTO 应覆盖命令开始、存储恢复、应用验证和安全业务接管，不能用仅 `pg_restore` 或离线密文扫描耗时代替。 同机第二环境证据（`scripts/verification/platform-restore-second-env.mjs`）**不等于**异地灾备。操作排练清单与探针见 `scripts/verification/dr-rehearsal.mjs`（只读排练，不宣称关闭）。
 
 ## 9. 故障处理与容量
 

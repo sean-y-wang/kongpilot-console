@@ -1,0 +1,699 @@
+{
+ "version": 1,
+ "title": "M11 browser E2E matrix (headless Chromium, lab real Kong)",
+ "startedAt": "2026-10-25T17:00:24.385Z",
+ "completedAt": "2026-10-25T17:07:48.904Z",
+ "headSha": "434136145a3907f3a8d7d7a558576ef1720b3725",
+ "origins": {
+  "console": "https://127.0.0.1:48443",
+  "portal": "https://portal.kp.test:49443",
+  "kongAdmin": "http://127.0.0.1:38101"
+ },
+ "passed": 11,
+ "failed": 0,
+ "pageErrors": [],
+ "results": [
+  {
+   "kp": "KP-007",
+   "id": "bad-password-rejected-no-session",
+   "startedAt": "2026-10-25T17:00:25.675Z",
+   "detail": {
+    "loginStatus": 401,
+    "meStatus": 401
+   },
+   "passed": true,
+   "ms": 623
+  },
+  {
+   "kp": "KP-007",
+   "id": "read-only-no-write-controls-and-backend-403",
+   "startedAt": "2026-10-25T17:00:26.298Z",
+   "detail": {
+    "enabledWriteButtons": 0,
+    "disabledWriteButtonsShown": 7,
+    "forcedPrepare": [
+     403,
+     "PERMISSION_DENIED"
+    ],
+    "forcedRestore": [
+     403,
+     "PERMISSION_DENIED"
+    ],
+    "shot": "shots/kp007-readonly-services.png"
+   },
+   "passed": true,
+   "ms": 1507
+  },
+  {
+   "kp": "KP-007",
+   "id": "idor-cross-workspace-and-cluster",
+   "startedAt": "2026-10-25T17:00:27.805Z",
+   "detail": {
+    "otherWorkspaceServices": [
+     403,
+     "PERMISSION_DENIED"
+    ],
+    "foreignCluster": [
+     403,
+     "PERMISSION_DENIED"
+    ],
+    "globalUserDirectoryRead": [
+     200,
+     null
+    ],
+    "iamWriteResetOtherPassword": [
+     403,
+     "PERMISSION_DENIED"
+    ]
+   },
+   "passed": true,
+   "ms": 1156
+  },
+  {
+   "kp": "KP-004",
+   "id": "delete-via-two-person-approval-archives-and-removes-from-kong",
+   "startedAt": "2026-10-25T17:00:28.961Z",
+   "detail": {
+    "workflowId": "a3b3954e-cc74-431b-98ea-da0035c044fa",
+    "requesterSelfApprove": false,
+    "afterApprove": "approved",
+    "final": {
+     "state": "succeeded",
+     "caps": {
+      "approve": false,
+      "reject": false,
+      "cancel": false,
+      "execute": false,
+      "reconcileMetadata": false,
+      "abandonRejectedIssue": false,
+      "entityPreflight": true,
+      "rollbackPrepare": false
+     },
+     "steps": [
+      {
+       "state": "succeeded",
+       "errorCode": null
+      }
+     ]
+    },
+    "shot": "shots/kp004-delete-complete.png",
+    "kongServiceAfter": 404,
+    "kongRoutesAfter": [
+     404
+    ]
+   },
+   "passed": true,
+   "ms": 13531
+  },
+  {
+   "kp": "KP-004",
+   "id": "restore-original-ids-via-two-person-approval",
+   "startedAt": "2026-10-25T17:00:42.492Z",
+   "detail": {
+    "workflowId": "dd062619-e7e4-44c7-8f99-6fff5801b40f",
+    "afterApprove": "approved",
+    "final": {
+     "state": "succeeded",
+     "caps": {
+      "approve": false,
+      "reject": false,
+      "cancel": false,
+      "execute": false,
+      "reconcileMetadata": false,
+      "abandonRejectedIssue": false,
+      "entityPreflight": true,
+      "rollbackPrepare": false
+     },
+     "steps": [
+      {
+       "state": "succeeded",
+       "errorCode": null
+      }
+     ]
+    },
+    "shot": "shots/kp004-restore-complete.png",
+    "kongServiceId": "6b015e92-e9d5-4c7e-aa43-1bea650eaa94",
+    "kongServiceStatus": 200,
+    "routesRestoredSameIds": [
+     200
+    ]
+   },
+   "passed": true,
+   "ms": 17373
+  },
+  {
+   "kp": "KP-004",
+   "id": "legacy-origin-restore-refused-before-approval",
+   "startedAt": "2026-10-25T17:00:59.866Z",
+   "detail": [
+    409,
+    "ENTITY_RECYCLE_LEGACY_ORIGIN_RESTORE_UNSUPPORTED"
+   ],
+   "passed": true,
+   "ms": 24
+  },
+  {
+   "kp": "KP-002",
+   "id": "scheduled-create-refuses-activation-before-approval-then-cancel",
+   "startedAt": "2026-10-25T17:00:59.890Z",
+   "detail": {
+    "wf": "52cc0691-414e-41fc-9b67-8ce4fe9d74d4",
+    "intentId": "3d5a27aa-921f-4a77-9393-ef9660a97830",
+    "scheduleId": "29267f2b-849e-49e6-a414-1c3b17bf0352",
+    "activateBeforeApproval": [
+     409,
+     "ENTITY_SCHEDULE_APPROVAL_REQUIRED"
+    ],
+    "readOnlyCancel": [
+     403,
+     "PERMISSION_DENIED"
+    ],
+    "stateAfterCancel": "cancelled",
+    "shot": "shots/kp002-schedule-cancelled.png"
+   },
+   "passed": true,
+   "ms": 6278
+  },
+  {
+   "kp": "KP-002",
+   "id": "scheduled-create-approved-activated-natural-claim-executes-on-kong",
+   "startedAt": "2026-10-25T17:01:06.168Z",
+   "detail": {
+    "wf": "cb201bc6-3bda-4f5a-8a85-26a2df44a029",
+    "intentId": "a6df43e5-19f7-47ca-b5fd-ab1c83fbae3f",
+    "scheduleId": "c5ad131b-e2dc-4038-a594-f2b1b6aa95af",
+    "notBefore": "2026-10-25T17:03:00.000Z",
+    "kongCreatedAt": "2026-10-25T17:05:50.000Z",
+    "activatedState": "active",
+    "kongBeforeNotBefore": 404,
+    "finalState": "succeeded",
+    "claimId": "9000cb42-391c-4578-8199-3addac00b892",
+    "workflowState": "succeeded",
+    "kongServiceId": "30eeae21-665b-43a2-a467-2ceea7cc70c3",
+    "cancelledScheduleKongStatus": 404,
+    "shot": "shots/kp002-schedule-succeeded.png"
+   },
+   "passed": true,
+   "ms": 288535
+  },
+  {
+   "kp": "KP-003",
+   "id": "unknown-execute-result-mismatching-receipt-rejected-original-verified-no-replay",
+   "startedAt": "2026-10-25T17:05:54.704Z",
+   "detail": {
+    "workflowId": "1782cd6b-e904-4e7f-80f8-30120dc1eac9",
+    "serverExecuteStatus": 201,
+    "clientSawTransportFailure": true,
+    "foreignKeyReceipt": [
+     404,
+     "WORKFLOW_RECEIPT_NOT_FOUND"
+    ],
+    "mismatchRejected": true,
+    "journalKeptAfterMismatch": true,
+    "genuineVerifyClicks": 1,
+    "executePosts": 1,
+    "finalState": "succeeded",
+    "kongService": 200,
+    "shots": [
+     "shots/kp003-unknown-banner.png",
+     "shots/kp003-mismatch-rejected.png",
+     "shots/kp003-original-verified.png"
+    ]
+   },
+   "passed": true,
+   "ms": 31803
+  },
+  {
+   "kp": "KP-006",
+   "id": "portal-register-approve-app-key-request-execute-masked-reveal-proxy-rotate-revoke",
+   "startedAt": "2026-10-25T17:06:26.508Z",
+   "detail": {
+    "developer": "e2edevmvo2xsgc",
+    "pendingLoginBlocked": true,
+    "issueWorkflow": "173adfbf-f9a6-454b-8dfa-0bf571f4d390",
+    "issue": {
+     "state": "succeeded",
+     "approverSeesExecute": false,
+     "executedBy": "admin",
+     "shot": "shots/kp006-04-issue-executed.png"
+    },
+    "rotateWorkflow": "0f91906e-3c4b-48b5-be3f-d9c7a816c6f5",
+    "rotate": {
+     "state": "succeeded",
+     "approverSeesExecute": false,
+     "executedBy": "admin",
+     "shot": "shots/kp006-07-rotate-executed.png"
+    },
+    "revokeWorkflow": "cb182b3c-94c3-4a66-9256-040c61377c96",
+    "revoke": {
+     "state": "succeeded",
+     "approverSeesExecute": false,
+     "executedBy": "admin",
+     "shot": "shots/kp006-08-revoke-executed.png"
+    },
+    "proxy": {
+     "noKey": 401,
+     "wrongKey": 401,
+     "key1": 200,
+     "key2AfterRotate": 200,
+     "key1AfterRotate": 401,
+     "key2AfterRevoke": 401
+    },
+    "anonymousPortalApi": 401,
+    "keysDistinct": true,
+    "portalWrites": [
+     {
+      "path": "/api/v1/portal/auth/refresh",
+      "status": 401
+     },
+     {
+      "path": "/api/v1/portal/auth/register",
+      "status": 202
+     },
+     {
+      "path": "/api/v1/portal/auth/login",
+      "status": 401
+     },
+     {
+      "path": "/api/v1/portal/auth/login",
+      "status": 201
+     },
+     {
+      "path": "/api/v1/portal/applications",
+      "status": 201
+     },
+     {
+      "path": "/api/v1/portal/requests",
+      "status": 201
+     },
+     {
+      "path": "/api/v1/portal/applications/:id/grants/:id/credentials/:id/reveal",
+      "status": 201
+     },
+     {
+      "path": "/api/v1/portal/applications/:id/grants/:id/credentials/:id/rotate",
+      "status": 201
+     },
+     {
+      "path": "/api/v1/portal/applications/:id/grants/:id/credentials/:id/reveal",
+      "status": 201
+     },
+     {
+      "path": "/api/v1/portal/applications/:id/grants/:id/credentials/:id/revoke",
+      "status": 201
+     }
+    ],
+    "shots": [
+     "shots/kp006-01-registered.png",
+     "shots/kp006-02-developer-approved.png",
+     "shots/kp006-03-request-pending.png",
+     "shots/kp006-05-masked.png",
+     "shots/kp006-06-reveal-panel.png",
+     "shots/kp006-07b-reveal-rotated.png",
+     "shots/kp006-09-revoked.png"
+    ]
+   },
+   "passed": true,
+   "ms": 80615
+  },
+  {
+   "kp": "KP-008",
+   "id": "all-successful-writes-audited",
+   "startedAt": "2026-10-25T17:07:47.123Z",
+   "detail": {
+    "successfulWrites": 27,
+    "audited": 27,
+    "missing": []
+   },
+   "passed": true,
+   "ms": 1756
+  }
+ ],
+ "writes": [
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "26a216fd-fc11-42a4-af2e-c7d65fefec4f"
+  },
+  {
+   "who": "ro",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "eeb4a453-7d50-420b-9758-fd7c25ff4e5b"
+  },
+  {
+   "who": "ro",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/authorization/entity-capabilities",
+   "status": 201,
+   "requestId": "1ce823e2-f320-480d-9c6b-cd8bc96f2f86"
+  },
+  {
+   "who": "ro",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/prepare",
+   "status": 403,
+   "requestId": "5a7248a1-cc53-439e-a7c2-d03bab224e3f"
+  },
+  {
+   "who": "ro",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/recycle-bin/:id/restore",
+   "status": 403,
+   "requestId": "c56e3ad5-e4bd-4025-a712-e49548cc37f5"
+  },
+  {
+   "who": "ro",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "65a61cba-75f1-48c9-bc98-e9fe498ab59f"
+  },
+  {
+   "who": "ro",
+   "method": "POST",
+   "path": "/api/v1/iam/users/:id/reset-password",
+   "status": 403,
+   "requestId": "58877bd2-319f-4701-af7a-9818e4b1019e"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/authorization/entity-capabilities",
+   "status": 201,
+   "requestId": "c7e64725-3248-4415-9b18-206a0e1c36ec"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/prepare",
+   "status": 201,
+   "requestId": "18479981-3748-42a6-bd8a-136b1cf675ff"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/:id/submit",
+   "status": 201,
+   "requestId": "07662f59-d5e0-424d-98e2-55168266dac0"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "c9a5b1c9-5edb-4a6e-a555-0f8a123127b9"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/approve",
+   "status": 201,
+   "requestId": "77b5a932-2229-471d-8058-86704931e818"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/execute",
+   "status": 201,
+   "requestId": "5e68fe3a-61cc-4b60-ae0f-32474f5a4aaf"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/prepare",
+   "status": 201,
+   "requestId": "35679b2e-73c1-4bab-8dc0-7ed26b7da247"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/:id/submit",
+   "status": 201,
+   "requestId": "18d0e1a5-430e-40c6-bc04-7ee6ad729ca6"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "02f6d214-a2dc-43fa-8d61-765b9c8b5f3b"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/approve",
+   "status": 201,
+   "requestId": "418f45d1-f398-4484-ba2a-79dd84267a8e"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/execute",
+   "status": 201,
+   "requestId": "757e013b-90df-4e12-be43-e1d39c7b0731"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/prepare",
+   "status": 409,
+   "requestId": "311972bf-4408-48e9-ba55-43ed897002fe"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/prepare-scheduled",
+   "status": 201,
+   "requestId": "44d1f90a-21d1-40ef-a4f3-e5deff536db5"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/:id/submit",
+   "status": 201,
+   "requestId": "ead45883-cf43-4157-a7f7-97464fc30589"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-schedules/:id/activate",
+   "status": 409,
+   "requestId": "4a24c5bc-b32a-42c6-bf75-6a0e59f2fe0d"
+  },
+  {
+   "who": "ro",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "baab5ef1-240d-4a09-ab63-6c3481f928fc"
+  },
+  {
+   "who": "ro",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-schedules/:id/cancel",
+   "status": 403,
+   "requestId": "ecf8e3d8-104a-4e66-8078-759bee70bcc1"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-schedules/:id/cancel",
+   "status": 201,
+   "requestId": "d20a3429-7288-4a75-b80a-75c332719094"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/prepare-scheduled",
+   "status": 201,
+   "requestId": "e2fdc492-8c9a-4819-b81f-82c11492b42d"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/:id/submit",
+   "status": 201,
+   "requestId": "055c399a-fedc-4f60-9d18-4a162833db05"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "f0d9542a-c4a4-48f5-bb34-0dd6538942eb"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/approve",
+   "status": 201,
+   "requestId": "c50861e4-4bf2-407f-a7ed-6936aac40469"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-schedules/:id/activate",
+   "status": 201,
+   "requestId": "c48413cb-8146-4ea0-867b-2d6d96c0d99c"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/prepare",
+   "status": 201,
+   "requestId": "a9b28110-a605-46c3-b630-6c850c49e2b1"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/entity-changes/:id/submit",
+   "status": 201,
+   "requestId": "d662f6ed-9b59-4703-ae68-5833276f2e9b"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "13ca13cb-c599-45bf-8b73-63cb1b8846ab"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/approve",
+   "status": 201,
+   "requestId": "8a10a0b0-3ea5-48f6-bb89-1c14f8ce6e77"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "d880767d-514e-421b-a727-fc3e48fab61b"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/portal/developers/:id/review",
+   "status": 201,
+   "requestId": "46719569-8847-40b1-a432-de39a8f31d9a"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "936d1744-701f-43c7-8c3c-41010dca1ecb"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/approve",
+   "status": 201,
+   "requestId": "7a7a2e42-9664-4929-a6e3-221927d63955"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "36309b48-ca86-427f-b08f-959acf2e4bc2"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/execute",
+   "status": 201,
+   "requestId": "d90a3b77-1706-4ec1-bb77-a9fd23f3f645"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "ac30a874-7ba7-4992-8381-e8c0e44517ec"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/approve",
+   "status": 201,
+   "requestId": "5788d619-debc-4f11-ab38-b1b23af88e50"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "aeba9b0b-3dbc-43f2-8a7a-5852a28ccd7b"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/execute",
+   "status": 201,
+   "requestId": "36e91479-d76a-4c86-94df-e98ed11acffd"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "b89a8eeb-a6e3-4e99-b619-423891ee48f6"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/approve",
+   "status": 201,
+   "requestId": "4ad71040-3dcf-468b-b121-0737e8770496"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "7271d7a1-08cb-477f-9935-748d931b328d"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/execute",
+   "status": 201,
+   "requestId": "d9563cf5-d728-482f-84b7-d50aefa9ea22"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "bc8c7a4a-53aa-4683-b3d0-7632bba54b5f"
+  },
+  {
+   "who": "appr",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/approve",
+   "status": 201,
+   "requestId": "4ae72ccc-6b82-4789-995a-c91352dfcd38"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "status": 201,
+   "requestId": "cc502d12-84ad-4a4c-bc82-786b1145753c"
+  },
+  {
+   "who": "admin",
+   "method": "POST",
+   "path": "/api/v1/clusters/:id/workflows/:id/execute",
+   "status": 201,
+   "requestId": "0a2a5f89-cf4d-4521-88cb-1016875382c2"
+  }
+ ],
+ "commercialClosed": false
+}

@@ -92,7 +92,7 @@ chmod 600 deploy/private/kongos-production/production.env
 
 生产使用基础 `docker-compose.yml` 和经过审阅的生产 overlays，**不加载** `compose.development.yml`：该文件降为 development、关闭 Secure Cookie，并挂载编译目录。不得把这套挂载作为生产镜像冷启动证据。
 
-仓库已提供`deploy/compose.production.yml`（发布镜像、非root/只读、tmpfs、资源/日志限制及真正TLS入口）、`deploy/compose.production-metrics.yml`（冻结collector image和专用材料挂载）、`deploy/compose.production-gitops.yml`（runner真实TLS hostname/public CA）。生产metrics顺序固定为base → production → metrics → production-metrics；GitOps再追加原`compose.gitops.yml`和`compose.production-gitops.yml`。若使用registry digest覆盖本地image，先构建/推送并核对digest，再启用该覆盖；不要让build tag与最终up引用不同镜像。这些文件已做源码/离线策略核对，独立生产实际启动仍待验收。
+仓库已提供`deploy/compose/compose.production.yml`（发布镜像、非root/只读、tmpfs、资源/日志限制及真正TLS入口）、`deploy/compose/compose.production-metrics.yml`（冻结collector image和专用材料挂载）、`deploy/compose/compose.production-gitops.yml`（runner真实TLS hostname/public CA）。生产metrics顺序固定为base → production → metrics → production-metrics；GitOps再追加原`compose.gitops.yml`和`compose.production-gitops.yml`。若使用registry digest覆盖本地image，先构建/推送并核对digest，再启用该覆盖；不要让build tag与最终up引用不同镜像。这些文件已做源码/离线策略核对，独立生产实际启动仍待验收。
 
 ```bash
 unset DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS DOCKER_TLS_VERIFY DOCKER_CERT_PATH
@@ -100,9 +100,9 @@ KOS_PROJECT=kongos-production
 KOS_ENV=deploy/private/kongos-production/production.env
 KOS_METRICS_DIR=deploy/private/kongos-production/metrics
 chmod 0644 deploy/nginx/console-production.conf deploy/nginx/portal-production.conf
-dc() { docker --host=unix:///var/run/docker.sock compose -p "$KOS_PROJECT" --env-file "$KOS_ENV" -f docker-compose.yml -f deploy/compose.production.yml "$@"; }
-dcm() { dc -f deploy/compose.metrics.yml -f deploy/compose.production-metrics.yml --profile observability "$@"; }
-dcgitops() { dcm -f deploy/compose.gitops.yml -f deploy/compose.production-gitops.yml --profile gitops-runner "$@"; }
+dc() { docker --host=unix:///var/run/docker.sock compose -p "$KOS_PROJECT" --env-file "$KOS_ENV" -f docker-compose.yml -f deploy/compose/compose.production.yml "$@"; }
+dcm() { dc -f deploy/compose/compose.metrics.yml -f deploy/compose/compose.production-metrics.yml --profile observability "$@"; }
+dcgitops() { dcm -f deploy/compose/compose.gitops.yml -f deploy/compose/compose.production-gitops.yml --profile gitops-runner "$@"; }
 dc config --quiet
 dc build console-api
 dc build console-web
@@ -237,9 +237,9 @@ Console/Kong安全access log不记录query/header/body。原生请求错误可�
 
 配置执行按当前版本、插件集、schema、planRevision/planHash、baseline HMAC、当前SID/grants与集群模式检查。回滚也生成diff/计划/审批/执行前快照；不会跳过回收站。Kong1.5 string `len_min` 懒补等价只是已验证的窄兼容规则，其他schema约束差异仍阻止执行。
 
-GitOps使用 `deploy/compose.gitops.yml` profile，固定二进制SHA `642f49fd64e83aff867939705dbd927c5e750b241a99e8539ab22d18930427ed`、版本1.2.4/8e68931，analytics off、verbose0、parallelism1、TLS验证开启。runner仅frontend、UID1000、只读/noexec tmpfs、无Admin/DB/socket/host端口。
+GitOps使用 `deploy/compose/compose.gitops.yml` profile，固定二进制SHA `642f49fd64e83aff867939705dbd927c5e750b241a99e8539ab22d18930427ed`、版本1.2.4/8e68931，analytics off、verbose0、parallelism1、TLS验证开启。runner仅frontend、UID1000、只读/noexec tmpfs、无Admin/DB/socket/host端口。
 
-生产再加载`deploy/compose.production-gitops.yml`：Console的frontend alias为`KONGOS_CONSOLE_HOSTNAME`，必须在实际证书SAN中；runner固定访问`https://<hostname>:8443`而非宿主18443，`SSL_CERT_FILE=/run/kongos-deck-ca/ca.crt`来自独立公开CA只读目录。该挂载没有Console密码/token/TLS私钥。用前述`dcgitops build console-deck-runner`构建并固定最终digest，实际业务runner作为受控stdin单次任务运行，不常驻伪造空任务。构建proxy CA与运行public CA分开；禁止TLS skip或用HTTP hostname绕过证书。
+生产再加载`deploy/compose/compose.production-gitops.yml`：Console的frontend alias为`KONGOS_CONSOLE_HOSTNAME`，必须在实际证书SAN中；runner固定访问`https://<hostname>:8443`而非宿主18443，`SSL_CERT_FILE=/run/kongos-deck-ca/ca.crt`来自独立公开CA只读目录。该挂载没有Console密码/token/TLS私钥。用前述`dcgitops build console-deck-runner`构建并固定最终digest，实际业务runner作为受控stdin单次任务运行，不常驻伪造空任务。构建proxy CA与运行public CA分开；禁止TLS skip或用HTTP hostname绕过证书。
 
 专用会话由受授权Console身份在 `/api/v1/clusters/:cid/configuration/deck-sessions` 申请，短期绑定job/scope/计划。runner JSON stdin键为 `command,sessionId,tokenSecret,stateYaml`；秘密不放argv/env，输入文件0600/目录0700、使用后删除。协议入口 `/api/v1/deck/:sessionId` 不接受通用反向代理。CLI全局凭证读取在BFF按授权Consumer转嵌套分页。原CLI BasicAuth密码diff限制保留；只能用实际代理认证证明密码仍可用。
 
@@ -359,7 +359,7 @@ API 和 collector 的 distroless 运行镜像没有 Shell、npm 或系统包管�
 本次使用独立 RAM Docker daemon 完成实验验收，未触碰原开发环境数据库和 Admin 网络。RAM 容器、数据卷和 TLS 不能作为持久生产部署。上线必须使用持久磁盘，保存不可变发布镜像、经认证加密的联合备份及独立受控恢复密钥，执行实际恢复演练。当前外部备份存储和业务 SLA 均未验证。
 
 
-升级已经启用 metrics overlay 的项目时，始终使用原项目完整的四个 Compose 文件：`docker-compose.yml`、`deploy/compose.production.yml`、`deploy/compose.metrics.yml`、`deploy/compose.production-metrics.yml`。即使仅更新 API/Web，省略后两个文件也会改变已运行项目的网络与环境声明，不能作为升级命令。本次已实测完整 overlay 启动；不完整 overlay 的失败报告保留。更新前先保存精确镜像摘要、完整启动文件顺序与私密环境副本；不要删除数据卷或运行全局 prune。
+升级已经启用 metrics overlay 的项目时，始终使用原项目完整的四个 Compose 文件：`docker-compose.yml`、`deploy/compose/compose.production.yml`、`deploy/compose/compose.metrics.yml`、`deploy/compose/compose.production-metrics.yml`。即使仅更新 API/Web，省略后两个文件也会改变已运行项目的网络与环境声明，不能作为升级命令。本次已实测完整 overlay 启动；不完整 overlay 的失败报告保留。更新前先保存精确镜像摘要、完整启动文件顺序与私密环境副本；不要删除数据卷或运行全局 prune。
 
 历史基础组件的实际漏洞及上线门槛见 生产风险登记。应用镜像零高危/严重不代表整个系统的商业安全门槛通过。
 

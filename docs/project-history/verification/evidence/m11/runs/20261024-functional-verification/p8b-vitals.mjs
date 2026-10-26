@@ -1,0 +1,16 @@
+import {login,op,save,api} from './h.mjs'; import fs from 'node:fs';
+const {A,wid}=JSON.parse(fs.readFileSync('ctx.json'));const {sid}=JSON.parse(fs.readFileSync('p8a-state.json'));const c2=JSON.parse(fs.readFileSync('ctx2.json'));
+const s=await login();const ro=null;const q=o=>new URLSearchParams({workspaceId:wid,...o}).toString();const V=p=>`/api/v1/clusters/${A}/vitals/${p}`;
+const end=new Date(Math.floor(Date.now()/1000)*1000),start=new Date(end-15*60000);const iso=d=>d.toISOString().replace(/\.\d{3}Z$/,'Z');
+const out={};
+out.cap=(await op('vitals','capabilities',()=>api(s,V('capabilities?'+q({scope:'workspace'}))))).data;
+out.ovw=(await op('vitals','overview workspace 15m',()=>api(s,V('overview?'+q({scope:'workspace',start:iso(start),end:iso(end),step:'60'}))))).data;
+out.ovc=(await op('vitals','overview cluster 15m',()=>api(s,V('overview?'+q({scope:'cluster',start:iso(start),end:iso(end)}))))).data;
+for(const type of ['services','routes','consumers'])out['ent_'+type]=(await op('vitals',`entities type=${type}`,()=>api(s,V('entities?'+q({scope:'workspace',type,size:'20'}))))).data;
+const svc=(out.ent_services?.items||[])[0];
+if(svc)out.ovs=(await op('vitals','overview filtered serviceId',()=>api(s,V('overview?'+q({scope:'workspace',serviceId:svc.id,start:iso(start),end:iso(end)}))))).data;
+await op('vitals','entities rejects start/end (strict params)',()=>api(s,V('entities?'+q({type:'services',start:iso(start)}))),{expect:r=>r.status===400});
+await op('vitals','overview rejects non-Z time',()=>api(s,V('overview?'+q({start:start.toISOString().replace('Z','+00:00'),end:iso(end)}))),{expect:r=>r.status===400});
+const ap=await login(c2.apprUser,c2.pass);
+await op('vitals','approver (read) overview',()=>api(ap,V('overview?'+q({scope:'workspace',start:iso(start),end:iso(end)}))));
+fs.writeFileSync('p8b-vitals-out.json',JSON.stringify(out,null,1));save('p8b-vitals.json');

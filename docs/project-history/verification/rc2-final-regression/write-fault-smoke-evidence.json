@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 1,
+  "kind": "m11-production-compose-write-fault-smoke-evidence",
+  "commercialClosed": false,
+  "claimsClosed": false,
+  "failClosedExpected": true,
+  "startedAt": "2026-10-25T16:59:15.436Z",
+  "completedAt": "2026-10-25T16:59:35.358Z",
+  "timezoneNote": "timestamps UTC; report Asia/Shanghai",
+  "baseUrl": "https://127.0.0.1:48443",
+  "composeFiles": [
+    "docker-compose.yml",
+    "deploy/compose/compose.production.yml"
+  ],
+  "clusterId": "87991f26-159f-4ec9-8fe5-5e5b7077b536",
+  "writeLoad": {
+    "total": 20,
+    "writeOk": 20,
+    "writeRejected": 0,
+    "writeUnexpected": 0,
+    "sample": [
+      {
+        "i": 0,
+        "op": "POST consumers",
+        "status": 201,
+        "elapsedMs": 168
+      },
+      {
+        "i": 1,
+        "op": "POST consumers",
+        "status": 201,
+        "elapsedMs": 204
+      },
+      {
+        "i": 2,
+        "op": "POST consumers",
+        "status": 201,
+        "elapsedMs": 134
+      },
+      {
+        "i": 3,
+        "op": "POST consumers",
+        "status": 201,
+        "elapsedMs": 133
+      },
+      {
+        "i": 4,
+        "op": "POST consumers",
+        "status": 201,
+        "elapsedMs": 129
+      },
+      {
+        "i": 5,
+        "op": "POST consumers",
+        "status": 201,
+        "elapsedMs": 147
+      },
+      {
+        "i": 6,
+        "op": "POST consumers",
+        "status": 201,
+        "elapsedMs": 144
+      },
+      {
+        "i": 7,
+        "op": "POST consumers",
+        "status": 201,
+        "elapsedMs": 203
+      }
+    ]
+  },
+  "totals": {
+    "total": 17,
+    "passed": 17,
+    "failed": 0
+  },
+  "secretsPrinted": false,
+  "checks": [
+    {
+      "id": "precondition_live",
+      "passed": true,
+      "at": "2026-10-25T16:59:15.496Z",
+      "status": 200,
+      "text": "{\"data\":{\"status\":\"alive\"},\"meta\":{\"requestId\":\"e6797ca1-0276-40a6-80e3-243b4f81686b\"}}"
+    },
+    {
+      "id": "login",
+      "passed": true,
+      "at": "2026-10-25T16:59:15.791Z",
+      "status": 201,
+      "bodySha16": "afde5348a7b9aebe"
+    },
+    {
+      "id": "bootstrap_cluster_present",
+      "passed": true,
+      "at": "2026-10-25T16:59:15.805Z",
+      "clusterId": "87991f26-159f-4ec9-8fe5-5e5b7077b536",
+      "count": 1,
+      "name": "Kong 1.5 默认集群"
+    },
+    {
+      "id": "bounded_write_load",
+      "passed": true,
+      "at": "2026-10-25T16:59:18.643Z",
+      "total": 20,
+      "writeOk": 20,
+      "writeRejected": 0,
+      "writeUnexpected": 0,
+      "sample": [
+        {
+          "i": 0,
+          "op": "POST consumers",
+          "status": 201,
+          "elapsedMs": 168
+        },
+        {
+          "i": 1,
+          "op": "POST consumers",
+          "status": 201,
+          "elapsedMs": 204
+        },
+        {
+          "i": 2,
+          "op": "POST consumers",
+          "status": 201,
+          "elapsedMs": 134
+        },
+        {
+          "i": 3,
+          "op": "POST consumers",
+          "status": 201,
+          "elapsedMs": 133
+        },
+        {
+          "i": 4,
+          "op": "POST consumers",
+          "status": 201,
+          "elapsedMs": 129
+        }
+      ],
+      "note": "20 POST consumers on bootstrap cluster; expect mostly 201"
+    },
+    {
+      "id": "resource_locked_message_cluster_scope",
+      "passed": true,
+      "at": "2026-10-25T16:59:18.818Z",
+      "statuses": [
+        201,
+        409,
+        409,
+        409,
+        409,
+        409
+      ],
+      "lockedCount": 5,
+      "message": "该网关集群正在执行其他变更（集群级写锁），请稍后重试"
+    },
+    {
+      "id": "ready_before_fault",
+      "passed": true,
+      "at": "2026-10-25T16:59:18.820Z",
+      "status": 200,
+      "schedules": {
+        "business": {
+          "enabled": false,
+          "timerRunning": false
+        },
+        "entity": {
+          "enabled": true,
+          "timerRunning": true
+        }
+      }
+    },
+    {
+      "id": "redis_stop",
+      "passed": true,
+      "at": "2026-10-25T16:59:19.146Z",
+      "snippet": ""
+    },
+    {
+      "id": "ready_fail_closed_on_redis_stop",
+      "passed": true,
+      "at": "2026-10-25T16:59:22.154Z",
+      "status": 503,
+      "body": "{\"error\":{\"code\":\"NOT_READY\",\"message\":\"控制台存储暂不可用\"},\"meta\":{\"requestId\":\"d6793e63-0668-4d53-ab9d-9b2d31e2d3d4\"}}",
+      "expected": "503 NOT_READY"
+    },
+    {
+      "id": "write_fail_closed_on_redis_stop",
+      "passed": true,
+      "at": "2026-10-25T16:59:22.184Z",
+      "status": 503,
+      "code": "REDIS_UNAVAILABLE",
+      "body": "{\"error\":{\"code\":\"REDIS_UNAVAILABLE\",\"message\":\"分布式锁存储不可用，操作已停止\"},\"meta\":{\"requestId\":\"03a4cbf3-e3ab-4023-8579-96b02eec6460\"}}"
+    },
+    {
+      "id": "redis_start",
+      "passed": true,
+      "at": "2026-10-25T16:59:22.481Z"
+    },
+    {
+      "id": "ready_recovered_after_redis_start",
+      "passed": true,
+      "at": "2026-10-25T16:59:24.495Z"
+    },
+    {
+      "id": "relogin_after_redis",
+      "passed": true,
+      "at": "2026-10-25T16:59:24.775Z",
+      "status": 201
+    },
+    {
+      "id": "kong_pause",
+      "passed": true,
+      "at": "2026-10-25T16:59:24.869Z"
+    },
+    {
+      "id": "ready_independent_of_kong_pause",
+      "passed": true,
+      "at": "2026-10-25T16:59:26.877Z",
+      "status": 200,
+      "note": "storage ready does not require Kong; write path must fail-closed"
+    },
+    {
+      "id": "write_fail_closed_on_kong_pause",
+      "passed": true,
+      "at": "2026-10-25T16:59:32.084Z",
+      "status": 503,
+      "code": "KONG_WRITE_RESULT_UNKNOWN",
+      "body": "{\"error\":{\"code\":\"KONG_WRITE_RESULT_UNKNOWN\",\"message\":\"写入响应中断，结果待核验；请勿重复提交\"},\"meta\":{\"requestId\":\"038a950f-92e4-4a2b-8163-356ba8fe4ff1\"}}",
+      "expected": "fail-closed (5xx/timeout) — no silent success"
+    },
+    {
+      "id": "kong_unpause",
+      "passed": true,
+      "at": "2026-10-25T16:59:32.168Z"
+    },
+    {
+      "id": "write_after_kong_unpause",
+      "passed": true,
+      "at": "2026-10-25T16:59:35.357Z",
+      "status": 201
+    }
+  ]
+}

@@ -1,0 +1,435 @@
+{
+  "schemaVersion": 1,
+  "kind": "m11-production-compose-bridge-evidence",
+  "commercialClosed": false,
+  "startedAt": "2026-10-25T16:56:00.753Z",
+  "completedAt": "2026-10-25T16:59:15.316Z",
+  "timezoneNote": "UTC; report Asia/Shanghai",
+  "composeFiles": [
+    "docker-compose.yml",
+    "deploy/compose/compose.production.yml"
+  ],
+  "project": "kp-bridge",
+  "base": "https://127.0.0.1:48443",
+  "tlsNote": "self-signed lab certs; client ran with NODE_TLS_REJECT_UNAUTHORIZED=0",
+  "secretsPrinted": false,
+  "marker": "e9ecab",
+  "clusterId": "87991f26-159f-4ec9-8fe5-5e5b7077b536",
+  "concurrency": {
+    "sessions": 20,
+    "iterationsPerSession": 10,
+    "thinkTimeMs": 1200,
+    "sourceIpNote": "all simulated admins share one source IP (127.0.0.1); edge nginx limit_req is 20 r/s burst 40 per IP, so think time keeps aggregate below the per-IP gate (gate not relaxed)",
+    "wallMs": 61655,
+    "throughputRps": 13,
+    "all": {
+      "total": 800,
+      "ok": 800,
+      "errors": 0,
+      "p50": 55,
+      "p95": 281,
+      "max": 1885,
+      "lockRetriesTotal": 78,
+      "requestsNeedingRetry": 52,
+      "errorStatuses": []
+    },
+    "reads": {
+      "total": 600,
+      "ok": 600,
+      "errors": 0,
+      "p50": 48,
+      "p95": 72,
+      "max": 125,
+      "lockRetriesTotal": 0,
+      "requestsNeedingRetry": 0,
+      "errorStatuses": []
+    },
+    "writes": {
+      "total": 200,
+      "ok": 200,
+      "errors": 0,
+      "p50": 142,
+      "p95": 562,
+      "max": 1885,
+      "lockRetriesTotal": 78,
+      "requestsNeedingRetry": 52,
+      "errorStatuses": []
+    },
+    "bar": "sanity only (not an SLA): 0 final errors, read p95 < 1000ms, write p95 (incl. lock retries) < 3000ms",
+    "latencyNote": "write ms includes RESOURCE_LOCKED client retries"
+  },
+  "totals": {
+    "total": 22,
+    "passed": 22,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "id": "topology_no_host_network",
+      "passed": true,
+      "topology": [
+        {
+          "service": "console-api",
+          "networkMode": "kp-bridge_console-storage",
+          "health": "healthy",
+          "networks": [
+            "console-storage",
+            "frontend",
+            "kong-admin-secure",
+            "observability",
+            "portal-edge"
+          ],
+          "published": []
+        },
+        {
+          "service": "console-db",
+          "networkMode": "kp-bridge_console-storage",
+          "health": "healthy",
+          "networks": [
+            "console-storage"
+          ],
+          "published": []
+        },
+        {
+          "service": "console-web",
+          "networkMode": "kp-bridge_frontend",
+          "health": "healthy",
+          "networks": [
+            "frontend"
+          ],
+          "published": [
+            "127.0.0.1:48443->8443/tcp"
+          ]
+        },
+        {
+          "service": "kong",
+          "networkMode": "kp-bridge_kong-admin-secure",
+          "health": "healthy",
+          "networks": [
+            "kong-admin-secure",
+            "kong-storage-secure",
+            "proxy-edge"
+          ],
+          "published": [
+            "127.0.0.1:47800->8000/tcp"
+          ]
+        },
+        {
+          "service": "kong-db",
+          "networkMode": "kp-bridge_kong-storage-secure",
+          "health": "healthy",
+          "networks": [
+            "kong-storage-secure"
+          ],
+          "published": []
+        },
+        {
+          "service": "portal-web",
+          "networkMode": "kp-bridge_portal-edge",
+          "health": "healthy",
+          "networks": [
+            "portal-edge",
+            "portal-entry"
+          ],
+          "published": [
+            "127.0.0.1:49443->8443/tcp"
+          ]
+        },
+        {
+          "service": "redis",
+          "networkMode": "kp-bridge_console-storage",
+          "health": "healthy",
+          "networks": [
+            "console-storage"
+          ],
+          "published": []
+        }
+      ]
+    },
+    {
+      "id": "topology_all_running_healthy",
+      "passed": true
+    },
+    {
+      "id": "published_ports_loopback_only_and_minimal",
+      "passed": true,
+      "published": [
+        {
+          "service": "console-web",
+          "p": "127.0.0.1:48443->8443/tcp"
+        },
+        {
+          "service": "kong",
+          "p": "127.0.0.1:47800->8000/tcp"
+        },
+        {
+          "service": "portal-web",
+          "p": "127.0.0.1:49443->8443/tcp"
+        }
+      ]
+    },
+    {
+      "id": "networks_bridge_driver",
+      "passed": true,
+      "networks": {
+        "console-storage": {
+          "members": [
+            "console-api",
+            "console-db",
+            "redis"
+          ],
+          "internal": true,
+          "driver": "bridge"
+        },
+        "frontend": {
+          "members": [
+            "console-api",
+            "console-web"
+          ],
+          "internal": false,
+          "driver": "bridge"
+        },
+        "kong-admin-secure": {
+          "members": [
+            "console-api",
+            "kong"
+          ],
+          "internal": true,
+          "driver": "bridge"
+        },
+        "observability": {
+          "members": [
+            "console-api"
+          ],
+          "internal": false,
+          "driver": "bridge"
+        },
+        "portal-edge": {
+          "members": [
+            "console-api",
+            "portal-web"
+          ],
+          "internal": true,
+          "driver": "bridge"
+        },
+        "kong-storage-secure": {
+          "members": [
+            "kong",
+            "kong-db"
+          ],
+          "internal": true,
+          "driver": "bridge"
+        },
+        "proxy-edge": {
+          "members": [
+            "kong"
+          ],
+          "internal": false,
+          "driver": "bridge"
+        },
+        "portal-entry": {
+          "members": [
+            "portal-web"
+          ],
+          "internal": false,
+          "driver": "bridge"
+        }
+      }
+    },
+    {
+      "id": "console_https_ready",
+      "passed": true,
+      "status": 200,
+      "hsts": "max-age=31536000; includeSubDomains, max-age=31536000"
+    },
+    {
+      "id": "console_web_served",
+      "passed": true,
+      "status": 200,
+      "csp": true
+    },
+    {
+      "id": "portal_https_served",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "id": "anonymous_api_rejected",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "id": "bad_password_rejected",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "id": "admin_login",
+      "passed": true,
+      "status": 201
+    },
+    {
+      "id": "bootstrap_cluster_probe_healthy_via_internal_dns",
+      "passed": true,
+      "adminUrl": "http://kong:8001",
+      "probeStatus": 201,
+      "clusterStatus": "healthy",
+      "version": "1.5.1",
+      "executionMode": "direct"
+    },
+    {
+      "id": "write_service",
+      "passed": true,
+      "status": 201
+    },
+    {
+      "id": "write_route",
+      "passed": true,
+      "status": 201
+    },
+    {
+      "id": "route_live_on_kong_proxy",
+      "passed": true,
+      "status": 504,
+      "note": "upstream is TEST-NET-3 IP literal (no DNS; box containers have no external resolver); any non-404 (502/504) proves Kong applied the route"
+    },
+    {
+      "id": "read_back_service",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "id": "audit_records_write",
+      "passed": true,
+      "auditRows": [
+        "services:create:success",
+        "routes:create:success"
+      ],
+      "apiStatus": 200,
+      "apiItems": 100
+    },
+    {
+      "id": "concurrent_admin_fixture",
+      "passed": true,
+      "users": 20,
+      "role": "built-in admin (non-super)",
+      "sample": [
+        {
+          "i": 0,
+          "create": 201,
+          "bind": 201,
+          "login0": 201,
+          "change": 201,
+          "login": 201,
+          "superAdmin": false
+        },
+        {
+          "i": 1,
+          "create": 201,
+          "bind": 201,
+          "login0": 201,
+          "change": 201,
+          "login": 201,
+          "superAdmin": false
+        },
+        {
+          "i": 2,
+          "create": 201,
+          "bind": 201,
+          "login0": 201,
+          "change": 201,
+          "login": 201,
+          "superAdmin": false
+        }
+      ],
+      "statuses": [
+        "201/201/201/201/201"
+      ]
+    },
+    {
+      "id": "concurrency_sanity_zero_errors",
+      "passed": true,
+      "sessions": 20,
+      "iterationsPerSession": 10,
+      "thinkTimeMs": 1200,
+      "sourceIpNote": "all simulated admins share one source IP (127.0.0.1); edge nginx limit_req is 20 r/s burst 40 per IP, so think time keeps aggregate below the per-IP gate (gate not relaxed)",
+      "wallMs": 61655,
+      "throughputRps": 13,
+      "all": {
+        "total": 800,
+        "ok": 800,
+        "errors": 0,
+        "p50": 55,
+        "p95": 281,
+        "max": 1885,
+        "lockRetriesTotal": 78,
+        "requestsNeedingRetry": 52,
+        "errorStatuses": []
+      },
+      "reads": {
+        "total": 600,
+        "ok": 600,
+        "errors": 0,
+        "p50": 48,
+        "p95": 72,
+        "max": 125,
+        "lockRetriesTotal": 0,
+        "requestsNeedingRetry": 0,
+        "errorStatuses": []
+      },
+      "writes": {
+        "total": 200,
+        "ok": 200,
+        "errors": 0,
+        "p50": 142,
+        "p95": 562,
+        "max": 1885,
+        "lockRetriesTotal": 78,
+        "requestsNeedingRetry": 52,
+        "errorStatuses": []
+      },
+      "bar": "sanity only (not an SLA): 0 final errors, read p95 < 1000ms, write p95 (incl. lock retries) < 3000ms",
+      "latencyNote": "write ms includes RESOURCE_LOCKED client retries"
+    },
+    {
+      "id": "concurrency_sanity_latency_reasonable",
+      "passed": true,
+      "readP95": 72,
+      "writeP95": 562
+    },
+    {
+      "id": "edge_per_ip_rate_limit_engages_on_burst",
+      "passed": true,
+      "requests": 120,
+      "ok200": 44,
+      "limited429": 76,
+      "other": 0
+    },
+    {
+      "id": "concurrent_writes_all_landed_in_kong",
+      "passed": true,
+      "expected": 200,
+      "inKongStorage": 200,
+      "source": "kong-db consumers table"
+    },
+    {
+      "id": "audit_integrity_after_load",
+      "passed": true,
+      "ok": true,
+      "httpStatus": 200,
+      "pages": [
+        {
+          "status": "verified",
+          "checkedRows": 981,
+          "complete": true,
+          "verifiedInterval": {
+            "fromSequence": "1",
+            "toSequence": "981"
+          },
+          "reasonCodes": []
+        }
+      ],
+      "checkedRows": 981
+    }
+  ]
+}
