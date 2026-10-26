@@ -274,6 +274,8 @@ export class WorkflowService {
         const code=response&&typeof response==='object'&&'code' in response?response.code:null;
         if(error instanceof ForbiddenException)continue;
         if(plan.kind==='control-metadata'&&['CONTROL_SCOPE_CHANGED','CONTROL_APPROVAL_SCOPE_REQUIRED','CONTROL_ANCHOR_WORKSPACE_REQUIRED'].includes(String(code)))continue;
+        // A stale IAM change (its before-graph moved on, or it expired) can no longer be approved; it must not poison the whole list.
+        if(plan.kind==='iam-metadata'&&query.view==='pending-my-approval'&&['IAM_WORKFLOW_METADATA_CHANGED','IAM_CHANGE_INTENT_EXPIRED_OR_CHANGED'].includes(String(code)))continue;
         throw error;
       }
     }
@@ -330,13 +332,16 @@ export class WorkflowService {
     const updated=await this.plans.load(cid,ws.id,id);if(decision==='approve'&&value.execute===true&&updated.row.state==='approved'&&!(updated.plan as WorkflowPlanV1 & {scheduling?:unknown}).scheduling)return this.execute(cid,id,{revision:updated.row.revision,planHash:updated.row.plan_hash,confirmed:true,confirm_name:updated.row.kind},{...actor,idempotencyKey:`execute-${this.secrets.fingerprint({key,id}).slice(0,48)}`});return{entity:await this.summary(updated.row,updated.plan,actor)};
   });}
   async cancel(cid:string,id:string,body:unknown,actor:EntityActor):Promise<any>{return this.withActor(cid,actor,'write',async()=>{
-    const value=portalObject(body,['revision','confirmed','confirm_name']),key=workflowKey(actor.idempotencyKey),{ws,loaded}=await this.loadForAction(cid,id,actor,'write');await this.authorize(loaded.plan,actor,'write');portalConfirm(value,loaded.row.kind);portalRevision(value.revision);
+    const value=portalObject(body,['revision','confirmed','confirm_name']),key=workflowKey(actor.idempotencyKey),{ws,loaded}=await this.loadForAction(cid,id,actor,'write');
+    // Cancelling is de-escalating: an IAM change stays cancellable by its requester from any live session and after its before-graph moved on;
+    // execution keeps the authoring-session and freshness checks.
+    const cancelAction=loaded.plan.kind==='iam-metadata'?'read':'write';await this.authorize(loaded.plan,actor,cancelAction);portalConfirm(value,loaded.row.kind);portalRevision(value.revision);
     if(loaded.row.requester_user_id!==actor.user.id)throw new ForbiddenException({code:'WORKFLOW_REQUESTER_REQUIRED'});
     return this.redis.withLock(`workflow-decision:${actor.user.id}:${cid}:${ws.id}:${key}`,()=>this.redis.withLock(`workflow:${id}`,()=>this.db.transaction(async tx=>{
       const old=await tx.one<any>("SELECT workflow_id,safe_metadata FROM workflow_events WHERE cluster_id=$1 AND workspace_id=$2 AND actor_id=$3 AND action='decision.cancel' AND safe_metadata->>'key'=$4",[cid,ws.id,actor.user.id,key]);
       if(old){if(old.workflow_id!==id||old.safe_metadata?.requestHash!==this.secrets.fingerprint(value))throw new ConflictException({code:'IDEMPOTENCY_CONFLICT'});return{entity:await this.summary((await this.plans.load(cid,ws.id,id,tx)).row,loaded.plan,actor),decisionCompleted:true};}
       const collision=await tx.one<any>(`SELECT id FROM workflows WHERE cluster_id=$1 AND workspace_id=$2 AND requester_user_id=$3 AND idempotency_key=$4 UNION ALL SELECT id FROM workflow_approvals WHERE cluster_id=$1 AND workspace_id=$2 AND approver_id=$3 AND idempotency_key=$4 LIMIT 1`,[cid,ws.id,actor.user.id,key]);if(collision)throw new ConflictException({code:'IDEMPOTENCY_CONFLICT'});
-      const version=await this.authz.permissionVersion(actor.user);await this.authorize(loaded.plan,actor,'write');
+      const version=await this.authz.permissionVersion(actor.user);await this.authorize(loaded.plan,actor,cancelAction);
       requirePortalCas(await tx.exec("UPDATE workflows SET state='cancelled',cancelled_at=now(),revision=revision+1,updated_at=now() WHERE id=$1 AND revision=$2 AND plan_hash=$3 AND state IN ('pending','approved')",[id,value.revision,loaded.row.plan_hash]));
       if(loaded.row.approval_format===2)await tx.exec("UPDATE workflow_stages SET state='skipped',revision=revision+1,completed_at=now(),updated_at=now() WHERE workflow_id=$1 AND plan_revision=$2 AND state IN ('pending','active')",[id,loaded.row.plan_revision]);
       else await tx.exec("UPDATE workflow_stages SET state='skipped',completed_at=now(),updated_at=now() WHERE workflow_id=$1 AND plan_revision=$2 AND state IN ('pending','active','approved')",[id,loaded.row.plan_revision]);
