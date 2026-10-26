@@ -17,7 +17,7 @@ export function validateKnownFields(value: any, schema: any, path = ''): void {
       if (!Object.hasOwn(fields, name)) errors[fieldPath] = '当前 Kong 版本不支持此字段';
       else validateKnownFields(entry, fields[name], fieldPath);
     }
-    if (Object.keys(errors).length) throw new BadRequestException({ code: 'KONG_UNKNOWN_FIELD', message: '配置包含 Kong 1.5 不支持的字段', fields: errors });
+    if (Object.keys(errors).length) throw new BadRequestException({ code: 'KONG_UNKNOWN_FIELD', message: '配置包含当前 Kong 版本不支持的字段', fields: errors });
   } else if (['array', 'set'].includes(schema?.type) && Array.isArray(value)) {
     value.forEach((entry, i) => validateKnownFields(entry, schema.elements, `${path}[${i}]`));
   } else if (schema?.type === 'map' && value && typeof value === 'object') {

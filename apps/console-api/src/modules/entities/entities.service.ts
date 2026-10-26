@@ -15,7 +15,7 @@ import { CredentialStoreService } from '../credentials/credential-store.service'
 import { AuditService } from '../audit/audit.service';
 import { inspectCertificate } from './certificates';
 import { EntityIndexService } from './entity-index.service';
-import { WorkspaceResolverService, WorkspaceFilter } from '../workspaces/workspace-resolver.service';
+import { WorkspaceResolverService, WorkspaceFilter, withoutUnsupportedTags } from '../workspaces/workspace-resolver.service';
 import { confirmed, credentialKind, CREDENTIAL_KINDS, CREDENTIAL_SCHEMAS, EntityActor, entityType, identifier, ListQuery, objectBody, pageSize } from './entities.types';
 import type { EntityMutationPreparation, EntityPreparationReference } from './entity-change.types';
 import { entityReferenceId, normalizeEntityAuthorizationView } from './entity-reference';
@@ -656,9 +656,11 @@ export class EntityService {
     const consumer = existing?.consumer ?? await this.parentIdentity(clusterId, 'consumers', consumerId, kind, 'write', actor);
     const before = existing?.entity ?? null, input = this.input(body);
     this.assertParentField(input, 'consumer', consumer.id);
-    const payload = before
+    const payload = withoutUnsupportedTags(before
       ? await this.workspaces.prepareInheritedUpdate(clusterId, 'credentials', consumer, before, input, actor.workspaceId)
-      : await this.workspaces.prepareInheritedCreate(clusterId, 'credentials', consumer, input, actor.workspaceId);
+      : await this.workspaces.prepareInheritedCreate(clusterId, 'credentials', consumer, input, actor.workspaceId),
+      // Schema unavailable here: keep the tag; Kong-side validation below stays authoritative.
+      await Promise.resolve().then(() => this.kong.schema(clusterId, CREDENTIAL_SCHEMAS[kind])).catch(() => null));
     return { actor, type: kind, action, nativeId: before?.id ?? payload.id, before, payload,
       parent: { type: 'consumers', before: consumer }, references: [{ type: 'consumers', path: `/consumers/${identifier(consumer.id)}`, before: consumer, permissionAction: 'write', purpose: 'private-parent' }] };
   }

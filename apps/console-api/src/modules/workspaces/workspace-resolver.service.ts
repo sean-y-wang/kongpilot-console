@@ -31,6 +31,15 @@ function expression(value?:string):{tags:string[];operator:'and'|'or'}{
 }
 
 /** Database-only membership policy; AuthorizationService may depend on this provider without a cycle. */
+/** Kong 1.3 credential DAOs have no `tags` field (added in 1.5). Their workspace
+ * membership is inherited from the consumer, so drop the reserved tag rather
+ * than sending a field the native schema rejects. */
+export function withoutUnsupportedTags<T extends Record<string, any>>(payload: T, schema: any): T {
+  const fields = Array.isArray(schema?.fields) ? schema.fields.flatMap((f: any) => Object.keys(f ?? {})) : schema?.fields && typeof schema.fields === 'object' ? Object.keys(schema.fields) : null;
+  if (!fields?.length || fields.includes('tags') || !Object.hasOwn(payload, 'tags')) return payload;
+  const { tags: _omit, ...rest } = payload; return rest as T;
+}
+
 @Injectable()
 export class WorkspaceResolverService {
   constructor(private readonly db:DbService){}

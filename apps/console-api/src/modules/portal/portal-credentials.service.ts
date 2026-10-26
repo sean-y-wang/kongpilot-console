@@ -22,6 +22,7 @@ import { PortalCursor, portalConfirm, portalId, portalKey, portalObject, portalR
 import type { EntityActor } from '../entities/entities.types';
 import { metadataAuditScope } from '../event-producers/native-audit-scope';
 import { pageSize } from '../entities/entities.types';
+import { withoutUnsupportedTags } from '../workspaces/workspace-resolver.service';
 
 @Injectable()
 export class PortalCredentialsService implements OnModuleInit {
@@ -111,14 +112,14 @@ export class PortalCredentialsService implements OnModuleInit {
       if(action==='issue'){
         consumer=await this.native.workspaces.prepareCreate(principal.clusterId,'consumers',{id:grant.consumer_id,username:`kos-portal-${grant.id}`,custom_id:grant.id,tags:[encodeTag(`portal-app:${app.id}`),encodeTag(`portal-publication:${publicationId}`)]},principal.workspaceId);this.native.check(consumer,proof.schemas.consumers);
         steps.push(this.native.nativeStep(1,'consumers','create',consumer,null,{workflowId}));
-        acl=await this.native.workspaces.prepareInheritedCreate(principal.clusterId,'acls',consumer,{id:grant.acl_id,group:grant.acl_group},principal.workspaceId);this.native.check(acl,proof.schemas.acls);
+        acl=withoutUnsupportedTags(await this.native.workspaces.prepareInheritedCreate(principal.clusterId,'acls',consumer,{id:grant.acl_id,group:grant.acl_group},principal.workspaceId),proof.schemas.acls);this.native.check(acl,proof.schemas.acls);
         steps.push(this.native.nativeStep(2,'credentials','create',acl,null,{parentId:grant.consumer_id,credentialKind:'acls',workflowId,dependencies:[steps[0].id]}));
       }else{
         const evidence=await loadPortalGrantNativeEvidence(tx,this.secrets,{clusterId:principal.clusterId,workspaceId:principal.workspaceId,grantId:grant.id});consumer=evidence.consumer;acl=evidence.acl;
         oldRaw=(await this.store.get(principal.clusterId,grant.consumer_id,'key-auth',oldCredential.kong_id))?.credential;if(!oldRaw||oldRaw.id!==oldCredential.kong_id||oldRaw.consumer?.id!==grant.consumer_id||typeof oldRaw.key!=='string'||this.secrets.fingerprint(oldRaw.key)!==oldCredential.key_fingerprint)throw new ConflictException({code:'PORTAL_CREDENTIAL_PROOF_INVALID'});
       }
       if(action!=='revoke'){
-        const credential=await this.native.workspaces.prepareInheritedCreate(principal.clusterId,'key-auth',consumer,{id:kongId,key},principal.workspaceId);this.native.check(credential,proof.schemas.keyAuth);steps.push(this.native.nativeStep(steps.length+1,'credentials','create',credential,null,{parentId:grant.consumer_id,credentialKind:'key-auth',workflowId,dependencies:steps.length?[steps[steps.length-1].id]:[]}));
+        const credential=withoutUnsupportedTags(await this.native.workspaces.prepareInheritedCreate(principal.clusterId,'key-auth',consumer,{id:kongId,key},principal.workspaceId),proof.schemas.keyAuth);this.native.check(credential,proof.schemas.keyAuth);steps.push(this.native.nativeStep(steps.length+1,'credentials','create',credential,null,{parentId:grant.consumer_id,credentialKind:'key-auth',workflowId,dependencies:steps.length?[steps[steps.length-1].id]:[]}));
         await tx.exec(`INSERT INTO portal_credentials(id,cluster_id,workspace_id,grant_id,developer_id,consumer_id,kong_id,generation,previous_credential_id,key_secret,key_fingerprint,workflow_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,[credentialId,principal.clusterId,principal.workspaceId,grant.id,principal.developerId,grant.consumer_id,kongId,generation,oldCredential?.id??null,this.secrets.encrypt({key},portalKeyAad(principal.clusterId,principal.workspaceId,credentialId,generation)),this.secrets.fingerprint(key),workflowId]);
       }
       if(action!=='issue'){
