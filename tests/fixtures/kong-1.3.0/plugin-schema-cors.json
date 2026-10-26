@@ -1,0 +1,75 @@
+{
+  "fields": [
+    {
+      "origins": {
+        "elements": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "headers": {
+        "elements": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "exposed_headers": {
+        "elements": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "methods": {
+        "elements": {
+          "one_of": [
+            "GET",
+            "HEAD",
+            "PUT",
+            "PATCH",
+            "POST",
+            "DELETE",
+            "OPTIONS",
+            "TRACE",
+            "CONNECT"
+          ],
+          "type": "string"
+        },
+        "default": [
+          "GET",
+          "HEAD",
+          "PUT",
+          "PATCH",
+          "POST",
+          "DELETE",
+          "OPTIONS",
+          "TRACE",
+          "CONNECT"
+        ],
+        "type": "array"
+      }
+    },
+    {
+      "max_age": {
+        "type": "number"
+      }
+    },
+    {
+      "credentials": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    {
+      "preflight_continue": {
+        "default": false,
+        "type": "boolean"
+      }
+    }
+  ]
+}

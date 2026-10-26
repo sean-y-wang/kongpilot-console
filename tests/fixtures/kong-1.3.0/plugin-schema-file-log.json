@@ -1,0 +1,16 @@
+{
+  "fields": [
+    {
+      "path": {
+        "type": "string",
+        "required": true
+      }
+    },
+    {
+      "reopen": {
+        "default": false,
+        "type": "boolean"
+      }
+    }
+  ]
+}

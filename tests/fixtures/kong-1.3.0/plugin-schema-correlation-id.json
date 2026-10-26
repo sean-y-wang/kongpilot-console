@@ -1,0 +1,27 @@
+{
+  "fields": [
+    {
+      "header_name": {
+        "default": "Kong-Request-ID",
+        "type": "string"
+      }
+    },
+    {
+      "generator": {
+        "one_of": [
+          "uuid",
+          "uuid#counter",
+          "tracker"
+        ],
+        "default": "uuid#counter",
+        "type": "string"
+      }
+    },
+    {
+      "echo_downstream": {
+        "default": false,
+        "type": "boolean"
+      }
+    }
+  ]
+}
