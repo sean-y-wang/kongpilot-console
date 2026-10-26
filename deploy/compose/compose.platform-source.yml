@@ -1,0 +1,43 @@
+# KP-010 second-environment source. Distinct volumes from live evidence.
+# Labels match platform-recovery.mjs (console-db / redis / console-api).
+services:
+  console-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kongpilot_bff_evidence
+      POSTGRES_USER: kongpilot
+      POSTGRES_PASSWORD: kp010-src-only-not-production
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes: [console_db_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U kongpilot -d kongpilot_bff_evidence"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "kp010-src-redis-not-prod"]
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, -a, kp010-src-redis-not-prod, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    restart: "no"
+
+  console-api:
+    # Quiesce target only — no DB writer. Image must resolve to local digest.
+    image: alpine:3.20
+    command: ["sleep", "infinity"]
+    depends_on:
+      console-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  console_db_data:
+  redis_data:

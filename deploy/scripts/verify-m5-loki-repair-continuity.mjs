@@ -6,7 +6,7 @@ const beforeMode=process.argv.includes('--before');
 const afterMode=process.argv.includes('--after');
 if(beforeMode===afterMode || process.argv.slice(2).some(arg=>!['--before','--after','--collector-restarted'].includes(arg))){console.error('M5_CONTINUITY_ARGUMENTS_INVALID');process.exit(2);}
 const collectorRestarted=process.argv.includes('--collector-restarted');
-const compose=['compose','--env-file','.env','--env-file','.env.multicluster','-f','docker-compose.yml','-f','deploy/compose.development.yml','-f','deploy/compose.multicluster-test.yml','--profile','multicluster-test','-f','deploy/compose.metrics.yml','--profile','observability'];
+const compose=['compose','--env-file','.env','--env-file','.env.multicluster','-f','docker-compose.yml','-f','deploy/compose/compose.development.yml','-f','deploy/compose/compose.multicluster-test.yml','--profile','multicluster-test','-f','deploy/compose/compose.metrics.yml','--profile','observability'];
 const serviceNames=['kong','kong-secondary','echo-upstream','console-api','console-web','telemetry-collector','prometheus','loki','kong-db','kong-secondary-db','console-db','redis'];
 const output='artifacts/M5/loki-repair-runtime-continuity.json';
 function snapshot(){

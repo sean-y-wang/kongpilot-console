@@ -1,0 +1,3 @@
+import {S,login} from './c.mjs';const a=await login(S.adminUser,S.adminPass);const cid=S.clusterB,ws=S.workspaceB,qb=`/api/v1/clusters/${cid}`,wb=`workspaceId=${ws}`;const items=r=>r.data?.items??r.data??[];
+const x=items(await a('GET',`${qb}/portal/publications?size=50&${wb}`)).find(x=>(x.entity??x).name===S.portalPublicationName);const g=(await a('GET',`${qb}/portal/publications/${(x.entity??x).id}?${wb}`)).data;const G=g.entity??g;
+const r=await a('POST',`${qb}/portal/publications/${G.id}/publish?${wb}`,{revision:G.revision,confirmed:true,confirm_name:G.name});console.log('directPublish',r.status,r.code??'');

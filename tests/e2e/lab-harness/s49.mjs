@@ -1,0 +1,16 @@
+import {S,login,approve,execute,wfGet} from './c.mjs';
+const out={};const a=await login(S.adminUser,S.adminPass),p=await login(S.apprUser,S.apprPass);const cid=S.clusterB,ws=S.workspaceB,qb=`/api/v1/clusters/${cid}`,wb=`workspaceId=${ws}`;
+const items=r=>r.data?.items??r.data??[];
+const get=async()=>{const x=items(await a('GET',`${qb}/portal/publications?size=50&${wb}`)).find(x=>(x.entity??x).name===S.portalPublicationName);const g=(await a('GET',`${qb}/portal/publications/${(x.entity??x).id}?${wb}`)).data;return g.entity??g;};
+const wfCount=async()=>(await a('GET',`${qb}/workflows?size=1&${wb}`)).data?.total??null;
+const run=async(label,r)=>{const wf=r.data?.workflowId??r.data?.workflow?.id;if(!wf)throw Error(label+r.status+r.code);await approve(p,cid,ws,wf,'s49 verify');await execute(a,cid,ws,wf);let s;for(let i=0;i<30;i++){await new Promise(z=>setTimeout(z,1000));s=(await wfGet(a,cid,ws,wf))?.state;if(!['approved','running','queued','executing'].includes(s))break;}out[label]=s;return s;};
+const proxy=async()=>(await fetch(S.kongProxyB+S.portalProxyPath)).status;
+let G=await get();out.before={st:G.status,state:G.state,revision:G.revision,currentRevision:G.currentRevision??G.current_revision};out.proxyNoKeyBefore=await proxy();
+const c=(await a('GET',qb)).data;out.cluster={executionMode:c.execution_mode,revision:c.revision,note:'proof was minted at cluster revision 1 (direct); approval-mode switch bumped it'};
+const n0=await wfCount();const r=await a('POST',`${qb}/portal/publications/${G.id}/publish?${wb}`,{revision:G.revision,confirmed:true,confirm_name:G.name});
+out.republishSameRevision={status:r.status,code:r.code,workflowCreated:!!(r.data?.workflowId)};out.workflowsDelta=(await wfCount())-n0;
+const G2=await get();out.afterRefusal={state:G2.state,revision:G2.revision,unchanged:G2.revision===G.revision&&G2.state===G.state};
+await run('newDraft',await a('PATCH',`${qb}/portal/publications/${G2.id}?${wb}`,{revision:G2.revision,slug:G2.slug,name:G2.name,description:'s49 new draft revision',category:G2.category,serviceId:G2.serviceId??G2.service_id,document:{openapi:'3.0.3',info:{title:'Evidence API',version:'1.0.2'},paths:{[S.portalProxyPath]:{get:{responses:{200:{description:'Success'}}}}}}}));
+const G3=await get();await run('publishNewRevision',await a('POST',`${qb}/portal/publications/${G3.id}/publish?${wb}`,{revision:G3.revision,confirmed:true,confirm_name:G3.name}));
+const G4=await get();out.final={state:G4.state,currentRevision:G4.currentRevision??G4.current_revision};out.proxyNoKeyAfter=await proxy();
+console.log(JSON.stringify(out,null,1));

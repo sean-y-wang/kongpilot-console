@@ -46,7 +46,7 @@ describe('source-only independent production and third restore command templates
  });
  it('uses explicit local socket and exact four production files; runner adds only its TLS overlay',()=>{
   const plan=productionPreparationPlan(options());for(const row of plan.commands.filter((r:any)=>r.command==='docker')){expect(row.argv.slice(0,4)).toEqual(['--host=unix:///var/run/docker.sock','compose','--project-name',row.phase.startsWith('third-project')?'kongos-production-restore':'kongos-production-smoke']);}
-  const collector=plan.commands.find((r:any)=>r.service==='telemetry-collector');expect(collector.argv.filter((_:string,i:number)=>collector.argv[i-1]==='-f')).toEqual(['docker-compose.yml','deploy/compose.production.yml','deploy/compose.metrics.yml','deploy/compose.production-metrics.yml']);
+  const collector=plan.commands.find((r:any)=>r.service==='telemetry-collector');expect(collector.argv.filter((_:string,i:number)=>collector.argv[i-1]==='-f')).toEqual(['docker-compose.yml','deploy/compose/compose.production.yml','deploy/compose/compose.metrics.yml','deploy/compose/compose.production-metrics.yml']);
  });
  it('verifies actual CA and hostname, never adds an insecure mode',()=>{
   const p=productionPreparationPlan(options()),tls=p.commands.filter((r:any)=>r.phase==='real-tls-hostname-verification');expect(tls).toHaveLength(2);expect(tls.every((r:any)=>r.argv.includes('-verify_return_error')&&r.argv.includes('-verify_hostname')&&r.argv.includes('-CAfile'))).toBe(true);

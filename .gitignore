@@ -16,7 +16,7 @@ deploy/private/
 apps/console-api/native-bin/
 
 # Release candidate source tarballs are pinned by SHA256SUMS; keep blobs off-repo
-deploy/releases/candidates/**/*.tar.gz
+docs/project-history/verification/release-candidates/**/*.tar.gz
 
 # Local evidence output is never published
 artifacts/

@@ -1,0 +1,72 @@
+# Secondary isolated Kong OSS 1.5.1 for KP-005 dual-env Promote evidence.
+# Distinct transport_scope from primary (admin 18001). Host network.
+services:
+  live-kong-b-db:
+    profiles: [live-kong-secondary]
+    image: postgres:11-alpine
+    network_mode: host
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong
+      POSTGRES_HOST_AUTH_METHOD: trust
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes: [live_kong_b_pgdata:/var/lib/postgresql/data]
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1", "-p", "25434"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -p 25434 -U kong -d kong"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: "no"
+
+  live-kong-b-migrations:
+    profiles: [live-kong-secondary]
+    image: kong:1.5.1
+    network_mode: host
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: 127.0.0.1
+      KONG_PG_PORT: "25434"
+      KONG_PG_DATABASE: kong
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_ANONYMOUS_REPORTS: "off"
+    command: ["kong", "migrations", "bootstrap"]
+    depends_on:
+      live-kong-b-db: {condition: service_healthy}
+    restart: "no"
+
+  live-kong-b:
+    profiles: [live-kong-secondary]
+    image: kong:1.5.1
+    network_mode: host
+    user: kong
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: 127.0.0.1
+      KONG_PG_PORT: "25434"
+      KONG_PG_DATABASE: kong
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_ANONYMOUS_REPORTS: "off"
+      KONG_NGINX_WORKER_PROCESSES: "1"
+      KONG_PROXY_LISTEN: 127.0.0.1:18010
+      KONG_ADMIN_LISTEN: 127.0.0.1:18011
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+    depends_on:
+      live-kong-b-db: {condition: service_healthy}
+      live-kong-b-migrations: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, kong, health]
+      interval: 5s
+      timeout: 5s
+      start_period: 25s
+      retries: 15
+    restart: "no"
+
+volumes:
+  live_kong_b_pgdata: {}

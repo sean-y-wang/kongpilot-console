@@ -14,7 +14,7 @@ try{
   const base=['compose','--env-file','.env'];
   const configurations=[
     ['production',[...base,'-f','docker-compose.yml']],
-    ['development-dual-monitoring',[...base,'--env-file','.env.multicluster','-f','docker-compose.yml','-f','deploy/compose.development.yml','-f','deploy/compose.multicluster-test.yml','--profile','multicluster-test','-f','deploy/compose.metrics.yml','--profile','observability']],
+    ['development-dual-monitoring',[...base,'--env-file','.env.multicluster','-f','docker-compose.yml','-f','deploy/compose/compose.development.yml','-f','deploy/compose/compose.multicluster-test.yml','--profile','multicluster-test','-f','deploy/compose/compose.metrics.yml','--profile','observability']],
   ];
   for(const [mode,args] of configurations){
     const effectiveEnv=mode==='production'?env:{...env,PORTAL_PUBLIC_ORIGINS:'http://127.0.0.1:8082,http://localhost:8082'};

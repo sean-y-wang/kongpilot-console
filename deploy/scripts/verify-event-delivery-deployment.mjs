@@ -3,7 +3,7 @@ import{createHash}from'node:crypto';
 import{mkdirSync,readFileSync,writeFileSync}from'node:fs';
 import{resolve}from'node:path';
 const stage=process.env.DELIVERY_EVIDENCE_STAGE??'M7',directory=resolve(process.env.DELIVERY_EVIDENCE_DIRECTORY??`artifacts/${stage}`);
-const compose=['compose','--env-file','.env','--env-file','.env.multicluster',...(process.argv.includes('--portal-acceptance')?['--env-file','.env.portal-acceptance']:[]),'-f','docker-compose.yml','-f','deploy/compose.development.yml','-f','deploy/compose.multicluster-test.yml','-f','deploy/compose.metrics.yml',...(process.argv.includes('--portal-acceptance')?['-f','deploy/compose.portal-acceptance.yml']:[]),'-f','deploy/compose.notifications-test.yml','--profile','multicluster-test','--profile','observability','--profile','notifications-test'];
+const compose=['compose','--env-file','.env','--env-file','.env.multicluster',...(process.argv.includes('--portal-acceptance')?['--env-file','.env.portal-acceptance']:[]),'-f','docker-compose.yml','-f','deploy/compose/compose.development.yml','-f','deploy/compose/compose.multicluster-test.yml','-f','deploy/compose/compose.metrics.yml',...(process.argv.includes('--portal-acceptance')?['-f','deploy/compose/compose.portal-acceptance.yml']:[]),'-f','deploy/compose/compose.notifications-test.yml','--profile','multicluster-test','--profile','observability','--profile','notifications-test'];
 const checks=[],hash=bytes=>createHash('sha256').update(bytes).digest('hex'),check=(name,passed)=>checks.push({name,passed:!!passed});
 const run=args=>execFileSync('docker',args,{stdio:['pipe','pipe','pipe'],encoding:'utf8',timeout:5000});
 const inspect=name=>JSON.parse(run(['inspect',run([...compose,'ps','-q',name]).trim()]))[0];

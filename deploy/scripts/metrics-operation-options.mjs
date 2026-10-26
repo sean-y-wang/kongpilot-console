@@ -3,7 +3,7 @@ import {assertProductionComposition} from './production-policy.mjs';
 
 const fail=()=>{throw new Error('METRICS_OPERATION_ARGUMENTS_INVALID');};
 const safePath=value=>{if(typeof value!=='string'||!value||value.length>4096||/[\r\n\u0000]/.test(value)||value.startsWith('-'))fail();return resolve(value);};
-export const PRODUCTION_METRICS_COMPOSE_FILES=['docker-compose.yml','deploy/compose.production.yml','deploy/compose.metrics.yml','deploy/compose.production-metrics.yml'];
+export const PRODUCTION_METRICS_COMPOSE_FILES=['docker-compose.yml','deploy/compose/compose.production.yml','deploy/compose/compose.metrics.yml','deploy/compose/compose.production-metrics.yml'];
 
 /** Pure options: importing this module never reads deployment files or runs Docker. */
 export function metricsOperationOptions(args,operation){
@@ -34,7 +34,7 @@ export function metricsOperationOptions(args,operation){
 
 export function metricsComposeArguments(options,operation){
  if(options.production)return ['--host=unix:///var/run/docker.sock','compose','--project-name',options.project,'--env-file',options.envFile,...PRODUCTION_METRICS_COMPOSE_FILES.flatMap(path=>['-f',path]),'--profile','observability'];
- return ['compose','--env-file','.env',...(options.multicluster?['--env-file','.env.multicluster']:[]),'-f','docker-compose.yml','-f','deploy/compose.development.yml',...(options.multicluster?['-f','deploy/compose.multicluster-test.yml','--profile','multicluster-test']:[]),...(operation==='storage'?['-f','deploy/compose.metrics.yml','--profile','observability']:[])];
+ return ['compose','--env-file','.env',...(options.multicluster?['--env-file','.env.multicluster']:[]),'-f','docker-compose.yml','-f','deploy/compose/compose.development.yml',...(options.multicluster?['-f','deploy/compose/compose.multicluster-test.yml','--profile','multicluster-test']:[]),...(operation==='storage'?['-f','deploy/compose/compose.metrics.yml','--profile','observability']:[])];
 }
 
 export function metricsOperationEnvironment(options,parent){

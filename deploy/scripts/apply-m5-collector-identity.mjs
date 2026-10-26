@@ -8,7 +8,7 @@ const apply = process.argv.includes('--apply');
 if (process.argv.some(value => value.startsWith('--') && !['--apply','--dry-run'].includes(value)) || (apply && process.argv.includes('--dry-run'))) {
   console.error('M5_IDENTITY_ARGUMENTS_INVALID'); process.exit(2);
 }
-const compose = ['compose','--env-file','.env','--env-file','.env.multicluster','-f','docker-compose.yml','-f','deploy/compose.development.yml','-f','deploy/compose.multicluster-test.yml','--profile','multicluster-test','-f','deploy/compose.metrics.yml','--profile','observability','--profile','test'];
+const compose = ['compose','--env-file','.env','--env-file','.env.multicluster','-f','docker-compose.yml','-f','deploy/compose/compose.development.yml','-f','deploy/compose/compose.multicluster-test.yml','--profile','multicluster-test','-f','deploy/compose/compose.metrics.yml','--profile','observability','--profile','test'];
 const connectedServices = ['kong','kong-secondary','echo-upstream','console-api','prometheus','loki','telemetry-collector'];
 const preservedServices = ['kong-db','kong-secondary-db','console-db','redis'];
 const targetNetworks = ['proxy-edge','observability'];

@@ -5,7 +5,7 @@ import {resolve} from 'node:path';
 import {portalTopologyChecks} from './portal-network-policy.mjs';
 const stage=process.env.PORTAL_EVIDENCE_STAGE||'M6',directory=resolve(process.env.PORTAL_EVIDENCE_DIRECTORY||`artifacts/${stage}`);
 const multicluster=process.argv.includes('--multicluster'),observability=process.argv.includes('--observability');
-const compose=['compose','--env-file','.env',...(multicluster?['--env-file','.env.multicluster']:[]),'-f','docker-compose.yml','-f','deploy/compose.development.yml',...(multicluster?['-f','deploy/compose.multicluster-test.yml','--profile','multicluster-test']:[]),...(observability?['-f','deploy/compose.metrics.yml','--profile','observability']:[])];
+const compose=['compose','--env-file','.env',...(multicluster?['--env-file','.env.multicluster']:[]),'-f','docker-compose.yml','-f','deploy/compose/compose.development.yml',...(multicluster?['-f','deploy/compose/compose.multicluster-test.yml','--profile','multicluster-test']:[]),...(observability?['-f','deploy/compose/compose.metrics.yml','--profile','observability']:[])];
 const checks=[],traces=[],assets=[];
 const check=(name,passed)=>checks.push({name,passed:Boolean(passed)});
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');

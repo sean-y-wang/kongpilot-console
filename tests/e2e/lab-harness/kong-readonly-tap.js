@@ -1,0 +1,2 @@
+const http=require('http');const fs=require('fs');const p='/s/kong.sock';try{fs.unlinkSync(p)}catch{}
+http.createServer((q,r)=>{if(q.method!=='GET'){r.writeHead(405);return r.end()}const u=http.request({host:process.env.KONG_ADMIN_HOST||'kong',port:Number(process.env.KONG_ADMIN_PORT||8001),path:q.url,method:'GET'},x=>{r.writeHead(x.statusCode,x.headers);x.pipe(r)});u.on('error',()=>{r.writeHead(502);r.end()});u.end()}).listen(p,()=>fs.chmodSync(p,0o666));

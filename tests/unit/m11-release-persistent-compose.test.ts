@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseDocument } from 'yaml';
 
-const document = parseDocument(readFileSync('deploy/compose.release-persistent.yml', 'utf8'), {
+const document = parseDocument(readFileSync('deploy/compose/compose.release-persistent.yml', 'utf8'), {
   customTags: [{ tag: '!reset', collection: 'seq', resolve: value => value }],
 });
 const overlay = document.toJS();

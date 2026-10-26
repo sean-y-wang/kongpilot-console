@@ -1,0 +1,35 @@
+# Ephemeral host-network PG/Redis for BFF↔live-Kong evidence.
+# Companion to deploy/compose/compose.live-kong-evidence.yml. Never production.
+services:
+  bff-evidence-db:
+    profiles: [bff-live-evidence]
+    image: postgres:16-alpine
+    network_mode: host
+    environment:
+      POSTGRES_DB: kongpilot_bff_evidence
+      POSTGRES_USER: kongpilot
+      POSTGRES_PASSWORD: ${EVIDENCE_DB_PASSWORD:?set EVIDENCE_DB_PASSWORD for bff evidence lab}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes: [bff_evidence_pgdata:/var/lib/postgresql/data]
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1", "-p", "25433"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -p 25433 -U kongpilot -d kongpilot_bff_evidence"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: "no"
+
+  bff-evidence-redis:
+    profiles: [bff-live-evidence]
+    image: redis:7-alpine
+    network_mode: host
+    command: ["redis-server", "--bind", "127.0.0.1", "--port", "26379", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: [CMD, redis-cli, -h, 127.0.0.1, -p, "26379", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    restart: "no"
+
+volumes:
+  bff_evidence_pgdata: {}

@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {parse} from 'yaml';
 
 const base=parse(readFileSync('docker-compose.yml','utf8'));
-const tls=parse(readFileSync('deploy/compose.proxy-tls-test.yml','utf8'));
+const tls=parse(readFileSync('deploy/compose/compose.proxy-tls-test.yml','utf8'));
 const exactTestEntry=(input:any)=>JSON.stringify(input)===JSON.stringify({services:{kong:{ports:['127.0.0.1:8443:8443']}}});
 
 describe('M8 genuine Kong1.5 proxy TLS source boundary',()=>{
@@ -26,8 +26,8 @@ describe('M8 genuine Kong1.5 proxy TLS source boundary',()=>{
   expect(exactTestEntry({services:{kong:{ports:['127.0.0.1:8443:8443'],environment:{KONG_TRUSTED_IPS:'0.0.0.0/0'}}}})).toBe(false);
  });
  it('retains real secondary/Portal acceptance nodes and exact native Admin ACL implementation',()=>{
-  const secondary=parse(readFileSync('deploy/compose.multicluster-test.yml','utf8'));
-  const portal=parse(readFileSync('deploy/compose.portal-acceptance.yml','utf8'));
+  const secondary=parse(readFileSync('deploy/compose/compose.multicluster-test.yml','utf8'));
+  const portal=parse(readFileSync('deploy/compose/compose.portal-acceptance.yml','utf8'));
   expect(secondary.services['kong-secondary'].environment.KONG_PROXY_LISTEN).toBe('0.0.0.0:8000');
   expect(portal.services['kong-portal'].environment.KONG_PROXY_LISTEN).toBe('0.0.0.0:8000');
   const start=readFileSync('deploy/scripts/kong-secure-start.sh','utf8');

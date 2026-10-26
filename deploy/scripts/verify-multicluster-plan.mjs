@@ -30,7 +30,7 @@ const temporary = mkdtempSync(join(tmpdir(), 'kongos-multicluster-plan-'));
 const credentialFile = join(temporary, 'secondary.env');
 writeFileSync(credentialFile, `KONG_SECONDARY_DATABASE_PASSWORD=${randomBytes(24).toString('hex')}\n`, { mode: 0o600 });
 try {
-  const args = ['compose', '--env-file', '.env', '--env-file', credentialFile, '-f', 'docker-compose.yml', '-f', 'deploy/compose.multicluster-test.yml', '--profile', 'multicluster-test', 'config', '--format', 'json'];
+  const args = ['compose', '--env-file', '.env', '--env-file', credentialFile, '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.multicluster-test.yml', '--profile', 'multicluster-test', 'config', '--format', 'json'];
   const compose = JSON.parse(execFileSync('docker', args, { encoding: 'utf8', maxBuffer: 5e6 }));
   const s = compose.services;
   const hasNetwork = (service, network) => Object.hasOwn(service.networks || {}, network);

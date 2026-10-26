@@ -4,8 +4,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 // Read-only network proof. All native responses/configuration stay in memory;
 // evidence contains only public identifiers, statuses, and boolean assertions.
 const compose = ['compose', '--env-file', '.env', '--env-file', '.env.multicluster',
-  '-f', 'docker-compose.yml', '-f', 'deploy/compose.development.yml',
-  '-f', 'deploy/compose.multicluster-test.yml', '--profile', 'multicluster-test', '--profile', 'test'];
+  '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.development.yml',
+  '-f', 'deploy/compose/compose.multicluster-test.yml', '--profile', 'multicluster-test', '--profile', 'test'];
 const checks = [];
 const services = [];
 const observations = [];

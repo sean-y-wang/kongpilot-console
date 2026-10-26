@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 // Read-only preparation for the two preserved M4 receipts. No encrypted payload,
 // names, credentials or native object data are selected by this probe.
 const operationIds = ['0def576d-c305-487d-a431-43b861d1d6aa', '7066ab74-a87e-47ec-94a5-dc7271b522c9'];
-const compose = ['compose', '--env-file', '.env', '--env-file', '.env.multicluster', '-f', 'docker-compose.yml', '-f', 'deploy/compose.development.yml', '-f', 'deploy/compose.multicluster-test.yml', '--profile', 'multicluster-test'];
+const compose = ['compose', '--env-file', '.env', '--env-file', '.env.multicluster', '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.development.yml', '-f', 'deploy/compose/compose.multicluster-test.yml', '--profile', 'multicluster-test'];
 const code = `const {Pool}=require('pg');const fs=require('fs');
 (async()=>{const ids=JSON.parse(fs.readFileSync(0,'utf8')).operationIds;const pool=new Pool({connectionString:process.env.DATABASE_URL});
 try{const operations=(await pool.query('SELECT id,cluster_id,workspace_id,entity_type,entity_id,action,state,remote_started,remote_completed,error_code,created_at,updated_at FROM mutation_operations WHERE id=ANY($1::uuid[]) ORDER BY id',[ids])).rows;

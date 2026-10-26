@@ -87,7 +87,7 @@ describe('M6 independent Portal two-network boundary', () => {
     expect(allPassed(facts)).toBe(true); expect(api.ports).toBeUndefined(); expect(portal.network_mode).toBeUndefined();
     expect(config.networks['portal-edge'].internal).toBe(true); expect(config.networks['portal-entry'].internal === true).toBe(false);
   });
-  it.each(['deploy/compose.multicluster-test.yml', 'deploy/compose.metrics.yml'])('retains BOTH Portal literal IPs when %s overrides API protection', filename => {
+  it.each(['deploy/compose/compose.multicluster-test.yml', 'deploy/compose/compose.metrics.yml'])('retains BOTH Portal literal IPs when %s overrides API protection', filename => {
     const config = parseCompose(readFileSync(filename, 'utf8')), hosts = defaults(config.services['console-api'].environment.PROTECTED_DESTINATION_HOSTS).split(',');
     expect(hosts.includes('portal-web')).toBe(true); expect(hosts.includes('172.28.41.20')).toBe(true); expect(hosts.includes('172.28.42.20')).toBe(true);
     for (const service of Object.values(config.services)) expect(networkNames(service).includes('portal-entry')).toBe(false);

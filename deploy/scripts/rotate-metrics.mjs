@@ -5,7 +5,7 @@ import { materialFromEnrollment, prometheusConfiguration } from './metrics-mater
 
 if (!process.argv.includes('--confirmed')) { console.error('Rotation requires --confirmed and bounded JSON stdin; tokens are never accepted as command arguments.'); process.exit(2); }
 const multicluster = process.argv.includes('--multicluster');
-const compose = ['compose', '--env-file', '.env', ...(multicluster ? ['--env-file', '.env.multicluster'] : []), '-f', 'docker-compose.yml', '-f', 'deploy/compose.development.yml', ...(multicluster ? ['-f', 'deploy/compose.multicluster-test.yml', '--profile', 'multicluster-test'] : []), '-f', 'deploy/compose.metrics.yml', '--profile', 'observability'];
+const compose = ['compose', '--env-file', '.env', ...(multicluster ? ['--env-file', '.env.multicluster'] : []), '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.development.yml', ...(multicluster ? ['-f', 'deploy/compose/compose.multicluster-test.yml', '--profile', 'multicluster-test'] : []), '-f', 'deploy/compose/compose.metrics.yml', '--profile', 'observability'];
 const directory = resolve('deploy/private/metrics');
 function atomic(path, text, uid) {
   const temporary = `${path}.pending`;

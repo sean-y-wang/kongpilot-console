@@ -10,9 +10,9 @@ const path=value=>{if(!text(value)||value.startsWith('-'))fail();return resolve(
 const project=value=>{if(typeof value!=='string'||!/^[a-z][a-z0-9_-]{1,62}$/.test(value)||['kongos-console','kongpilot-console'].includes(value))fail();return value;};
 const publicOrigin=value=>{let url;try{url=new URL(value);}catch{fail();}if(url.protocol!=='https:'||url.origin!==value||url.username||url.password||!url.hostname)fail();return url;};
 
-export const PRODUCTION_BASE_FILES=Object.freeze(['docker-compose.yml','deploy/compose.production.yml']);
-export const PRODUCTION_METRICS_FILES=Object.freeze([...PRODUCTION_BASE_FILES,'deploy/compose.metrics.yml','deploy/compose.production-metrics.yml']);
-export const PRODUCTION_GITOPS_FILES=Object.freeze([...PRODUCTION_METRICS_FILES,'deploy/compose.gitops.yml','deploy/compose.production-gitops.yml']);
+export const PRODUCTION_BASE_FILES=Object.freeze(['docker-compose.yml','deploy/compose/compose.production.yml']);
+export const PRODUCTION_METRICS_FILES=Object.freeze([...PRODUCTION_BASE_FILES,'deploy/compose/compose.metrics.yml','deploy/compose/compose.production-metrics.yml']);
+export const PRODUCTION_GITOPS_FILES=Object.freeze([...PRODUCTION_METRICS_FILES,'deploy/compose/compose.gitops.yml','deploy/compose/compose.production-gitops.yml']);
 export const PRODUCTION_BUILD_ORDER=Object.freeze(['console-api','console-web','portal-web','telemetry-collector','console-deck-runner']);
 
 /** A runtime image size is not an upper bound on a VFS build peak. A positive

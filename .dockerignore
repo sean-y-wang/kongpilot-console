@@ -10,7 +10,7 @@ test-results
 playwright-report
 coverage
 *.log
-deploy/compose.managed.yml
+deploy/compose/compose.managed.yml
 deploy/private
 
 # Build this fixed native helper from source; never ship local executables.

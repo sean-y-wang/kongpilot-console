@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 const evidenceStage=process.env.METRICS_EVIDENCE_STAGE||'M5';
 const evidenceDirectory=resolve(process.env.METRICS_EVIDENCE_DIRECTORY||`artifacts/${evidenceStage}`);
 const multicluster = process.argv.includes('--multicluster');
-const compose = ['compose', '--env-file', '.env', ...(multicluster ? ['--env-file', '.env.multicluster'] : []), '-f', 'docker-compose.yml', '-f', 'deploy/compose.development.yml', ...(multicluster ? ['-f', 'deploy/compose.multicluster-test.yml', '--profile', 'multicluster-test'] : []), '-f', 'deploy/compose.metrics.yml', '--profile', 'observability'];
+const compose = ['compose', '--env-file', '.env', ...(multicluster ? ['--env-file', '.env.multicluster'] : []), '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.development.yml', ...(multicluster ? ['-f', 'deploy/compose/compose.multicluster-test.yml', '--profile', 'multicluster-test'] : []), '-f', 'deploy/compose/compose.metrics.yml', '--profile', 'observability'];
 const checks = [];
 const collectorSources = [];
 let collectorIdentity;

@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 // compiled sources, schema007 and enrolled families already passed their steps.
 const evidence = JSON.parse(readFileSync('artifacts/M5/startup-before-collector-tmpfs-fix.json', 'utf8'));
 if (evidence.failedStep !== 'apply-metrics-services') { console.error('M5_CONTINUATION_PRECONDITION_FAILED'); process.exit(2); }
-const compose = ['compose', '--env-file', '.env', '--env-file', '.env.multicluster', '-f', 'docker-compose.yml', '-f', 'deploy/compose.development.yml', '-f', 'deploy/compose.multicluster-test.yml', '--profile', 'multicluster-test', '-f', 'deploy/compose.metrics.yml', '--profile', 'observability'];
+const compose = ['compose', '--env-file', '.env', '--env-file', '.env.multicluster', '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.development.yml', '-f', 'deploy/compose/compose.multicluster-test.yml', '--profile', 'multicluster-test', '-f', 'deploy/compose/compose.metrics.yml', '--profile', 'observability'];
 const generations = () => JSON.parse(readFileSync('deploy/private/metrics/manifest.json', 'utf8')).clusters.map(row => ({ clusterId: row.clusterId, generation: row.generation }));
 const before = generations();
 const commands = [];

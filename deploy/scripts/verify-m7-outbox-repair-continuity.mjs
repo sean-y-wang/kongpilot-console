@@ -44,7 +44,7 @@ export function captureOutboxRepairSnapshot(){
  const database=JSON.parse(run(['exec',api.id,'node','-e',OUTBOX_REPAIR_READONLY_PROGRAM]));
  const directory='apps/console-api/src/infrastructure/migrations';
  const migrations=readdirSync(directory).filter(n=>n.endsWith('.sql')).sort().map(name=>({name,checksum:digest(readFileSync(join(directory,name)))}));
- const configurations=['docker-compose.yml','deploy/compose.development.yml','deploy/compose.multicluster-test.yml','deploy/compose.metrics.yml','deploy/compose.portal-acceptance.yml','deploy/compose.notifications-test.yml','deploy/nginx/default.conf','deploy/nginx/portal.conf','deploy/nginx/portal-nginx.conf','deploy/scripts/kong-secure-start.sh'];
+ const configurations=['docker-compose.yml','deploy/compose/compose.development.yml','deploy/compose/compose.multicluster-test.yml','deploy/compose/compose.metrics.yml','deploy/compose/compose.portal-acceptance.yml','deploy/compose/compose.notifications-test.yml','deploy/nginx/default.conf','deploy/nginx/portal.conf','deploy/nginx/portal-nginx.conf','deploy/scripts/kong-secure-start.sh'];
  const configurationSHA256=digest(JSON.stringify(configurations.map(path=>({path,sha256:digest(readFileSync(path))}))));
  return{observedAt:new Date().toISOString(),services,migrations,materials:materialSnapshot(),configurationSHA256,database};
 }

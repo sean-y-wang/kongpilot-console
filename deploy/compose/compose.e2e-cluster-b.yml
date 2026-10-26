@@ -1,7 +1,7 @@
 # LAB / E2E ONLY overlay (not a production artifact): adds a second Kong 1.5.1
 # cluster ("cluster B") and an echo upstream to the bridge production stack so
 # the KP-006 portal browser flow can run against a real second Kong.
-# Usage: docker compose -f docker-compose.yml -f deploy/compose.production.yml -f deploy/compose.e2e-cluster-b.yml ...
+# Usage: docker compose -f docker-compose.yml -f deploy/compose/compose.production.yml -f deploy/compose/compose.e2e-cluster-b.yml ...
 # Kong B Admin listens only on its kong-admin IP and only accepts the BFF IP
 # (same kong-start.sh hardening as cluster A); proxy is published on loopback.
 x-kong-b-environment: &kong-b-environment

@@ -132,7 +132,7 @@ export class M5Harness extends M4Harness {
   }
   logs(service) {
     if (!['console-api', 'console-web', 'telemetry-collector', 'prometheus', 'loki', 'kong', 'kong-secondary'].includes(service)) throw new Error('log fixture service is not allowed');
-    return execFileSync('docker', ['compose', '--env-file', '.env', '--env-file', '.env.multicluster', '-f', 'docker-compose.yml', '-f', 'deploy/compose.multicluster-test.yml', '-f', 'deploy/compose.metrics.yml', 'logs', '--no-color', '--since', '20m', service], { encoding: 'utf8', maxBuffer: 24 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+    return execFileSync('docker', ['compose', '--env-file', '.env', '--env-file', '.env.multicluster', '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.multicluster-test.yml', '-f', 'deploy/compose/compose.metrics.yml', 'logs', '--no-color', '--since', '20m', service], { encoding: 'utf8', maxBuffer: 24 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
   }
   async poll(read, accept, name, { timeoutMs = 90_000, intervalMs = 1_000 } = {}) {
     const deadline = Date.now() + timeoutMs;

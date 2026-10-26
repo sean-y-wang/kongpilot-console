@@ -29,7 +29,7 @@ function snapshot(before){
  const source=readFileSync(CONFIG),sourceSHA256=digest(source),runtimeSHA256=digest(runtime);
  current.edgeConfiguration={sourceSHA256,runtimeSHA256,...(before?{expectedSHA256:digest(singleNosniffConfig(source.toString()))}:{})};
  current.staticAssets=[...assets('apps/console-web/dist'),...assets('apps/portal-web/dist')];
- current.otherConfiguration=['docker-compose.yml','deploy/compose.development.yml','deploy/compose.multicluster-test.yml','deploy/compose.metrics.yml','deploy/compose.portal-acceptance.yml','deploy/compose.notifications-test.yml','deploy/nginx/portal.conf','deploy/nginx/portal-nginx.conf','deploy/scripts/kong-secure-start.sh'].map(path=>({path,sha256:digest(readFileSync(path))}));
+ current.otherConfiguration=['docker-compose.yml','deploy/compose/compose.development.yml','deploy/compose/compose.multicluster-test.yml','deploy/compose/compose.metrics.yml','deploy/compose/compose.portal-acceptance.yml','deploy/compose/compose.notifications-test.yml','deploy/nginx/portal.conf','deploy/nginx/portal-nginx.conf','deploy/scripts/kong-secure-start.sh'].map(path=>({path,sha256:digest(readFileSync(path))}));
  return current;
 }
 export function runEdgeNosniffContinuity(mode){

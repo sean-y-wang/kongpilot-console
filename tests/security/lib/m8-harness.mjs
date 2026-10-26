@@ -6,7 +6,7 @@ import { readM8PrivateHistories } from './m8-private-history.mjs';
 
 export const M8_REFERENCE = join(tmpdir(), 'kongos-m8-runtime-secrets.json');
 export const M8_CLUSTERS = Object.freeze({ direct: 'dff45535-ed8d-4851-b7a6-6376feac7f59', approval: 'd1dfaec8-2a10-4170-8a15-20a600a4bd4f' });
-export const M8_COMPOSE = Object.freeze(['compose', '--env-file', '.env', '--env-file', '.env.multicluster', '--env-file', '.env.portal-acceptance', '-f', 'docker-compose.yml', '-f', 'deploy/compose.development.yml', '-f', 'deploy/compose.multicluster-test.yml', '--profile', 'multicluster-test', '-f', 'deploy/compose.metrics.yml', '--profile', 'observability', '-f', 'deploy/compose.portal-acceptance.yml', '--profile', 'portal-acceptance', '-f', 'deploy/compose.notifications-test.yml', '--profile', 'notifications-test']);
+export const M8_COMPOSE = Object.freeze(['compose', '--env-file', '.env', '--env-file', '.env.multicluster', '--env-file', '.env.portal-acceptance', '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.development.yml', '-f', 'deploy/compose/compose.multicluster-test.yml', '--profile', 'multicluster-test', '-f', 'deploy/compose/compose.metrics.yml', '--profile', 'observability', '-f', 'deploy/compose/compose.portal-acceptance.yml', '--profile', 'portal-acceptance', '-f', 'deploy/compose/compose.notifications-test.yml', '--profile', 'notifications-test']);
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 export const entity = value => value?.entity ?? value;
 export const rows = value => Array.isArray(value) ? value : value?.items ?? [];

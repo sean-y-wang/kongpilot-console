@@ -18,7 +18,7 @@ function composition(path: string) {
   return document.toJS() as any;
 }
 const base = composition('docker-compose.yml');
-const production = composition('deploy/compose.production.yml');
+const production = composition('deploy/compose/compose.production.yml');
 const migrations = 'apps/console-api/src/infrastructure/migrations';
 const ledger = readdirSync(migrations).filter(name => /^\d+_[\w-]+\.sql$/.test(name)).sort().map(name => ({
   name, checksum: createHash('sha256').update(readFileSync(join(migrations, name), 'utf8')).digest('hex'),

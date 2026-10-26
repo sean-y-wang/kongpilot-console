@@ -8,7 +8,7 @@ import{prepareEventReceivers}from'../../deploy/scripts/prepare-event-receivers.m
 import{eventReceiverChecks}from'../../deploy/scripts/event-receiver-policy.mjs';
 import{stagePlan}from'../../deploy/scripts/stage-plan.mjs';
 const require=createRequire(new URL('../../apps/console-api/package.json',import.meta.url)),{parse}=require('yaml');
-const source=()=>parse(readFileSync('deploy/compose.notifications-test.yml','utf8'));
+const source=()=>parse(readFileSync('deploy/compose/compose.notifications-test.yml','utf8'));
 describe('M7 synthetic receiver deployment policy',()=>{
  it('validates the actual source overlay using pure Compose facts',()=>{expect(eventReceiverChecks(source()).filter((row:any)=>!row.passed)).toEqual([]);});
  it('adds isolated delivery startup without reenrolling or rotating metrics and without restarting their services',()=>{const steps=stagePlan({stage:'M7',compose:['compose'],multicluster:true,observability:true,portal:true,notificationsTest:true});expect(steps.map((s:any)=>s[0])).toContain('isolated-delivery-materials');expect(steps.map((s:any)=>s[0])).toContain('start-isolated-delivery-receivers');const text=JSON.stringify(steps);expect(text).not.toContain('enroll-metrics');expect(text).not.toContain('rotate-metrics');expect(steps.find((s:any)=>s[0]==='restart')?.[2]).toEqual(['compose','restart','console-web','portal-web']);});

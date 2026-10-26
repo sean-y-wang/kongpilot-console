@@ -17,6 +17,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/unit/**/*.test.ts', 'tests/security/**/*.test.ts'],
+    // lab-evidence suites assert on raw lab evidence that is not published; run manually.
+    exclude: ['**/node_modules/**', 'tests/**/lab-evidence/**'],
     testTimeout: 10_000,
     restoreMocks: true,
     clearMocks: true,

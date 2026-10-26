@@ -15,10 +15,10 @@ const valid=()=>{
 describe('explicit production metrics operation arguments',()=>{
  it('preserves both old development compose invocations and material/output defaults',()=>{
   const plain=metricsOperationOptions(['--discover'],'enroll');
-  expect(metricsComposeArguments(plain,'enroll')).toEqual(['compose','--env-file','.env','-f','docker-compose.yml','-f','deploy/compose.development.yml']);
+  expect(metricsComposeArguments(plain,'enroll')).toEqual(['compose','--env-file','.env','-f','docker-compose.yml','-f','deploy/compose/compose.development.yml']);
   expect(plain.metricsDirectory.endsWith('/deploy/private/metrics')).toBe(true);expect(plain.output).toBeNull();
   const multi=metricsOperationOptions(['--multicluster'],'storage');
-  expect(metricsComposeArguments(multi,'storage')).toEqual(['compose','--env-file','.env','--env-file','.env.multicluster','-f','docker-compose.yml','-f','deploy/compose.development.yml','-f','deploy/compose.multicluster-test.yml','--profile','multicluster-test','-f','deploy/compose.metrics.yml','--profile','observability']);
+  expect(metricsComposeArguments(multi,'storage')).toEqual(['compose','--env-file','.env','--env-file','.env.multicluster','-f','docker-compose.yml','-f','deploy/compose/compose.development.yml','-f','deploy/compose/compose.multicluster-test.yml','--profile','multicluster-test','-f','deploy/compose/compose.metrics.yml','--profile','observability']);
   expect(multi.output.endsWith('/artifacts/M5/metrics-storage-permissions.json')).toBe(true);
  });
  it('uses only the four production files and the explicit local daemon/project/env',()=>{

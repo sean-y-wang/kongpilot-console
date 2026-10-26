@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 const multicluster = process.argv.includes('--multicluster');
-const args = ['compose', '--env-file', '.env', ...(multicluster ? ['--env-file', '.env.multicluster'] : []), '-f', 'docker-compose.yml', '-f', 'deploy/compose.development.yml', ...(multicluster ? ['-f', 'deploy/compose.multicluster-test.yml', '--profile', 'multicluster-test'] : []), '-f', 'deploy/compose.metrics.yml', '--profile', 'observability'];
+const args = ['compose', '--env-file', '.env', ...(multicluster ? ['--env-file', '.env.multicluster'] : []), '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.development.yml', ...(multicluster ? ['-f', 'deploy/compose/compose.multicluster-test.yml', '--profile', 'multicluster-test'] : []), '-f', 'deploy/compose/compose.metrics.yml', '--profile', 'observability'];
 const checks = [];
 const check = (name, passed) => checks.push({ name, passed: Boolean(passed) });
 function subnetRange(value) {

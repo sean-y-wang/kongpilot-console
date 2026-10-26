@@ -38,12 +38,12 @@ if(gitopsRunner && Number(stage.slice(1))<8){console.error('Fixed GitOps runner 
 if (notificationsTest && Number(stage.slice(1)) < 7) {console.error('Delivery receiver deployment starts at M7.');process.exit(2);}
 if (captureExistingMetrics && (stage !== 'M6' || !portal || !observability || verifyOnly)) { console.error('Existing key capture requires a full M6 --portal --observability test deployment.'); process.exit(2); }
 const compose = ['compose', ...(multicluster ? ['--env-file', '.env', '--env-file', '.env.multicluster'] : []),...(portalAcceptance?['--env-file','.env.portal-acceptance']:[]),
-  '-f', 'docker-compose.yml', '-f', 'deploy/compose.development.yml',
-  ...(multicluster ? ['-f', 'deploy/compose.multicluster-test.yml', '--profile', 'multicluster-test'] : []),
-  ...(observability ? ['-f', 'deploy/compose.metrics.yml', '--profile', 'observability'] : []),
-  ...(portalAcceptance?['-f','deploy/compose.portal-acceptance.yml','--profile','portal-acceptance']:[]),
-  ...(notificationsTest?['-f','deploy/compose.notifications-test.yml','--profile','notifications-test']:[]),
-  ...(gitopsRunner?['-f','deploy/compose.gitops.yml','--profile','gitops-runner']:[])];
+  '-f', 'docker-compose.yml', '-f', 'deploy/compose/compose.development.yml',
+  ...(multicluster ? ['-f', 'deploy/compose/compose.multicluster-test.yml', '--profile', 'multicluster-test'] : []),
+  ...(observability ? ['-f', 'deploy/compose/compose.metrics.yml', '--profile', 'observability'] : []),
+  ...(portalAcceptance?['-f','deploy/compose/compose.portal-acceptance.yml','--profile','portal-acceptance']:[]),
+  ...(notificationsTest?['-f','deploy/compose/compose.notifications-test.yml','--profile','notifications-test']:[]),
+  ...(gitopsRunner?['-f','deploy/compose/compose.gitops.yml','--profile','gitops-runner']:[])];
 const steps = stagePlan({stage,compose,multicluster,observability,portal,notificationsTest,gitopsRunner,captureMetricsTokens,captureExistingMetrics,transitionStorage});
 if (dryRun) {
   console.log(JSON.stringify({ stage, mode: 'development-bindmounts', deploymentPerformed: false, commands: steps.map(([name, command, args]) => ({ name, command, args })), finalSteps: ['wait readiness', 'verify runtime reload', 'verify deployment boundary', 'record startup evidence'], productionImagesRebuilt: false }, null, 2));
@@ -87,7 +87,7 @@ function latestCompiledTime(directory) {
 let result;
 try {
   check('environment file exists', existsSync('.env'));
-  check('development override exists', existsSync('deploy/compose.development.yml'));
+  check('development override exists', existsSync('deploy/compose/compose.development.yml'));
   if (multicluster) check('private secondary environment exists with mode0600', existsSync('.env.multicluster') && (statSync('.env.multicluster').mode & 0o777) === 0o600);
   if (!verifyOnly) for (const [name, command, args] of steps) run(name, command, args);
   currentStep = 'readiness';

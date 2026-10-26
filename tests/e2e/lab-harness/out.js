@@ -1,0 +1,1 @@
+const http=require('http');http.createServer((q,r)=>{const u=http.request({socketPath:''+(process.env.KP_LAB_KONG_SOCK||"./sock/kong.sock")+'',path:q.url,method:'GET'},x=>{r.writeHead(x.statusCode,x.headers);x.pipe(r)});u.on('error',()=>{r.writeHead(502);r.end()});u.end()}).listen(38101,'127.0.0.1');

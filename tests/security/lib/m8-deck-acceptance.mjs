@@ -65,7 +65,7 @@ export async function runM8FixedDeck(h,actor,area,input,{jobId=null}={}) {
       closeTimer=setTimeout(()=>settle(undefined,undefined),3000);
     };
     try{
-      child=spawn('docker',['--host=unix:///var/run/docker.sock',...M8_COMPOSE,'-f','deploy/compose.gitops.yml','-f','tests/security/fixtures/m8-deck-runtime-no-build.yml','--profile','gitops-runner','run','--rm','--no-deps','--pull','never','-T','--name',containerName,'console-deck-runner'],{env,shell:false,stdio:['pipe','pipe','pipe']});
+      child=spawn('docker',['--host=unix:///var/run/docker.sock',...M8_COMPOSE,'-f','deploy/compose/compose.gitops.yml','-f','tests/security/fixtures/m8-deck-runtime-no-build.yml','--profile','gitops-runner','run','--rm','--no-deps','--pull','never','-T','--name',containerName,'console-deck-runner'],{env,shell:false,stdio:['pipe','pipe','pipe']});
       child.once('error',stop);child.once('close',(code,sig)=>settle(code,sig));
       for(const stream of [child.stdout,child.stderr,child.stdin])stream.on('error',stop);
       child.stdout.on('data',b=>{outBytes+=b.length;if(outBytes>65536)stop();else out.push(b);});

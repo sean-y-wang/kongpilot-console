@@ -1,0 +1,208 @@
+# Evidence-only host-network production-shaped stack for box runners where
+# Docker bridge DNS resolves into 198.18.0.0/15 and inter-container TCP blackholes.
+# Does NOT claim commercialClosed. Never merge into production overlays as-is.
+# Profile: production-compose-evidence. Ports chosen to avoid lab collisions.
+x-prod-logging: &prod-logging
+  driver: json-file
+  options: {max-size: "10m", max-file: "3"}
+
+services:
+  pce-console-db:
+    profiles: [production-compose-evidence]
+    image: postgres:16-alpine
+    network_mode: host
+    environment:
+      POSTGRES_DB: kongos
+      POSTGRES_USER: kongos
+      POSTGRES_PASSWORD: ${CONSOLE_DATABASE_PASSWORD:?Set CONSOLE_DATABASE_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes: [pce_console_pgdata:/var/lib/postgresql/data]
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1", "-p", "45433"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -p 45433 -U kongos -d kongos"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+    logging: *prod-logging
+    restart: "no"
+
+  pce-redis:
+    profiles: [production-compose-evidence]
+    image: redis:7-alpine
+    network_mode: host
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    command:
+      - /bin/sh
+      - -ec
+      - exec redis-server --bind 127.0.0.1 --port 46379 --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli -h 127.0.0.1 -p 46379 ping | grep -q PONG']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    logging: *prod-logging
+    restart: "no"
+
+  pce-kong-db:
+    profiles: [production-compose-evidence]
+    image: postgres:11-alpine
+    network_mode: host
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: ${KONG_DATABASE_PASSWORD:?Set KONG_DATABASE_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes: [pce_kong_pgdata:/var/lib/postgresql/data]
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1", "-p", "45432"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -p 45432 -U kong -d kong"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+    logging: *prod-logging
+    restart: "no"
+
+  pce-kong-migrations:
+    profiles: [production-compose-evidence]
+    image: kong:1.5.1
+    network_mode: host
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: 127.0.0.1
+      KONG_PG_PORT: "45432"
+      KONG_PG_DATABASE: kong
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: ${KONG_DATABASE_PASSWORD:?Set KONG_DATABASE_PASSWORD}
+      KONG_ANONYMOUS_REPORTS: "off"
+    command: ["kong", "migrations", "bootstrap"]
+    depends_on:
+      pce-kong-db: {condition: service_healthy}
+    restart: "no"
+
+  pce-upstream:
+    profiles: [production-compose-evidence]
+    image: hashicorp/http-echo:1.0
+    network_mode: host
+    command: ["-text=kongpilot-pce-upstream-ok", "-listen=127.0.0.1:45678"]
+    restart: "no"
+
+  pce-kong:
+    profiles: [production-compose-evidence]
+    image: kong:1.5.1
+    network_mode: host
+    user: kong
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: 127.0.0.1
+      KONG_PG_PORT: "45432"
+      KONG_PG_DATABASE: kong
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: ${KONG_DATABASE_PASSWORD:?Set KONG_DATABASE_PASSWORD}
+      KONG_ANONYMOUS_REPORTS: "off"
+      KONG_NGINX_WORKER_PROCESSES: "1"
+      KONG_PROXY_LISTEN: 127.0.0.1:48000
+      KONG_ADMIN_LISTEN: 127.0.0.1:48001
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+    depends_on:
+      pce-kong-db: {condition: service_healthy}
+      pce-kong-migrations: {condition: service_completed_successfully}
+      pce-upstream: {condition: service_started}
+    healthcheck:
+      test: [CMD, kong, health]
+      interval: 5s
+      timeout: 5s
+      start_period: 25s
+      retries: 15
+    pids_limit: 512
+    mem_limit: 1g
+    logging: *prod-logging
+    restart: "no"
+
+  pce-console-migrations:
+    profiles: [production-compose-evidence]
+    image: ${KONGOS_API_IMAGE:?Set frozen API release image}
+    network_mode: host
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777"]
+    command: [node, dist/infrastructure/migrate.js]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://kongos:${CONSOLE_DATABASE_PASSWORD:?}@127.0.0.1:45433/kongos
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@127.0.0.1:46379/0
+      CONSOLE_DB_RUNTIME_USER: kongos_app
+      CONSOLE_DB_RUNTIME_PASSWORD: ${CONSOLE_APP_PASSWORD:?}
+      CONSOLE_ENCRYPTION_KEY: ${CONSOLE_ENCRYPTION_KEY:?}
+      APP_SECRET: ${APP_SECRET:?}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:?}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?}
+      DEFAULT_KONG_ADMIN_URL: http://127.0.0.1:48001
+    depends_on:
+      pce-console-db: {condition: service_healthy}
+      pce-redis: {condition: service_healthy}
+    pids_limit: 128
+    mem_limit: 512m
+    logging: *prod-logging
+    restart: "no"
+    healthcheck: {disable: true}
+
+  pce-console-api:
+    profiles: [production-compose-evidence]
+    image: ${KONGOS_API_IMAGE:?Set frozen API release image}
+    network_mode: host
+    user: "1000:1000"
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777"]
+    environment:
+      NODE_ENV: production
+      PORT: "43001"
+      COOKIE_SECURE: "false"
+      TRUST_PROXY: "1"
+      SKIP_MIGRATIONS: "true"
+      DATABASE_URL: postgres://kongos_app:${CONSOLE_APP_PASSWORD:?}@127.0.0.1:45433/kongos
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@127.0.0.1:46379/0
+      CONSOLE_ENCRYPTION_KEY: ${CONSOLE_ENCRYPTION_KEY:?}
+      APP_SECRET: ${APP_SECRET:?}
+      PORTAL_SECRET: ${PORTAL_SECRET:?}
+      # production NODE_ENV requires https portal origins; console Origin allows HTTP evidence bind
+      PUBLIC_ORIGINS: "http://127.0.0.1:43001"
+      PORTAL_PUBLIC_ORIGINS: "https://127.0.0.1:49443"
+      DEFAULT_KONG_ADMIN_URL: http://127.0.0.1:48001
+      OUTBOUND_ALLOWED_HOSTS: 127.0.0.1,localhost
+      # Evidence cold-start asserts production defaults OFF (ambient shell must not hijack).
+      ENTITY_SCHEDULES_ENABLED: "false"
+      BUSINESS_SCHEDULES_ENABLED: "false"
+      EVENT_DELIVERY_WORKER_ENABLED: "false"
+      PASSWORD_BCRYPT_ROUNDS: "10"
+      LOG_LEVEL: info
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:?}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?}
+    depends_on:
+      pce-console-db: {condition: service_healthy}
+      pce-console-migrations: {condition: service_completed_successfully}
+      pce-redis: {condition: service_healthy}
+      pce-kong: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:43001/api/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      start_period: 40s
+      retries: 18
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: "2"
+    logging: *prod-logging
+    restart: "no"
+
+volumes:
+  pce_console_pgdata: {}
+  pce_kong_pgdata: {}
