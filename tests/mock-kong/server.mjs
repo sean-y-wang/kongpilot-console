@@ -3,10 +3,11 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const fixtureDir = process.env.KONG_FIXTURES || resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/kong-1.5.1');
+const fixtureDir = process.env.KONG_FIXTURES || resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/kong-' + (process.env.KONG_FIXTURE_VERSION || '1.5.1'));
 const port = Number(process.env.MOCK_KONG_PORT || 18001);
 const host = process.env.MOCK_KONG_HOST || '127.0.0.1';
-let scenario = { mode: 'normal', delayMs: 0, version: '1.5.1' };
+const fixtureVersion = process.env.KONG_FIXTURE_VERSION || '1.5.1';
+let scenario = { mode: 'normal', delayMs: 0, version: fixtureVersion };
 const requests = [];
 const fixture = name => JSON.parse(readFileSync(resolve(fixtureDir, name), 'utf8'));
 const entities = new Set(['services','routes','consumers','plugins','certificates','ca_certificates','snis','upstreams']);
@@ -31,7 +32,7 @@ createServer(async (req, res) => {
       const body = await readBody(req);
       const allowed = ['normal','unavailable','validation','timeout','pagination','unsafe-next'];
       if (!allowed.includes(body.mode || 'normal')) return respond(res, 400, { message: 'Unknown mock mode' });
-      scenario = { mode: body.mode || 'normal', delayMs: Math.min(Math.max(Number(body.delayMs || 0), 0), 30000), version: String(body.version || '1.5.1') };
+      scenario = { mode: body.mode || 'normal', delayMs: Math.min(Math.max(Number(body.delayMs || 0), 0), 30000), version: String(body.version || fixtureVersion) };
       requests.length = 0;
       return respond(res, 200, { ...scenario, mock: true });
     }
@@ -47,7 +48,7 @@ createServer(async (req, res) => {
     if (req.method !== 'GET') return respond(res, 405, { message: 'M0 mock is read-only' });
     if (url.pathname === '/') return respond(res, 200, { ...fixture('root.json'), version: scenario.version });
     if (url.pathname === '/status') return respond(res, 200, fixture('status.json'));
-    if (url.pathname === '/endpoints') return respond(res, 200, fixture('endpoints.json'));
+    if (url.pathname === '/endpoints') { try { return respond(res, 200, fixture('endpoints.json')); } catch { return respond(res, 404, { message: 'Not found' }); } }
     if (url.pathname === '/plugins/enabled') return respond(res, 200, fixture('plugins-enabled.json'));
     const schema = url.pathname.match(/^\/schemas\/([a-z_]+)$/);
     if (schema && entities.has(schema[1])) return respond(res, 200, fixture(`schema-${schema[1]}.json`));
@@ -76,4 +77,4 @@ createServer(async (req, res) => {
   } catch (error) {
     if (!res.headersSent) respond(res, 400, { message: 'Invalid mock request' });
   }
-}).listen(port, host, () => console.log(`Read-only Kong 1.5.1 fixture mock listening on ${host}:${port}; synthetic scenarios are explicitly marked.`));
+}).listen(port, host, () => console.log(`Read-only Kong ${fixtureVersion} fixture mock listening on ${host}:${port}; synthetic scenarios are explicitly marked.`));
