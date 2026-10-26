@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { ConflictException, ForbiddenException, HttpException, Injectable, OnModuleInit } from '@nestjs/common';
 import { DbService } from '../../infrastructure/db.service';
 import { SecretService } from '../../infrastructure/secret.service';
@@ -46,7 +47,7 @@ export class GovernanceAuthorityService implements OnModuleInit {
   private async registry(cid:string,wid:string){
     const cluster=await this.db.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL',[this.id(cid)]);
     const workspace=await this.workspaces.resolve(cid,this.id(wid));
-    if(!cluster||!/^1\.5\.\d+$/.test(cluster.version??'')||['disabled','incompatible'].includes(cluster.status)||workspace.status!=='active')throw denied('GOVERNANCE_SCOPE_UNAVAILABLE');
+    if(!cluster||!isSupportedKong(cluster.version??'')||['disabled','incompatible'].includes(cluster.status)||workspace.status!=='active')throw denied('GOVERNANCE_SCOPE_UNAVAILABLE');
     const transportScope=transportScopeFor(cluster.admin_url,cluster.transport_scope);
     return {cluster,workspace,transportScope,endpointHmac:this.secrets.fingerprint({url:cluster.admin_url,scope:transportScope,version:cluster.version,secret:cluster.connection_secret??null,enabled:cluster.enabled_plugins??[]})};
   }

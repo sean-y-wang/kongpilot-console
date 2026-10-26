@@ -62,7 +62,7 @@ export class EventsMetadataService implements OnModuleInit {
   }
   async writableScope(row:Pick<SharedEventRow,'cluster_id'|'workspace_id'>):Promise<boolean>{
     const scope=await this.db.one<{status:string;version:string;workspace_status:string}>(`SELECT c.status,c.version,w.status AS workspace_status FROM clusters c JOIN workspaces w ON w.cluster_id=c.id AND w.id=$2 WHERE c.id=$1 AND c.deleted_at IS NULL`,[row.cluster_id,row.workspace_id]);
-    return!!scope&&scope.workspace_status==='active'&&scope.status!=='disabled'&&/^1\.5\.\d+$/.test(scope.version??'');
+    return!!scope&&scope.workspace_status==='active'&&scope.status!=='disabled';
   }
   async channelView(row:SharedEventRow,actor?:EntityActor):Promise<SafeChannel> {
     const material=row.endpoint_secret?this.material(row):null;
@@ -115,7 +115,7 @@ export class EventsMetadataService implements OnModuleInit {
     await this.authz.assertWholeWorkspace(actor.user,cid,wid,'events',mapping.action);
     const cluster=await tx.one<{admin_url:string;transport_scope:string;revision:number;execution_mode:string;version:string;status:string}>('SELECT admin_url,transport_scope,revision,execution_mode,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL FOR SHARE',[cid]);
     const workspace=await tx.one<{revision:number;status:string}>('SELECT revision,status FROM workspaces WHERE cluster_id=$1 AND id=$2 FOR SHARE',[cid,wid]);
-    if(!cluster||!workspace||cluster.status==='disabled'||workspace.status!=='active'||!/^1\.5\.\d+$/.test(cluster.version??'')
+    if(!cluster||!workspace||cluster.status==='disabled'||workspace.status!=='active'
       ||cluster.execution_mode!==context.scope.executionMode||cluster.revision!==context.scope.clusterRevision||workspace.revision!==context.scope.workspaceRevision
       ||transportScopeFor(cluster.admin_url,cluster.transport_scope)!==context.scope.transportScope)throw new ConflictException({code:'EVENT_SCOPE_CHANGED'});
     let current=await this.row(handler,cid,wid,id,tx,true);

@@ -28,7 +28,7 @@ export class EventsCompilerService {
     await this.authz.assertWholeWorkspace(actor.user,cid,wid,'events',action);
     const cluster=await this.db.one<{admin_url:string;transport_scope:string;revision:number;execution_mode:'direct'|'approval';version:string;status:string}>('SELECT admin_url,transport_scope,revision,execution_mode,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL',[cid]);
     if(!cluster)throw new NotFoundException({code:'CLUSTER_NOT_FOUND'});
-    if(action!=='read'&&(workspace.status!=='active'||cluster.status==='disabled'||!/^1\.5\.\d+$/.test(cluster.version??'')))throw new ConflictException({code:'EVENT_SCOPE_UNAVAILABLE'});
+    if(action!=='read'&&(workspace.status!=='active'||cluster.status==='disabled'))throw new ConflictException({code:'EVENT_SCOPE_UNAVAILABLE'});
     return{cid,wid,workspace,cluster};
   }
   private identity(handler:EventWorkflowHandlerName,id:string|undefined,body:Record<string,unknown>,action=false):EventRequestIdentity {
@@ -37,7 +37,7 @@ export class EventsCompilerService {
   private async assertSnapshot(cid:string,wid:string,snapshot:EventScopeSnapshot,tx=this.db,lock=false):Promise<void>{
     const suffix=lock?' FOR SHARE':'',cluster=await tx.one<{admin_url:string;transport_scope:string;revision:number;execution_mode:string;version:string;status:string}>('SELECT admin_url,transport_scope,revision,execution_mode,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL'+suffix,[cid]);
     const workspace=await tx.one<{revision:number;status:string}>('SELECT revision,status FROM workspaces WHERE cluster_id=$1 AND id=$2'+suffix,[cid,wid]);
-    if(!cluster||!workspace||cluster.status==='disabled'||workspace.status!=='active'||!/^1\.5\.\d+$/.test(cluster.version??'')
+    if(!cluster||!workspace||cluster.status==='disabled'||workspace.status!=='active'
       ||cluster.execution_mode!==snapshot.executionMode||cluster.revision!==snapshot.clusterRevision||workspace.revision!==snapshot.workspaceRevision
       ||transportScopeFor(cluster.admin_url,cluster.transport_scope)!==snapshot.transportScope)throw new ConflictException({code:'EVENT_SCOPE_CHANGED'});
   }

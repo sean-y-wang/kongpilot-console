@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { randomUUID, X509Certificate } from 'node:crypto';
 import { DbService } from '../../infrastructure/db.service';
@@ -39,7 +40,7 @@ export class ObservationAuthorityService implements ObservationAuthority {
   }
   private async snapshot(cid: string, db: DbService, lock = false): Promise<RegistrySnapshot> {
     const cluster = await db.one<any>(`SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL${lock ? ' FOR SHARE' : ''}`, [cid]);
-    if (!cluster || ['disabled', 'incompatible'].includes(cluster.status) || !/^1\.5\.\d+$/.test(cluster.version ?? '')) throw denied();
+    if (!cluster || ['disabled', 'incompatible'].includes(cluster.status) || !isSupportedKong(cluster.version ?? '')) throw denied();
     const transportScope = transportScopeFor(cluster.admin_url, cluster.transport_scope);
     if (lock) await db.exec('SELECT pg_advisory_xact_lock(hashtext($1))', [`kongos:metrics-transport:${transportScope}`]);
     const aliases = await db.query<any>(`SELECT id,admin_url,transport_scope FROM clusters
@@ -129,7 +130,7 @@ export class ObservationAuthorityService implements ObservationAuthority {
     const paths = type === 'upstreams' ? ['/', path, targetPath, healthPath] : ['/', path];
     return this.execution.runEventObservationRead(cid, paths, async () => {
       const startRoot = await this.kong.request(cid, 'GET', '/');
-      if (!/^1\.5\.\d+$/.test(startRoot?.version ?? '')) throw denied();
+      if (!isSupportedKong(startRoot?.version ?? '')) throw denied();
       const actual = await this.kong.request(cid, 'GET', path);
       if (actual?.id !== id) throw denied();
       const membership = await this.workspaces.classify(cid, actual.tags);
