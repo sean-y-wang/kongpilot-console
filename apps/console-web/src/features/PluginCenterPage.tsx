@@ -16,6 +16,7 @@ import { NoCluster, PageHeading, QueryError, formatTime } from '../components/Sh
 import { EntityEditor } from './EntityEditor';
 import { entityName, type EntityPageData } from './entities';
 import { requiresPlatformPlugin } from '../api/plugin-policy';
+import { EntityIdText } from '../components/EntityReference';
 
 const categoryLabels: Record<string, string> = { authentication: '认证', security: '安全', traffic: '流量控制', transformation: '请求与响应转换', logging: '日志', serverless: 'Serverless', observability: '可观测性', unknown: '未分类' };
 const scopeLabels: Record<string, string> = { 'consumer-route-service': 'Consumer + Route + Service', 'consumer-route': 'Consumer + Route', 'consumer-service': 'Consumer + Service', 'route-service': 'Route + Service', consumer: 'Consumer', route: 'Route', service: 'Service', global: '全局' };
@@ -73,7 +74,7 @@ export function PluginCenterPage() {
   const levels = precedence.data?.levels ?? [];
   const abilities = useEntityPermissions((instances.data?.items ?? []).map(entity => ({ type: 'plugins', id: entity.id })));
   const instanceColumns: any[] = [
-    { title: '插件 / 实例 ID', width: 255, render: (_: any, entity: any) => <div><Link className="table-name" to={`/entities/plugins/${entity.id}`}>{entity.name}</Link><div className="table-secondary mono">{entity.id}</div></div> },
+    { title: '插件 / 实例 ID', width: 255, render: (_: any, entity: any) => <div><Link className="table-name" to={`/entities/plugins/${entity.id}`}>{entity.name}</Link><div className="table-secondary"><EntityIdText id={entity.id} /></div></div> },
     { title: '绑定层级', width: 255, render: (_: any, entity: any) => <div><Tag color={scopeOf(entity) === 'global' ? 'purple' : 'blue'}>{scopeLabels[scopeOf(entity)]}</Tag><div className="plugin-binding-refs">{(['service', 'route', 'consumer'] as const).filter(key => entity[key]).map(key => <Link key={key} to={`/entities/${key === 'consumer' ? 'consumers' : `${key}s`}/${entity[key].id}`}>{key}: {entity[key].id.slice(0, 8)}</Link>)}</div></div> },
     { title: '标签', width: 180, render: (_: any, entity: any) => <Space wrap size={2}>{(entity.tags ?? []).map((tag: string) => <Tag key={tag}>{tag}</Tag>)}</Space> },
     { title: '启用', width: 105, render: (_: any, entity: any) => <Switch aria-label={`启停 ${entity.name} ${entity.id}`} checked={entity.enabled} loading={toggle.isPending && toggle.variables?.id === entity.id} disabled={toggle.isPending || uncertain || blocked || !abilities.can('plugins', entity.id, 'write')} onChange={value => toggle.mutate({ id: entity.id, enabled: value })} /> },

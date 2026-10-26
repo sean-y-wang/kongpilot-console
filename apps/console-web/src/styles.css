@@ -401,3 +401,6 @@ html[data-appearance] :is(.header-label, .header-stage, .eyebrow, .stat-card .an
 html[data-appearance] :is(.table-secondary, .field-code, .stat-caption, .vitals-stat-note) { font-size: 12px; }
 html[data-appearance='light'] .stat-icon.orange, html[data-appearance='light'] .source-icon.prometheus, html[data-appearance='light'] .provider-symbol.prometheus { color: #b0641f; }
 html[data-appearance='light'] :is(.stat-icon.green, .plugin-summary-grid .ant-statistic-content-prefix, .plugin-card-title > .anticon, .user-avatar) { color: #0f7a68; }
+
+.table-name-empty { display: inline-block; min-width: 1ch; min-height: 1em; }
+.entity-ref-id-link .entity-ref-id { color: inherit; }

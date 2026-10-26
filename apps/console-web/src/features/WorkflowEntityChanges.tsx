@@ -17,6 +17,7 @@ import type { Workflow } from './portal.types';
 import { clearWorkflowAttempt, entityChangeSubmitPayload, nativeRollbackPayload, nativeRollbackUnavailableReason, nativeWorkflowCan, normalizeEntityChangeIntent, normalizeNativeChangePreflight, targetHealthRollbackUnavailableReason,
   readWorkflowAttempt, sameWorkflowIdentity, storeWorkflowAttempt, workflowCanPrepare, type EntityChangeIntent, type NativeChangePreflight, type WorkflowIdentity, type WorkflowWriteAttempt } from './workflow-entity-change.model';
 import { defaultScheduleLocal, formatScheduleTime, scheduledIntentMatchesRequest, scheduledPreparationPayload, scheduledTargetReviewMatchesRequest, type ScheduleLocalInput } from './entity-schedules.model';
+import { EntityIdText } from '../components/EntityReference';
 
 const credentials = ['key-auth', 'basic-auth', 'jwt', 'oauth2', 'hmac-auth', 'acls'];
 export function workflowIdentity(scope: ReturnType<typeof usePortalScope>): WorkflowIdentity { return { actor: scope.actor, version: scope.version, cid: scope.cid, wid: scope.wid }; }
@@ -195,7 +196,7 @@ export function WorkflowNativeDetails({ workflow }: { workflow: Workflow }) {
     { key: 'observed', label: '观察时间', children: `${formatTime(baseline.observedFrom)} — ${formatTime(baseline.observedUntil)}` },
   ]} /> : <Typography.Text type="secondary">尚未取得已持久化的执行前恢复基线。</Typography.Text>}{rollbackReason && <NativeRollbackNotice reason={rollbackReason} />}</Card>
     <Card title="网关逐步结果" style={{ marginTop: 20 }}><Table rowKey="key" dataSource={history?.packets ?? []} pagination={{ pageSize: 20, showSizeChanger: false }} scroll={{ x: 800 }} columns={[
-      { title: '顺序', dataIndex: 'order', width: 70 }, { title: '对象', render: (_, packet) => <>{entityLabels[packet.entityType] ?? packet.entityType}<div className="table-secondary mono">{packet.entityId}</div></> },
+      { title: '顺序', dataIndex: 'order', width: 70 }, { title: '对象', render: (_, packet) => <>{entityLabels[packet.entityType] ?? packet.entityType}{packet.entityId ? <div className="table-secondary"><EntityIdText id={packet.entityId} /></div> : null}</> },
       { title: '结果', dataIndex: 'state', render: state => <Tag color={state === 'succeeded' ? 'green' : ['uncertain', 'sent-unknown'].includes(state) ? 'orange' : undefined}>{({ succeeded: '已确认完成', 'native-rejected': '网关已拒绝', 'sent-unknown': '结果未知', 'rejected-before-send': '发送前拒绝', 'failed-known-not-sent': '未发送', not_sent: '未发送', uncertain: '待核验' } as Record<string, string>)[state] ?? state}</Tag> },
       { title: 'HTTP', dataIndex: 'nativeStatus', render: value => value ?? '—' }, { title: '操作回执', dataIndex: 'operationId', render: value => value ? <Typography.Text className="mono" copyable>{value}</Typography.Text> : '—' }, { title: '结果代码', dataIndex: 'errorCode', render: value => value ?? '—' },
     ]} /></Card></>;
