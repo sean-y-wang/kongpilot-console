@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import {ConflictException} from '@nestjs/common';
 import {createHash} from 'node:crypto';
 import type {DbService} from '../../infrastructure/db.service';
@@ -118,7 +119,7 @@ async function certify(input:TargetReconciliationHistoryInput):Promise<Readonly<
  same(step.metadata,{intentId:source.intentId,intentRevision:source.intentRevision,materialHmac:source.materialHmac,changeDigest:source.changeDigest,packetManifestHmac:source.packetManifestHmac});
  if(material.version!==1||material.clusterId!==source.clusterId||material.workspaceId!==source.workspaceId||material.requesterId!==source.executionActorId||material.scope.transportScope!==plan.scope.transportScope
   ||changeDigest!==source.changeDigest||secrets.fingerprint(base)!==changeDigest||material.request.kind!=='target'||material.request.action!=='weight'||material.packets.length!==1
-  ||material.metadataObligations.length||!/^1\.5\.\d+(?:[-+].*)?$/.test(material.scope.kongVersion))throw invalid();
+  ||material.metadataObligations.length||!isSupportedKongBuild(material.scope.kongVersion))throw invalid();
  const packet=material.packets[0],operation=derivePreparedEntityWrite(packet),parentId=packet.parentId!,oldId=packet.originalNativeId!;
  if(operation.kind!=='target-weight'||packet.order!==1||packet.method!=='POST'||packet.credentialKind!==undefined||packet.dependencies.length||packet.body?.weight!==0
   ||packet.canonicalPath!==`/upstreams/${parentId}/targets`||packet.body?.id!==packet.nativeId||packet.body?.target!==(packet.before as any)?.target
@@ -260,3 +261,5 @@ async function historicalApprovalProof(tx:Pick<DbService,'one'|'query'>,secrets:
  for(const member of members){bound(member);const r=reviewers.find(r=>r.approvalId===member.approval_id);if(!r||member.set_hmac!==set.set_hmac||member.user_id!==r.userId||member.level!==r.level||member.candidate_version!==w.candidate_version||member.candidate_manifest_hmac!==w.candidate_manifest_hmac)throw invalid();}
  return{id:set.id,hmac:set.set_hmac};
 }
+
+function isSupportedKongBuild(v: unknown): boolean { return typeof v === 'string' && isSupportedKong(v.replace(/[-+].*$/, '')); }

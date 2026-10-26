@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import type { DbService } from '../../infrastructure/db.service';
 import type { SecretService } from '../../infrastructure/secret.service';
@@ -185,7 +186,7 @@ export class ConfigurationApprovedVerifier {
     }
     const current=await this.authz.snapshot(frame.actor);if(current.version!==claim.permissionVersion||current.user.forcePasswordChange)throw denied('CONFIGURATION_APPROVED_GRANTS_CHANGED');
     const cluster=await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL',[keys[0]]),ws=await tx.one<any>('SELECT * FROM workspaces WHERE cluster_id=$1 AND id=$2',keys);
-    if(!cluster||cluster.status==='disabled'||cluster.execution_mode!=='approval'||!/^1\.5\.\d+$/.test(cluster.version??'')||cluster.revision!==job.cluster_revision
+    if(!cluster||cluster.status==='disabled'||cluster.execution_mode!=='approval'||!isSupportedKong(cluster.version??'')||cluster.revision!==job.cluster_revision
       ||transportScopeFor(cluster.admin_url,cluster.transport_scope)!==job.transport_scope||!ws||ws.status!=='active'||ws.revision!==job.workspace_revision)throw denied('CONFIGURATION_APPROVED_SCOPE_CHANGED');
     const version=await tx.one<any>('SELECT * FROM configuration_plan_versions WHERE cluster_id=$1 AND workspace_id=$2 AND plan_id=$3 AND plan_revision=$4',[...keys,execution.plan_id,execution.plan_revision]);
     const p=await tx.one<any>('SELECT * FROM configuration_plans WHERE cluster_id=$1 AND workspace_id=$2 AND id=$3',[...keys,execution.plan_id]);

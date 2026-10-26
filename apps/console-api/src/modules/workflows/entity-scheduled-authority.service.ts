@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { ConflictException, ForbiddenException, HttpException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DbService } from '../../infrastructure/db.service';
@@ -124,7 +125,7 @@ export class EntityScheduledAuthorityService {
   private async scope(e: EntityScheduledIntentEnvelopeV2, tx: DbService): Promise<void> {
     await this.available(e.clusterId, e.workspaceId, tx);
     const cluster = await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL', [e.clusterId]), workspace = await this.workspaces.get(e.clusterId, e.workspaceId, false, tx);
-    if (!cluster || ['disabled', 'incompatible'].includes(cluster.status) || !/^1\.5\.\d+$/.test(cluster.version ?? '') || cluster.version !== e.prepared.scope.kongVersion
+    if (!cluster || ['disabled', 'incompatible'].includes(cluster.status) || !isSupportedKong(cluster.version ?? '') || cluster.version !== e.prepared.scope.kongVersion
       || cluster.revision !== e.prepared.scope.clusterRevision || cluster.execution_mode !== e.executionMode || workspace.status !== 'active'
       || workspace.revision !== e.prepared.scope.workspaceRevision || transportScopeFor(cluster.admin_url, cluster.transport_scope) !== e.prepared.scope.transportScope) throw changed('ENTITY_SCHEDULE_SCOPE_CHANGED');
     if (this.secrets.fingerprint(await this.plans.definition(e.clusterId, e.workspaceId, 'native-change', tx)) !== this.secrets.fingerprint(e.definition)) throw changed('ENTITY_SCHEDULE_POLICY_CHANGED');

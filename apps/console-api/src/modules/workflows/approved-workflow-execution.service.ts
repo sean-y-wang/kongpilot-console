@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import type {PortalInspectionInvocationOriginal,PortalInspectionInvocationVerifier} from './workflow-portal-inspection-invocation.types';
 import {isIP} from 'node:net';
 import { ConflictException, ForbiddenException, Injectable, OnModuleInit, Optional } from '@nestjs/common';
@@ -502,7 +503,7 @@ export class ApprovedWorkflowExecutionService implements OnModuleInit, ApprovedE
     }
     const cluster = await tx.one<any>('SELECT id,admin_url,transport_scope,revision,execution_mode,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL', [plan.clusterId]);
     const workspace = await this.workspaces.resolve(plan.clusterId, plan.workspaceId);
-    if (!cluster || cluster.status === 'disabled' || cluster.revision !== plan.scope.clusterRevision || cluster.execution_mode !== plan.executionMode || !/^1\.5\.\d+$/.test(cluster.version ?? '')
+    if (!cluster || cluster.status === 'disabled' || cluster.revision !== plan.scope.clusterRevision || cluster.execution_mode !== plan.executionMode || !isSupportedKong(cluster.version ?? '')
       || workspace.status !== 'active' || workspace.revision !== plan.scope.workspaceRevision || transportScopeFor(cluster.admin_url, cluster.transport_scope) !== plan.scope.transportScope) throw stale();
     if(plan.kind==='configuration_v2')await this.assertConfigurationOrigin(plan,execution.execution_actor_id,'write',tx);
     const loaded:Loaded={execution,workflow,version,plan,snapshot,rows,...(approvalSet?{approvalSet}:{})};
