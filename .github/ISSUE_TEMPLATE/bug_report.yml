@@ -1,0 +1,32 @@
+name: Bug report / 缺陷报告
+description: Something isn't working as expected / 功能异常
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Security issues must be reported privately (see SECURITY.md). Never paste secrets, real hostnames or IPs. / 安全问题请私密报告，勿粘贴密钥或真实地址。"
+  - type: input
+    id: version
+    attributes: {label: KongPilot version / 版本, placeholder: v1.0.0-rc.2}
+    validations: {required: true}
+  - type: input
+    id: kong
+    attributes: {label: Kong version, placeholder: "1.5.1"}
+    validations: {required: true}
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: Deployment / 部署方式
+      options: [Quickstart compose, Production compose, Other]
+    validations: {required: true}
+  - type: textarea
+    id: what
+    attributes: {label: What happened / 现象, description: Include steps to reproduce / 复现步骤}
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes: {label: Expected behavior / 期望行为}
+    validations: {required: true}
+  - type: textarea
+    id: logs
+    attributes: {label: Logs (redacted) / 日志（已脱敏）, render: text}
