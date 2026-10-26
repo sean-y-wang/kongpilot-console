@@ -106,7 +106,7 @@ export const governanceCredentialKinds: readonly GovernanceCredentialKind[] = ['
 export function governanceCredentialSelection(includeCredentials: boolean, value: unknown): GovernanceCredentialKind[] | undefined {
   if (includeCredentials !== true) return;
   if (value === undefined || Array.isArray(value) && value.length === 0) return;
-  if (!Array.isArray(value) || value.length > 6 || value.some(kind => !governanceCredentialKinds.includes(kind)) || new Set(value).size !== value.length) throw new Error('凭证类型只能选择六类 Kong 1.5 Consumer 凭证。');
+  if (!Array.isArray(value) || value.length > 6 || value.some(kind => !governanceCredentialKinds.includes(kind)) || new Set(value).size !== value.length) throw new Error('凭证类型只能选择六类 Kong Consumer 凭证。');
   return [...value] as GovernanceCredentialKind[];
 }
 export function governanceSourceObjectKey(object: GovernanceSourceObject): string | undefined {
