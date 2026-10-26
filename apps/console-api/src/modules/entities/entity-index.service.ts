@@ -28,6 +28,20 @@ export class EntityIndexService implements OnModuleInit,OnModuleDestroy {
    name=excluded.name,tags=excluded.tags,document=excluded.document,content_hash=excluded.content_hash,kong_created_at=excluded.kong_created_at,observed_at=now(),sync_cycle=excluded.sync_cycle`,
    [clusterId,entityType,entity.id,String(name),Array.isArray(entity.tags)?entity.tags:[],safe,createHash('sha256').update(JSON.stringify(safe)).digest('hex'),Number.isFinite(entity.created_at)?Math.floor(entity.created_at):0,syncCycle??null]);
  }
+ /** One round trip per indexer page instead of one per entity (same row values as upsert()). */
+ async upsertMany(clusterId:string,entityType:string,entities:any[],syncCycle?:string){
+  if(!kinds.includes(entityType))return;
+  const byId=new Map<string,any>();for(const entity of entities)if(typeof entity?.id==='string')byId.set(entity.id,entity);
+  if(!byId.size)return;
+  const rows=[...byId.values()].map(entity=>{const safe=this.secrets.redact(entity),name=entity.name??entity.username??entity.custom_id??entity.id;
+   return{kong_id:entity.id,name:String(name),tags:Array.isArray(entity.tags)?entity.tags.map(String):[],document:safe,content_hash:createHash('sha256').update(JSON.stringify(safe)).digest('hex'),kong_created_at:Number.isFinite(entity.created_at)?Math.floor(entity.created_at):0};});
+  await this.db.exec(`INSERT INTO entity_index(cluster_id,entity_type,kong_id,name,tags,document,content_hash,kong_created_at,observed_at,sync_cycle)
+   SELECT $1,$2,r.kong_id,r.name,ARRAY(SELECT jsonb_array_elements_text(r.tags)),r.document,r.content_hash,r.kong_created_at,now(),coalesce($4::uuid,(SELECT cycle_id FROM index_sync_state WHERE cluster_id=$1 AND entity_type=$2))
+   FROM jsonb_to_recordset($3::jsonb) AS r(kong_id text,name text,tags jsonb,document jsonb,content_hash text,kong_created_at bigint)
+   ON CONFLICT(cluster_id,entity_type,kong_id) DO UPDATE SET
+   name=excluded.name,tags=excluded.tags,document=excluded.document,content_hash=excluded.content_hash,kong_created_at=excluded.kong_created_at,observed_at=now(),sync_cycle=excluded.sync_cycle`,
+   [clusterId,entityType,JSON.stringify(rows),syncCycle??null]);
+ }
  async remove(clusterId:string,entityType:string,id:string){await this.db.exec('DELETE FROM entity_index WHERE cluster_id=$1 AND entity_type=$2 AND kong_id=$3',[clusterId,entityType,id]);}
  private sign(payload:any){const raw=Buffer.from(JSON.stringify(payload)).toString('base64url');return `${raw}.${createHmac('sha256',process.env.APP_SECRET!).update(raw).digest('base64url')}`;}
  private read(cursor:string,binding:string){
@@ -109,7 +123,7 @@ export class EntityIndexService implements OnModuleInit,OnModuleDestroy {
    if(!state.cursor){state.cycle_id=randomUUID();await this.db.exec('UPDATE index_sync_state SET cycle_id=$3,started_at=now() WHERE cluster_id=$1 AND entity_type=$2',[clusterId,entityType,state.cycle_id]);}
    try{
     const page=await this.kong.list(clusterId,`/${entityType}`,{size:100},state.cursor??undefined,'indexer');
-    for(const entity of page.items)await this.upsert(clusterId,entityType,entity,state.cycle_id);
+    await this.upsertMany(clusterId,entityType,page.items,state.cycle_id);
     // Sweep only after a complete successful cursor traversal. Keep objects created
     // or read by the console during the traversal, even if Kong's page order changed.
     if(!page.nextCursor)await this.db.exec(`DELETE FROM entity_index WHERE cluster_id=$1 AND entity_type=$2 AND sync_cycle IS DISTINCT FROM $3::uuid

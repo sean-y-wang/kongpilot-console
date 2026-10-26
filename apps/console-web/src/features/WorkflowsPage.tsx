@@ -54,7 +54,7 @@ function WorkflowOrders() {
       { title: '工单', render: (_, row) => <Link to={`/workflows/${row.id}`}>{workflowKindLabels[row.kind] ?? row.name} · <span className="mono" title={row.id}>{abbreviateId(row.id)}</span></Link> },
       { title: '执行模式', render: (_, row) => row.approvalRequired ? '工单审批' : '直接执行' },
       { title: '状态', render: (_, row) => <Space size={4}><Tag>{portalStateLabels[row.state] ?? row.state}</Tag>{workflowOverdue(row, now) && <Tag color="warning">已逾期</Tag>}</Space> },
-      { title: '审批进度', render: (_, row) => { const stage = row.approval?.stages?.find(item => item.state === 'active'); return stage ? `${stage.name} · ${stage.votes}/${stage.threshold}` : row.approval?.stages?.length ? `${row.approval.stages.filter(item => item.state === 'approved').length}/${row.approval.stages.length} 阶段通过` : '—'; } },
+      { title: '审批进度', render: (_, row) => workflowListProgress(row) },
       { title: '提交时间', render: (_, row) => formatTime(row.createdAt) },
     ]} /> : <div data-testid="workflow-board" aria-busy={query.isFetching}>
       <Typography.Text type="secondary">第 {query.page} 页工单</Typography.Text>
@@ -443,4 +443,16 @@ export function WorkflowIssueAbandonment({ workflow, sourceError, onComplete }: 
     {receipt && <Descriptions size="small" column={1} style={{ marginTop: 16 }} items={[{ key: 'execution', label: '原执行 ID', children: <code>{receipt.executionId}</code> }, { key: 'first', label: 'Consumer 创建', children: '明确失败' }, { key: 'later', label: '后续步骤', children: '3 个步骤未执行' }]} />}
     {certificate && <Alert style={{ marginTop: 16 }} type="success" showIcon message="预留关闭证书已核验" description={<span>证书：<code>{certificate.certificateId}</code>。原执行仍为失败，原 Key 未发放。如需访问，请由开发者重新申请并审批全新凭证。</span>} />}
   </Card>;
+}
+
+export function workflowListProgress(row: Workflow) {
+  const stage = row.approval?.stages?.find(item => item.state === 'active');
+  if (stage) return `${stage.name} · ${stage.votes}/${stage.threshold}`;
+  if (row.approval?.stages?.length) return `${row.approval.stages.filter(item => item.state === 'approved').length}/${row.approval.stages.length} 阶段通过`;
+  if (!row.approvalRequired) return <Typography.Text type="secondary">无需审批</Typography.Text>;
+  const tally = row.approvalTally;
+  if (!tally) return '—';
+  if (tally.rejections > 0) return <Tag color="red">已驳回</Tag>;
+  if (tally.approvals >= tally.required) return <Space size={4}><Tag color="green">已批准 {tally.approvals}/{tally.required}</Tag>{row.selfApproved && <Tag color="orange">自审批</Tag>}</Space>;
+  return row.state === 'pending' ? <Tag color="processing">待审批 0/{tally.required}</Tag> : <Typography.Text type="secondary">未审批 0/{tally.required}</Typography.Text>;
 }

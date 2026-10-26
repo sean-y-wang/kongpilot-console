@@ -252,7 +252,10 @@ export class WorkflowService {
     const binding=this.secrets.fingerprint({cid,wid:ws.id,actor:actor.user.id,version,size,state:query.state??null,view:query.view??'all'}),offset=this.cursors.decode(query.cursor,binding)?.offset??0;
     if(!Number.isInteger(offset)||offset<0)throw new BadRequestException({code:'INVALID_CURSOR'});
     const rows=await this.db.query<any>(`SELECT * FROM workflows w WHERE cluster_id=$1 AND (workspace_id=$2 OR (kind='control-metadata' AND EXISTS(SELECT 1 FROM control_change_intents i WHERE i.id=w.subject_id AND i.workflow_id=w.id AND i.cluster_id=w.cluster_id AND i.resource='workspaces' AND i.resource_id=$2))) AND ($8::boolean=false OR kind='control-metadata') AND ($3::text IS NULL OR state=$3) AND ($4::text<>'submitted' OR requester_user_id=$5) ORDER BY created_at DESC,id DESC LIMIT $6 OFFSET $7`,[cid,ws.id,query.state??null,query.view??'all',actor.user.id,size,offset,ws.status==='deleted']);
-    const items=[];for(const row of rows){
+    // Rows are independent: evaluate them with bounded concurrency (each check is a
+    // chain of sequential DB round trips), then keep the original order and the
+    // first fatal error exactly as the sequential loop did.
+    const one=async(row:any):Promise<any>=>{
       // Invalid sealed plans remain fatal. Only current domain scope changes
       // are filtered below; they never authorize a historical write.
       const {plan}=await this.plans.load(cid,row.workspace_id,row.id);
@@ -261,23 +264,31 @@ export class WorkflowService {
           assertControlMetadataPlan(plan);
           if(!this.controlCompletion)throw new ConflictException({code:'CONTROL_METADATA_COMPLETION_UNAVAILABLE'});
           const receipt=await this.controlCompletion.terminalReceipt(plan,actor);
-          items.push({id:plan.workflowId,kind:plan.kind,clusterId:cid,workspaceId:plan.workspaceId,scopeSelectorWorkspaceId:actor.workspaceId??plan.workspaceId,
+          return({id:plan.workflowId,kind:plan.kind,clusterId:cid,workspaceId:plan.workspaceId,scopeSelectorWorkspaceId:actor.workspaceId??plan.workspaceId,
             name:plan.kind,revision:receipt.revision,planRevision:plan.planRevision,planHash:receipt.planHash,state:receipt.state,executionMode:'approval',approvalRequired:true,
             createdAt:row.created_at,expiresAt:plan.expiresAt,capabilities:{approve:false,reject:false,cancel:false,execute:false}});
-          continue;
         }
         await this.authorize(plan,actor,query.view==='pending-my-approval'?'approve':'read');
-        if(query.view==='pending-my-approval'&&(row.state!=='pending'||!row.approval_required||row.requester_user_id===actor.user.id&&!await selfApprovalPermitted(this.db,actor.user.id)))continue;
-        const item=await this.summary(row,plan,actor);if(query.view==='pending-my-approval'&&!item.capabilities.approve&&!item.capabilities.reject)continue;items.push(item);
+        if(query.view==='pending-my-approval'&&(row.state!=='pending'||!row.approval_required||row.requester_user_id===actor.user.id&&!await selfApprovalPermitted(this.db,actor.user.id)))return null;
+        const item=await this.summary(row,plan,actor);if(query.view==='pending-my-approval'&&!item.capabilities.approve&&!item.capabilities.reject)return null;return(item);
       }catch(error){
         const response=error instanceof ConflictException?error.getResponse():null;
         const code=response&&typeof response==='object'&&'code' in response?response.code:null;
-        if(error instanceof ForbiddenException)continue;
-        if(plan.kind==='control-metadata'&&['CONTROL_SCOPE_CHANGED','CONTROL_APPROVAL_SCOPE_REQUIRED','CONTROL_ANCHOR_WORKSPACE_REQUIRED'].includes(String(code)))continue;
+        if(error instanceof ForbiddenException)return null;
+        if(plan.kind==='control-metadata'&&['CONTROL_SCOPE_CHANGED','CONTROL_APPROVAL_SCOPE_REQUIRED','CONTROL_ANCHOR_WORKSPACE_REQUIRED'].includes(String(code)))return null;
         // A stale IAM change (its before-graph moved on, or it expired) can no longer be approved; it must not poison the whole list.
-        if(plan.kind==='iam-metadata'&&query.view==='pending-my-approval'&&['IAM_WORKFLOW_METADATA_CHANGED','IAM_CHANGE_INTENT_EXPIRED_OR_CHANGED'].includes(String(code)))continue;
+        if(plan.kind==='iam-metadata'&&query.view==='pending-my-approval'&&['IAM_WORKFLOW_METADATA_CHANGED','IAM_CHANGE_INTENT_EXPIRED_OR_CHANGED'].includes(String(code)))return null;
         throw error;
       }
+    };
+    const settled=await mapBounded(rows,4,one);const items=[];
+    for(const result of settled){if(result.status==='rejected')throw result.reason;if(result.value)items.push(result.value);}
+    // Display-only tally for single-approval (format 1) workflows; one batched read.
+    const tallyIds=items.filter((item:any)=>item.approvalRequired&&!item.approval&&typeof item.planRevision==='number').map((item:any)=>item.id);
+    if(tallyIds.length){
+      const tallies=await this.db.query<any>('SELECT workflow_id,plan_revision,decision,count(*)::int AS n FROM workflow_approvals WHERE workflow_id=ANY($1::uuid[]) GROUP BY workflow_id,plan_revision,decision',[tallyIds]);
+      for(const item of items as any[]){if(!tallyIds.includes(item.id))continue;const mine=tallies.filter(t=>t.workflow_id===item.id&&Number(t.plan_revision)===item.planRevision);
+        item.approvalTally={approvals:mine.filter(t=>t.decision==='approve').reduce((a,t)=>a+Number(t.n),0),rejections:mine.filter(t=>t.decision==='reject').reduce((a,t)=>a+Number(t.n),0),required:1};}
     }
     if(await this.authz.permissionVersion(actor.user)!==version)throw new ForbiddenException({code:'PERMISSIONS_CHANGED'});
     return{items,size,total:null,nextCursor:rows.length===size?this.cursors.encode(binding,{offset:offset+size}):null};
@@ -831,4 +842,10 @@ export class WorkflowService {
     }
     return{id:execution?.id??row.id,workflowId:row.id,executionId:execution?.id??null,clusterId:row.cluster_id,workspaceId:row.workspace_id,...(plan.kind==='control-metadata'?{kind:'control-metadata' as const,scopeSelectorWorkspaceId:actor.workspaceId??plan.workspaceId}:{}),idempotencyKey:row.idempotency_key,state:execution?.state??row.state,revision:row.revision,planHash:row.plan_hash,executionMode:row.execution_mode,approvalRequired:row.approval_required,steps:rows.map(step=>({id:step.id,name:step.step_key,state:step.state,operationId:step.operation_id??step.safe_result?.nativeOperationId??null,remoteStarted:step.kind==='metadata'?step.state!=='pending':step.safe_result?.remoteStarted===true,remoteCompleted:step.kind==='metadata'?step.state==='succeeded':step.safe_result?.remoteCompleted===true,recycleEntryId:step.recycle_entry_id,errorCode:step.error_code})),metadataRecovery,issueAbandonment,propagation:execution?.state==='succeeded'?'acknowledged':execution?'pending':'not_started'};
   }
+}
+
+async function mapBounded<T,R>(values:readonly T[],limit:number,fn:(value:T)=>Promise<R>):Promise<PromiseSettledResult<R>[]>{
+  const out:PromiseSettledResult<R>[]=new Array(values.length);let next=0;
+  const worker=async()=>{while(next<values.length){const index=next++;try{out[index]={status:'fulfilled',value:await fn(values[index])};}catch(reason){out[index]={status:'rejected',reason};}}};
+  await Promise.all(Array.from({length:Math.min(limit,values.length)},worker));return out;
 }
