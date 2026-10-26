@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { AuthUser } from '../../common/auth';
@@ -297,7 +298,7 @@ export class MutationService {
         await this.audit.append({...this.auditContext(context),action:context.action,before:context.before,after:context.payload,result:'blocked_approval_required'});
         throw new ConflictException({code:'APPROVAL_REQUIRED',message:'此集群需审批工单，当前阶段禁止直接执行变更'});
       }
-      if (!/^1\.5\.\d+$/.test(cluster.version ?? '')) throw new ConflictException({code:'KONG_VERSION_INCOMPATIBLE',message:'仅允许已探测的 Kong OSS 1.5.x 集群变更'});
+      if (!isSupportedKong(cluster.version ?? '')) throw new ConflictException({code:'KONG_VERSION_INCOMPATIBLE',message:'仅允许已探测的 Kong OSS 1.5.x 集群变更'});
       const existing = await this.db.one<any>('SELECT * FROM mutation_operations WHERE cluster_id=$1 AND idempotency_key=$2',[context.clusterId,idempotencyKey]);
       if (existing) {
         await this.operationWorkspace(existing,context.actor,context.workspaceId,permission);

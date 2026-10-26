@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { expectedRecycleDeleteGraph, assertRecycleDeleteGraphCurrent } from './entity-recycle-current-delete-graph';
 import { assertOrdinaryRecycleArchiveContract, isOrdinaryRecycleRoot } from './ordinary-recycle-contract';
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
@@ -349,7 +350,7 @@ export class RecycleService {
   private async deleteSchema(clusterId:string,packet:EntityChangePacket,actor:EntityActor):Promise<EntityWriteSchemaMaterial>{
     assertKongPath('DELETE',packet.canonicalPath);const dao=entityForPath(packet.canonicalPath);if(!dao)throw new ConflictException({code:'GRAPH_INVALID'});
     const readCluster=()=>this.db.one<any>('SELECT admin_url,transport_scope,revision,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL',[clusterId]);
-    const before=await readCluster();if(!before||!/^1\.5\.\d+$/.test(before.version??'')||before.status==='disabled')throw new ConflictException({code:'KONG_VERSION_INCOMPATIBLE'});
+    const before=await readCluster();if(!before||!isSupportedKong(before.version??'')||before.status==='disabled')throw new ConflictException({code:'KONG_VERSION_INCOMPATIBLE'});
     const path=`/schemas/${dao}`,schema=await this.execution.runInternalRead(clusterId,'entity-preflight',()=>this.kong.schema(clusterId,dao),{paths:[path],workspaceId:actor.workspaceId,maxCalls:4});
     const schemaMaterial:EntityWriteSchemaMaterial['schemaMaterial']={entity:{name:dao,canonicalPath:path,schema}};
     if(packet.nativeType==='plugins'){

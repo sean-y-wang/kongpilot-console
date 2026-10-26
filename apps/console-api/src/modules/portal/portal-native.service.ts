@@ -1,3 +1,4 @@
+import { kongCapabilities } from '../../infrastructure/kong/kong-capabilities';
 import { ConflictException, HttpException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DbService } from '../../infrastructure/db.service';
@@ -22,7 +23,7 @@ export class PortalNativeService {
     }throw new ConflictException({code:'PORTAL_PREFLIGHT_BUDGET'});
   },{paths:[path],maxCalls:10,maxPages:10,maxRecords:1000,maxBytes:2*1024*1024,workspaceId:actor.workspaceId}));}
   async service(cid:string,id:string,actor:EntityActor,action='write',module='portal'):Promise<any>{const service=await this.read(cid,`/services/${id}`,actor,action,module);await this.authz.assertScopedResource(actor.user,cid,module,action,'services',service,actor.workspaceId);return service;}
-  async scope(cid:string,wid:string):Promise<WorkflowPlanV1['scope']&{executionMode:'direct'|'approval'}>{const row=await this.db.one<any>('SELECT revision,execution_mode,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL',[cid]),ws=await this.workspaces.resolve(cid,wid);if(!row||row.status==='disabled'||!/^1\.5\.\d+$/.test(row.version??'')||ws.status!=='active')throw new ConflictException({code:'PORTAL_CLUSTER_UNAVAILABLE'});return{transportScope:await this.kong.transportScope(cid),clusterRevision:row.revision,workspaceRevision:ws.revision,executionMode:row.execution_mode};}
+  async scope(cid:string,wid:string):Promise<WorkflowPlanV1['scope']&{executionMode:'direct'|'approval'}>{const row=await this.db.one<any>('SELECT revision,execution_mode,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL',[cid]),ws=await this.workspaces.resolve(cid,wid);if(!row||row.status==='disabled'||!kongCapabilities(row.version??'').portalCredentials||ws.status!=='active')throw new ConflictException({code:'PORTAL_CLUSTER_UNAVAILABLE'});return{transportScope:await this.kong.transportScope(cid),clusterRevision:row.revision,workspaceRevision:ws.revision,executionMode:row.execution_mode};}
   nativeStep(order:number,type:string,action:'create'|'update'|'delete',payload:any,before:any,options:{id?:string;parentId?:string;credentialKind?:string;dependencies?:string[];workflowId:string}):WorkflowStep{
     const id=randomUUID(),nativeId=action==='create'?payload.id:options.id!,nativeType=options.credentialKind??type;
     const collection=type==='credentials'?`/consumers/${options.parentId}/${options.credentialKind}`:`/${type}`,path=action==='create'?collection:`${collection}/${nativeId}`,body=action==='delete'?undefined:payload;

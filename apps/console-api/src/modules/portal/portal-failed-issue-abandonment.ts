@@ -1,3 +1,4 @@
+import { kongCapabilities } from '../../infrastructure/kong/kong-capabilities';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import type { DbService } from '../../infrastructure/db.service';
@@ -104,7 +105,7 @@ export async function persistRejectedIssueAbandonment(tx:DbService,secrets:Secre
   // Lock the mutable publication's version pointer; proof history is append-only.
   // Locking the proof would require UPDATE privilege that the runtime must lack.
   const publication=await tx.one<any>(`SELECT p.service_id,p.published_revision,p.transport_scope,p.state,proof.publication_proof_hmac FROM portal_publications p JOIN portal_publication_proofs proof ON proof.cluster_id=p.cluster_id AND proof.workspace_id=p.workspace_id AND proof.publication_id=p.id AND proof.publication_revision=p.published_revision WHERE p.id=$1 AND p.cluster_id=$2 AND p.workspace_id=$3 FOR SHARE OF p`,[g.publication_id,input.clusterId,input.workspaceId]);
-  if(!cluster||cluster.status==='disabled'||!/^1\.5\.\d+$/.test(cluster.version??'')||cluster.revision!==p.clusterRevision||transportScopeFor(cluster.admin_url,cluster.transport_scope)!==p.transportScope
+  if(!cluster||cluster.status==='disabled'||!kongCapabilities(cluster.version??'').portalCredentials||cluster.revision!==p.clusterRevision||transportScopeFor(cluster.admin_url,cluster.transport_scope)!==p.transportScope
     ||!workspace||workspace.status!=='active'||workspace.revision!==p.workspaceRevision||!publication||publication.state!=='published'
     ||publication.service_id!==p.serviceId||publication.published_revision!==p.publicationRevision||publication.transport_scope!==p.transportScope||publication.publication_proof_hmac!==p.publicationProofHmac)throw invalid();
   const reservedImpact=mergeImpact(deriveImpact({entityType:'consumers',entityId:g.consumer_id,action:'create'}),deriveImpact({entityType:'credentials',entityId:g.acl_id,parentId:g.consumer_id,credentialKind:'acls',action:'create'}),deriveImpact({entityType:'credentials',entityId:facts.credential.kong_id,parentId:g.consumer_id,credentialKind:'key-auth',action:'create'}));
