@@ -124,7 +124,7 @@ export class EntityChangeBoundaryService {
   async assertReviewer(userId: string, material: PreparedEntityChange, tx = this.db): Promise<void> {
     const epoch = await tx.one<any>('SELECT version FROM iam_epoch WHERE singleton=true');
     const user = await tx.one<any>("SELECT id,super_admin FROM users WHERE id=$1 AND status='active' AND deleted_at IS NULL AND NOT force_password_change", [userId]);
-    if (!user || userId === material.requesterId) throw deny('ENTITY_CHANGE_REVIEWER_INACTIVE');
+    if (!user || userId === material.requesterId && (await tx.one<any>('SELECT m11_self_approval_permitted($1) AS ok', [userId]))?.ok !== true) throw deny('ENTITY_CHANGE_REVIEWER_INACTIVE');
     const grants = (await tx.query<any>('SELECT * FROM iam_effective_grants WHERE user_id=$1', [userId])).filter(validGrant);
     const subject = assertFrozenChangeGrants(material, grants, user.super_admin === true, 'approve', false);
     await this.membership(material, subject, 'approve', tx);
@@ -138,7 +138,7 @@ export class EntityChangeBoundaryService {
     const initial=reader.resolve(handle),d=initial.descriptor;
     if(d.source.clusterId!==material.clusterId||d.source.workspaceId!==material.workspaceId||d.source.executionActorId!==material.requesterId
       ||this.secrets.fingerprint(d.prepared)!==this.secrets.fingerprint(material)||action==='write'&&userId!==material.requesterId
-      ||action==='approve'&&userId===material.requesterId)throw deny('ENTITY_RECYCLE_CURRENT_SUBJECT_INVALID');
+      ||action==='approve'&&userId===material.requesterId&&(await tx.one<any>('SELECT m11_self_approval_permitted($1) AS ok',[userId]))?.ok!==true)throw deny('ENTITY_RECYCLE_CURRENT_SUBJECT_INVALID');
     const live=()=>{if(reader.resolve(handle)!==initial)throw deny('ENTITY_RECYCLE_CURRENT_SUBJECT_INVALID');};
     const epoch=await tx.one<any>('SELECT version FROM iam_epoch WHERE singleton=true');live();
     const sql="SELECT id,super_admin,credential_epoch FROM users WHERE id=$1 AND status='active' AND deleted_at IS NULL AND NOT force_password_change";

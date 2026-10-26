@@ -111,6 +111,7 @@ function createControlBaseFixture(){
   if(sql.includes('FROM clusters')){if(sql.includes('environment=$1'))return state.duplicateCluster?{id:randomUUID()}:null;const c=state.cluster;return p[0]===c.id&&(!sql.includes('deleted_at IS NULL')||!c.deleted_at)?project(sql,c):null;}
   if(sql.includes('FROM data_sources')){if(sql.includes('lower(name)'))return state.duplicateSource?{id:randomUUID()}:null;const s=state.sources.get(p[1]);return s&&s.cluster_id===p[0]&&(!sql.includes('deleted_at IS NULL')||!s.deleted_at)?project(sql,s):null;}
   if(sql.includes('FROM workspaces')){const w=sql.includes('is_default=true')||sql.includes("code='default'")?[...state.workspaces.values()].find((w:any)=>w.cluster_id===p[0]&&w.is_default):state.workspaces.get(p[1]);return w&&w.cluster_id===p[0]&&(!sql.includes("status='active'")||w.status==='active'&&!w.deleted_at)?project(sql,w):null;}
+  if(sql.includes('m11_self_approval_permitted'))return {ok:false};
   if(sql.includes('m11_recycle_purge_available'))return {eligible:state.recycleEligible};
   if(sql.includes('FROM recycle_entries')){const r=state.recycles.get(p[1]);return r&&r.cluster_id===p[0]?project(sql,r):null;}
   throw new Error(`Unimplemented control fixture query: ${sql}`);

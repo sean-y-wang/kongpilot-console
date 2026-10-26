@@ -180,9 +180,9 @@ export class WorkflowScheduledValidationReadService {
       throw changed('WORKFLOW_SCHEDULE_VALIDATION_APPROVAL_CHANGED');
     const stages = await tx.query<any>('SELECT * FROM workflow_stages WHERE workflow_id=$1 AND cluster_id=$2 AND workspace_id=$3 AND plan_revision=$4 ORDER BY level', [p.workflowId, p.clusterId, p.workspaceId, p.planRevision]);
     const votes = await tx.query<any>('SELECT * FROM workflow_approvals WHERE workflow_id=$1 AND cluster_id=$2 AND workspace_id=$3 AND plan_revision=$4 ORDER BY level,approver_id,id', [p.workflowId, p.clusterId, p.workspaceId, p.planRevision]);
-    const actual = votes.map(v => ({ approvalId: v.id, userId: v.approver_id, level: v.level, candidateVersion: v.candidate_version ?? null }));
+    const actual = votes.map(v => ({ approvalId: v.id, userId: v.approver_id, level: v.level, candidateVersion: v.candidate_version ?? null, ...(v.is_self_approval === true ? { selfApproval: true } : {}) }));
     if (this.secrets.fingerprint(actual) !== this.secrets.fingerprint(set.reviewers) || votes.some(v => v.plan_hash !== hash || v.decision !== 'approve'
-      || p.requester.type === 'console' && v.approver_id === p.requester.id) || stages.some(s => s.plan_hash !== hash || s.state !== 'approved'
+      || p.requester.type === 'console' && v.approver_id === p.requester.id && v.is_self_approval !== true) || stages.some(s => s.plan_hash !== hash || s.state !== 'approved'
       || votes.filter(v => v.level === s.level).length !== s.required_approvals)) throw changed('WORKFLOW_SCHEDULE_VALIDATION_APPROVAL_CHANGED');
     let manifest: WorkflowCandidateManifest | undefined;
     if (set.format === 1) {
