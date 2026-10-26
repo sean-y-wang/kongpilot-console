@@ -19,3 +19,13 @@ export function inspectCertificate(cert: string, key?: string): any {
     throw new BadRequestException({ code: 'INVALID_CERTIFICATE', message: '证书或私钥无法解析，或证书与私钥不匹配；仅支持未加密的 PEM 私钥' });
   }
 }
+
+/** List-row summary (public certificate facts only; never touches the key). */
+export function certificateSummary(cert: unknown): { common_name: string | null; subject_alt_name: string | null; expires_at: string; days_remaining: number; expired: boolean; expiring_soon: boolean } | null {
+  if (typeof cert !== 'string' || !cert.includes('BEGIN CERTIFICATE')) return null;
+  try {
+    const info = inspectCertificate(cert);
+    const cn = /(?:^|\n)CN=([^\n]+)/.exec(String(info.subject ?? ''))?.[1]?.trim() ?? null;
+    return { common_name: cn, subject_alt_name: info.subject_alt_name ?? null, expires_at: info.expires_at, days_remaining: info.days_remaining, expired: info.expired, expiring_soon: info.expiring_soon };
+  } catch { return null; }
+}

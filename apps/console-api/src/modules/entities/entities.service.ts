@@ -13,7 +13,7 @@ import { MutationService } from '../mutations/mutation.service';
 import { RecycleService } from '../recycle-bin/recycle.service';
 import { CredentialStoreService } from '../credentials/credential-store.service';
 import { AuditService } from '../audit/audit.service';
-import { inspectCertificate } from './certificates';
+import { certificateSummary, inspectCertificate } from './certificates';
 import { EntityIndexService } from './entity-index.service';
 import { WorkspaceResolverService, WorkspaceFilter, withoutUnsupportedTags } from '../workspaces/workspace-resolver.service';
 import { confirmed, credentialKind, CREDENTIAL_KINDS, CREDENTIAL_SCHEMAS, EntityActor, entityType, identifier, ListQuery, objectBody, pageSize } from './entities.types';
@@ -147,12 +147,17 @@ export class EntityService {
       const result = await this.index.search(clusterId, type, { ...query, workspaceId: actor.workspaceId, size, tags: this.queryTags(query.tags) }, actor.user);
       const items = reveal ? await Promise.all(result.items.map(item => this.raw(clusterId, type, item.id, 'read', actor))) : result.items;
       if (reveal) for (const item of items) await this.reveal(clusterId, actor, query, type, item);
-      return { ...result, items: items.map(item => this.display(item, reveal)) };
+      return { ...result, items: items.map(item => this.withCertificateSummary(type, item, this.display(item, reveal))) };
     }
     const params = { size, ...(scope.nativeTags ? { tags: scope.nativeTags } : {}) };
     const result = await filteredList(this.kong, clusterId, `/${type}`, params, query.cursor, await this.subject(actor, scope), items => this.visible(clusterId, type, actor, scope, items));
     if (reveal) for (const item of result.items) await this.reveal(clusterId, actor, query, type, item);
-    return { ...result, items: result.items.map(item => this.display(item, reveal)), workspace_id: actor.workspaceId };
+    return { ...result, items: result.items.map(item => this.withCertificateSummary(type, item, this.display(item, reveal))), workspace_id: actor.workspaceId };
+  }
+  private withCertificateSummary(type: string, source: any, view: any): any {
+    if (!['certificates', 'ca_certificates'].includes(type) || !view || typeof view !== 'object') return view;
+    const summary = certificateSummary(source?.cert);
+    return summary ? { ...view, certificate_summary: summary } : view;
   }
 
   @KongActorScope({ moduleArg: 1, queryArg: 3 })
@@ -594,7 +599,7 @@ export class EntityService {
       await this.target(clusterId, upstream.id, before.id, 'write', actor);
       return this.kong.request(clusterId, 'POST', `/upstreams/${identifier(upstream.id)}/targets`, payload);
     });
-    return { entity: this.display(entity), original_id: before.id, effective_id: entity.id, propagation, message: 'Kong 1.5 权重修改追加 Target 历史，新记录成为有效配置' };
+    return { entity: this.display(entity), original_id: before.id, effective_id: entity.id, propagation, message: '权重修改追加 Target 历史，新记录成为有效配置' };
   }
   @KongActorScope({ module: 'upstreams', action: 'delete' })
   async deleteTarget(clusterId: string, upstreamId: string, targetId: string, body: unknown, actor: EntityActor): Promise<any> {

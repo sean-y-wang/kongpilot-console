@@ -117,7 +117,7 @@ export function TargetManager({ upstreamId, parentEntity }: { upstreamId: string
       </Space> },
     ]} />
     <CursorPagination pages={pages} count={query.data?.items.length ?? 0} size={20} loading={query.isFetching} nextCursor={query.data?.nextCursor} />
-    <Alert type="info" showIcon message="Target 历史记录" description="Kong 1.5 的权重与标签修改追加新的有效历史行，原 Target ID 与新有效 ID 不同。" style={{ marginTop: 18 }} />
+    <Alert type="info" showIcon message="Target 历史记录" description={`${cluster?.version ? `Kong ${cluster.version}` : '当前 Kong 版本'} 的权重与标签修改追加新的有效历史行，原 Target ID 与新有效 ID 不同。`} style={{ marginTop: 18 }} />
     <Modal title={editing ? '编辑 Target' : '添加 Target'} open={open} onCancel={() => { setOpen(false); form.resetFields(); }} onOk={() => form.submit()} confirmLoading={save.isPending}
       okButtonProps={{ disabled: blocked || (editing ? !abilities.can('targets', editing.id, 'write') : !parentAbility.can('upstreams', upstreamId, 'write')) }} okText={approvalMode ? '预览变更' : '保存 Target'} cancelText="取消">
       {operationError ? <QueryError error={operationError} /> : null}<Form form={form} layout="vertical" requiredMark={false} onFinish={applyForm}>
