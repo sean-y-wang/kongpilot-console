@@ -13,5 +13,6 @@
 - [ADR 0007](../decisions/0007-kong-worker-processes-default-2.md)
 - [`packages/contracts`](../../packages/contracts)
 - [technical operations reference (zh-CN)](../manuals/technical-operations-reference.md)
+- [Redis 配置（单机 / 集群、键前缀）](redis.zh-CN.md)
 - [Kong 1.5 compatibility](kong-1.5-compatibility.md)
 - [decK 1.x compatibility](deck-1.5-compatibility.md)

@@ -1,3 +1,4 @@
+import { parseRedisConfig } from '../../infrastructure/redis-config';
 import { BadGatewayException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
@@ -36,7 +37,7 @@ export async function assertRegisteredProxyOrigin(db:DbService,value:string,dest
   const origin=validateProxyOrigin(value),rows=await db.query<{url:string}>(`SELECT admin_url AS url FROM clusters WHERE deleted_at IS NULL UNION ALL SELECT base_url AS url FROM data_sources WHERE deleted_at IS NULL LIMIT 2001`);
   if(rows.length>2000)throw new ForbiddenException({code:'PROXY_REGISTRY_BUDGET'});
   const target=endpoint(new URL(origin)),samePort=new Map<string,Endpoint>();
-  const protectedUrls=[...rows.map(row=>row.url),...(process.env.PUBLIC_ORIGINS??'').split(','),...(process.env.PORTAL_PUBLIC_ORIGINS??'').split(','),process.env.DATABASE_URL,process.env.REDIS_URL].filter((url):url is string=>!!url?.trim());
+  const protectedUrls=[...rows.map(row=>row.url),...(process.env.PUBLIC_ORIGINS??'').split(','),...(process.env.PORTAL_PUBLIC_ORIGINS??'').split(','),process.env.DATABASE_URL,process.env.REDIS_URL,...redisProtectedNodes()].filter((url):url is string=>!!url?.trim());
   for(const url of protectedUrls){let candidate:URL;try{candidate=new URL(url);}catch{throw new ForbiddenException({code:'PROXY_PROTECTED_REGISTRY_INVALID'});}
     const protectedEndpoint=endpoint(candidate);
     if(protectedEndpoint.host===target.host&&protectedEndpoint.port===target.port)throw new ForbiddenException({code:'PROTECTED_PROXY_DESTINATION'});
@@ -97,3 +98,4 @@ export async function proxyProbe(origin:string,input:RouteDebugInput,beforeSend:
     req.end();
   });
 }
+function redisProtectedNodes():string[]{try{const c=parseRedisConfig();return c.mode==='cluster'?c.nodes.map(n=>`redis://${n.host.includes(':')?`[${n.host}]`:n.host}:${n.port}`):[];}catch{return[];}}

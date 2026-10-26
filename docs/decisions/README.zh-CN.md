@@ -14,3 +14,4 @@
 | 0008 | [目标地址 DNS 使用 c-ares 并有限回退，适配离线部署](0008-destination-dns-c-ares.md) |
 | 0009 | [定时配置执行的 Kong 调用预算为 1000（其他 500），共享一次实时校验读取](0009-scheduled-execution-call-budget.md) |
 | 0010 | [在 nginx 基础镜像更新前，镜像内升级 brotli-libs 修复 CVE](0010-brotli-libs-in-image-upgrade.md) |
+| 0011 | [Redis Cluster 模式与键前缀](0011-redis-cluster-and-key-prefix.md) |

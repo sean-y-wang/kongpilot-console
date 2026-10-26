@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
-import Redis from 'ioredis';
+import Redis, { Cluster } from 'ioredis';
+import { clusterOptions, parseRedisConfig, RedisConfig, standaloneOptions } from './redis-config';
 import { createHash, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
@@ -25,14 +26,20 @@ export function lockedConflict(key: string): ConflictException {
 }
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  readonly client: Redis;
+  /** Standalone or Cluster client. All callers must use single-key commands
+   * (or hash-tagged keys) so every operation is cluster-safe. */
+  readonly client: Redis | Cluster;
+  readonly config: RedisConfig;
   private readonly activeLeases = new AsyncLocalStorage<ActiveLease[]>();
 
   constructor() {
-    if (!process.env.REDIS_URL) throw new Error('REDIS_URL is required');
-    this.client = new Redis(process.env.REDIS_URL, { lazyConnect: true, enableReadyCheck: true,
-      enableOfflineQueue: false, maxRetriesPerRequest: 1, connectTimeout: 5000, commandTimeout: 5000,
-      retryStrategy: attempts => Math.min(attempts * 100, 2000) });
+    this.config = parseRedisConfig();
+    if (this.config.mode === 'cluster') {
+      const { nodes, options } = clusterOptions(this.config);
+      this.client = new Cluster(nodes, options);
+    } else {
+      this.client = new Redis(this.config.url!, standaloneOptions(this.config));
+    }
     // Connection errors are returned by callers; do not log URLs or credentials.
     this.client.on('error', () => undefined);
   }
