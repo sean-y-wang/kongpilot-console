@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import {ConflictException,ForbiddenException,Injectable,ServiceUnavailableException} from '@nestjs/common';
 import {randomUUID} from 'node:crypto';
 import {DbService} from '../../infrastructure/db.service';
@@ -63,7 +64,7 @@ export class TargetResultReconciliationService{
   if(!session||String(session.credential_epoch)!==source.credentialEpoch||String(session.user_epoch)!==source.credentialEpoch)throw deny('ENTITY_CHANGE_SESSION_REVOKED');
   const permissionVersion=await this.authz.permissionVersion(actor.user,tx);if(this.secrets.fingerprint(permissionVersion)!==source.permissionVersionHmac)throw deny('ENTITY_CHANGE_PERMISSIONS_CHANGED');
   const cluster=await tx.one<any>('SELECT revision,execution_mode,admin_url,transport_scope,version,status FROM clusters WHERE id=$1 AND deleted_at IS NULL FOR SHARE',[plan.clusterId]),workspace=await tx.one<any>("SELECT revision,status FROM workspaces WHERE id=$1 AND cluster_id=$2 AND deleted_at IS NULL FOR SHARE",[plan.workspaceId,plan.clusterId]);
-  if(!cluster||cluster.revision!==plan.scope.clusterRevision||cluster.execution_mode!==plan.executionMode||!/^1\.5\.\d+$/.test(cluster.version??'')||['disabled','incompatible'].includes(cluster.status)
+  if(!cluster||cluster.revision!==plan.scope.clusterRevision||cluster.execution_mode!==plan.executionMode||!isSupportedKong(cluster.version??'')||['disabled','incompatible'].includes(cluster.status)
    ||!workspace||workspace.revision!==plan.scope.workspaceRevision||workspace.status!=='active'||transportScopeFor(cluster.admin_url,cluster.transport_scope)!==plan.scope.transportScope)throw changed('ENTITY_CHANGE_EXECUTION_SCOPE_CHANGED');
   await this.intents.assertSubject(plan,actor.user.id,'write',tx);await this.boundary.assertStoredSubject({material:envelope.prepared,actor,action:'write',mode:'historical'},tx);
   if(await this.authz.permissionVersion(actor.user,tx)!==permissionVersion)throw deny('ENTITY_CHANGE_PERMISSIONS_CHANGED');await this.policy().assertNoActiveSource(source.id);if(!capabilityOnly)await this.redis.assertLeaseOwnership();return permissionVersion;

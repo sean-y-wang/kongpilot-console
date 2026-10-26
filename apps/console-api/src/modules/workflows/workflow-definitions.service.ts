@@ -55,7 +55,7 @@ export class WorkflowDefinitionsService implements OnModuleInit {
   private async scope(cid: string, wid: string, tx = this.db): Promise<PolicyRequest['scope']> {
     const row = await tx.one<any>(`SELECT c.admin_url,c.transport_scope,c.revision AS cluster_revision,c.execution_mode,c.status,c.version,w.revision AS workspace_revision,w.status AS workspace_status
       FROM clusters c JOIN workspaces w ON w.cluster_id=c.id WHERE c.id=$1 AND w.id=$2 AND c.deleted_at IS NULL`, [cid, wid]);
-    if (!row || row.status === 'disabled' || row.workspace_status !== 'active' || !/^1\.5\.\d+$/.test(row.version ?? '')) throw new ConflictException({ code: 'WORKFLOW_POLICY_SCOPE_UNAVAILABLE' });
+    if (!row || row.status === 'disabled' || row.workspace_status !== 'active' ) throw new ConflictException({ code: 'WORKFLOW_POLICY_SCOPE_UNAVAILABLE' });
     return { transportScope: transportScopeFor(row.admin_url, row.transport_scope), clusterRevision: row.cluster_revision, workspaceRevision: row.workspace_revision, executionMode: row.execution_mode };
   }
   private async boundRequest(plan: WorkflowPlanV1, tx = this.db): Promise<PolicyRequest> {

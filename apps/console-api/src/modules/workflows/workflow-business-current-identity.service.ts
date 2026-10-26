@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ConflictException, ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { DbService } from '../../infrastructure/db.service';
@@ -71,7 +72,7 @@ export class WorkflowBusinessCurrentIdentityService implements WorkflowScheduled
     const cluster = await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL', [b.clusterId]);
     const workspace = await tx.one<any>('SELECT * FROM workspaces WHERE id=$1 AND cluster_id=$2 AND deleted_at IS NULL', [b.workspaceId, b.clusterId]);
     if (!cluster || !workspace || cluster.id !== namespace.clusterId || workspace.id !== namespace.workspaceId || workspace.cluster_id !== namespace.clusterId
-      || ['disabled', 'incompatible'].includes(cluster.status) || !/^1\.5\.\d+$/.test(cluster.version ?? '') || workspace.status !== 'active'
+      || ['disabled', 'incompatible'].includes(cluster.status) || !isSupportedKong(cluster.version ?? '') || workspace.status !== 'active'
       || cluster.revision !== namespace.clusterRevision || workspace.revision !== namespace.workspaceRevision || cluster.execution_mode !== plan.executionMode
       || transportScopeFor(cluster.admin_url, cluster.transport_scope) !== namespace.transportScope)
       throw changed('WORKFLOW_BUSINESS_IDENTITY_SCOPE_CHANGED');
@@ -261,7 +262,7 @@ export class WorkflowBusinessCurrentIdentityService implements WorkflowScheduled
         status: c.status, deletedAt: c.deleted_at, adminUrl: c.admin_url, transportScope: c.transport_scope, connectionSecret: c.connection_secret } : null,
         workspace: w ? { id: w.id, clusterId: w.cluster_id, revision: w.revision, status: w.status, deletedAt: w.deleted_at, code: w.code } : null });
       if (!cluster || !workspace || cluster.id !== b.clusterId || workspace.id !== b.workspaceId || workspace.cluster_id !== b.clusterId
-        || ['disabled', 'incompatible'].includes(cluster.status) || !/^1\.5\.\d+$/.test(cluster.version ?? '') || workspace.status !== 'active'
+        || ['disabled', 'incompatible'].includes(cluster.status) || !isSupportedKong(cluster.version ?? '') || workspace.status !== 'active'
         || cluster.revision !== ns.clusterRevision || workspace.revision !== ns.workspaceRevision || cluster.execution_mode !== plan.executionMode
         || transportScopeFor(cluster.admin_url, cluster.transport_scope) !== ns.transportScope) throw changed('WORKFLOW_BUSINESS_IDENTITY_SCOPE_CHANGED');
       const principal = original.role === 'executor' ? executor : await this.principal(actualActorId, tx);

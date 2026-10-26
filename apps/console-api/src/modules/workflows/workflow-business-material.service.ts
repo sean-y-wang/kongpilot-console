@@ -1,3 +1,4 @@
+import { isSupportedKong } from '../../infrastructure/kong/kong-capabilities';
 import { configurationJobSubjectMaterial } from './workflow-configuration-job-subject';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -86,7 +87,7 @@ export class WorkflowBusinessMaterialService {
       || plan.scope.clusterId !== job.cluster_id || plan.scope.workspaceId !== job.workspace_id || plan.scope.transportScope !== job.transport_scope
       || plan.scope.kind !== job.scope_kind || this.secrets.fingerprint(plan.scope.rootIds) !== this.secrets.fingerprint(job.root_ids)
       || plan.permissionVersion !== job.permission_version || plan.clusterRevision !== job.cluster_revision || plan.workspaceRevision !== job.workspace_revision
-      || !/^1\.5\.\d+$/.test(plan.kongVersion) || !plan.recoveryComplete || !Array.isArray(plan.steps) || plan.steps.length > 10000
+      || !isSupportedKong(plan.kongVersion) || !plan.recoveryComplete || !Array.isArray(plan.steps) || plan.steps.length > 10000
       || version.step_count !== plan.steps.length || version.schema_hmac !== plan.schemaHmac || version.source_manifest_hmac !== plan.sourceManifestHmac
       || version.baseline_manifest_hmac !== plan.baselineManifestHmac) throw deny('WORKFLOW_SCHEDULE_CONFIGURATION_PLAN_HMAC_INVALID');
     if(configurationDurableMarker(job)||plan.durableRef!==undefined)await new ConfigurationDurableRepository(this.secrets).verify(job,tx,true,plan);
@@ -384,7 +385,7 @@ export class WorkflowBusinessMaterialService {
   const decoded=decryptComparisonMaterial(comparison,this.secrets),source=decoded.source.inventory,target=decoded.target.inventory;
   const selection=this.secrets.decrypt<Record<string,any>>(row.selection_secret,`governance:promotion-selection:${row.id}`);
   if(!decoded.source.nativeFingerprints||!decoded.target.nativeFingerprints||source.completeness!=='complete'||target.completeness!=='complete'
-   ||source.projection||target.projection||!/^1\.5\.\d+$/.test(source.version)||source.version!==target.version
+   ||source.projection||target.projection||!isSupportedKong(source.version)||source.version!==target.version
    ||source.scope.clusterId!==row.cluster_id||source.scope.workspaceId!==row.workspace_id||target.scope.clusterId!==row.target_cluster_id
    ||target.scope.workspaceId!==row.target_workspace_id||source.scope.transportScope===target.scope.transportScope
    ||this.secrets.fingerprint(selection)!==row.selection_hmac)throw deny('WORKFLOW_BUSINESS_PROMOTION_MATERIAL_CHANGED');
@@ -423,7 +424,7 @@ export class WorkflowBusinessMaterialService {
    const scope=inventory.scope,c=await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL',[scope.clusterId]);
    const w=await tx.one<any>('SELECT * FROM workspaces WHERE cluster_id=$1 AND id=$2',[scope.clusterId,scope.workspaceId]);
    if(!c||!w||c.id!==scope.clusterId||w.id!==scope.workspaceId||w.cluster_id!==scope.clusterId||w.deleted_at
-    ||w.status!=='active'||['disabled','incompatible'].includes(c.status)||!/^1\.5\.\d+$/.test(c.version??'')||c.version!==inventory.version
+    ||w.status!=='active'||['disabled','incompatible'].includes(c.status)||!isSupportedKong(c.version??'')||c.version!==inventory.version
     ||transportScopeFor(c.admin_url,c.transport_scope)!==scope.transportScope
     ||inventory===promotion.target&&(c.revision!==plan.scope.clusterRevision||w.revision!==plan.scope.workspaceRevision
       ||c.execution_mode!==plan.executionMode||w.code!==promotion.selection.targetWorkspaceCode))throw deny('WORKFLOW_BUSINESS_PROMOTION_REGISTRY_CHANGED');
@@ -780,7 +781,7 @@ export class WorkflowBusinessMaterialService {
    ||!this.completeGrant(input,p.clusterId,p.workspaceId,m.kind==='configuration_v2'?'snapshots':isPortalCredentialScheduleKind(m.kind)?'portal':(METADATA_SCHEDULE_FEATURE as Record<string,string>)[m.kind]??'workflows',input.role==='reviewer'?'read':'write')))throw deny('WORKFLOW_BUSINESS_SUBJECT_GRANT_REQUIRED');
   const target=await tx.one<any>('SELECT * FROM clusters WHERE id=$1 AND deleted_at IS NULL',[p.clusterId]);
   const ws=await tx.one<any>('SELECT * FROM workspaces WHERE cluster_id=$1 AND id=$2',[p.clusterId,p.workspaceId]);
-  if(!target||!ws||!/^1\.5\.\d+$/.test(target.version??'')||['disabled','incompatible'].includes(target.status)||ws.status!=='active'
+  if(!target||!ws||!isSupportedKong(target.version??'')||['disabled','incompatible'].includes(target.status)||ws.status!=='active'
    ||target.revision!==p.scope.clusterRevision||ws.revision!==p.scope.workspaceRevision||target.execution_mode!==p.executionMode
    ||transportScopeFor(target.admin_url,target.transport_scope)!==p.scope.transportScope)throw deny('WORKFLOW_BUSINESS_REGISTRY_CHANGED');
   if(m.kind==='configuration_v2') {
