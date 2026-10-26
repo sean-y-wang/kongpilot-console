@@ -1,33 +1,35 @@
 import { theme as antTheme, type ThemeConfig } from 'antd';
 import type { AppearanceMode } from './appearance-model';
 
-export const PILOT_ACCENT = { light: '#59668D', dark: '#9CABCF' } as const;
+export const PILOT_ACCENT = { light: '#4F5C83', dark: '#9CABCF' } as const;
 const fontFamily = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif";
 
 /** Solid navigation, three neutral text levels and restrained frosted cards. */
 export const PILOT_THEME: ThemeConfig = {
   token: {
     colorPrimary: PILOT_ACCENT.light, colorInfo: PILOT_ACCENT.light,
-    colorSuccess: '#278564', colorWarning: '#B77924', colorError: '#B95C63',
-    colorText: '#4E5969', colorTextSecondary: '#86909C', colorTextTertiary: '#86909C',
-    colorTextDescription: '#86909C', colorBorder: 'rgba(0,0,0,0.08)',
+    colorSuccess: '#1E6B50', colorWarning: '#8A5A10', colorError: '#A3434B',
+    colorText: '#3D4756', colorTextSecondary: '#5C6675', colorTextTertiary: '#5C6675',
+    colorTextDescription: '#5C6675', colorBorder: 'rgba(0,0,0,0.08)',
     colorBorderSecondary: 'rgba(0,0,0,0.04)', colorBgLayout: '#F7F8FA',
-    colorBgContainer: '#FFFFFF', borderRadius: 8, borderRadiusLG: 8, fontSize: 14, fontFamily,
+    colorBgContainer: '#FFFFFF', borderRadius: 8, borderRadiusLG: 8, fontSize: 14, lineHeight: 1.6, fontFamily,
   },
 };
 
 export function pilotTheme(mode: AppearanceMode): ThemeConfig {
   const dark = mode === 'dark';
   const primary = PILOT_ACCENT[mode];
-  const hover = dark ? '#B0BEDD' : '#68769B';
-  const body = dark ? '#CBD2DE' : '#4E5969';
-  const muted = dark ? '#96A1B3' : '#86909C';
+  const hover = dark ? '#B0BEDD' : '#3F4A6C';
+  const body = dark ? '#CBD2DE' : '#3D4756';
+  const muted = dark ? '#A3ADBE' : '#5C6675';
+  // WCAG AA: every text token >= 4.5:1 on canvas, panel and soft (docs/reference/accessibility.md).
+  const status = dark ? { colorSuccess: '#6CC6A0', colorWarning: '#E0B25C', colorError: '#E29AA1' } : {};
   const border = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)';
-  const soft = dark ? '#222D3B' : '#F7F8FA';
+  const soft = dark ? '#222D3B' : '#EEF0F4';
   return {
     algorithm: dark ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
     token: {
-      ...PILOT_THEME.token,
+      ...PILOT_THEME.token, ...status,
       colorPrimary: primary, colorPrimaryHover: hover, colorInfo: primary,
       colorText: body, colorTextSecondary: muted, colorTextTertiary: muted, colorTextDescription: muted,
       colorTextLightSolid: dark ? '#121820' : '#FFFFFF',

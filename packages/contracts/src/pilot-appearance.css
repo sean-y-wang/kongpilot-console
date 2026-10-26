@@ -1,20 +1,23 @@
 /* Authoritative display tokens. Glass belongs to cards, never the page canvas. */
 html[data-appearance] {
-  --kp-blue: #59668d;
-  --kp-blue-hover: #68769b;
+  /* WCAG AA: text tokens >= 4.5:1 on canvas/panel/soft; see docs/reference/accessibility.md */
+  --kp-blue: #4f5c83;
+  --kp-blue-hover: #3f4a6c;
   --kp-text: #1d2129;
-  --kp-body: #4e5969;
-  --kp-muted: #86909c;
-  --kp-danger: #b95c63;
-  --kp-danger-hover: #a24c53;
+  --kp-body: #3d4756;
+  --kp-muted: #5c6675;
+  --kp-success: #1e6b50;
+  --kp-warning: #8a5a10;
+  --kp-danger: #a3434b;
+  --kp-danger-hover: #8c3940;
   --kp-border: rgba(0,0,0,.08);
   --kp-divider: rgba(0,0,0,.04);
   --kp-canvas: #f7f8fa;
   --kp-panel: #fff;
   --kp-surface: rgba(255,255,255,.75);
   --kp-control: rgba(255,255,255,.65);
-  --kp-soft: #f7f8fa;
-  --kp-selected: rgba(89,102,141,.06);
+  --kp-soft: #eef0f4;
+  --kp-selected: rgba(79,92,131,.08);
   --kp-row-hover: rgba(89,102,141,.025);
   --kp-table-head: rgba(247,248,250,.70);
   --kp-radius: 8px;
@@ -27,9 +30,11 @@ html[data-appearance='dark'] {
   --kp-blue-hover: #b0bedd;
   --kp-text: #e6ebf3;
   --kp-body: #cbd2de;
-  --kp-muted: #96a1b3;
-  --kp-danger: #d98991;
-  --kp-danger-hover: #e8a0a6;
+  --kp-muted: #a3adbe;
+  --kp-success: #6cc6a0;
+  --kp-warning: #e0b25c;
+  --kp-danger: #e29aa1;
+  --kp-danger-hover: #eeb3b8;
   --kp-border: rgba(255,255,255,.10);
   --kp-divider: rgba(255,255,255,.06);
   --kp-canvas: #121820;
