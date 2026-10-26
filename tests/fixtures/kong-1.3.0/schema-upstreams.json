@@ -1,0 +1,621 @@
+{
+  "fields": [
+    {
+      "id": {
+        "auto": true,
+        "uuid": true,
+        "type": "string"
+      }
+    },
+    {
+      "created_at": {
+        "timestamp": true,
+        "auto": true,
+        "type": "integer"
+      }
+    },
+    {
+      "name": {
+        "unique": true,
+        "type": "string",
+        "required": true
+      }
+    },
+    {
+      "algorithm": {
+        "one_of": [
+          "consistent-hashing",
+          "least-connections",
+          "round-robin"
+        ],
+        "default": "round-robin",
+        "type": "string"
+      }
+    },
+    {
+      "hash_on": {
+        "one_of": [
+          "none",
+          "consumer",
+          "ip",
+          "header",
+          "cookie"
+        ],
+        "default": "none",
+        "type": "string"
+      }
+    },
+    {
+      "hash_fallback": {
+        "one_of": [
+          "none",
+          "consumer",
+          "ip",
+          "header",
+          "cookie"
+        ],
+        "default": "none",
+        "type": "string"
+      }
+    },
+    {
+      "hash_on_header": {
+        "type": "string"
+      }
+    },
+    {
+      "hash_fallback_header": {
+        "type": "string"
+      }
+    },
+    {
+      "hash_on_cookie": {
+        "type": "string"
+      }
+    },
+    {
+      "hash_on_cookie_path": {
+        "match_none": [
+          {
+            "err": "must not have empty segments",
+            "pattern": "//"
+          }
+        ],
+        "starts_with": "/",
+        "default": "/",
+        "type": "string"
+      }
+    },
+    {
+      "slots": {
+        "between": [
+          10,
+          65536
+        ],
+        "default": 10000,
+        "type": "integer"
+      }
+    },
+    {
+      "healthchecks": {
+        "type": "record",
+        "fields": [
+          {
+            "active": {
+              "type": "record",
+              "fields": [
+                {
+                  "https_verify_certificate": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                {
+                  "unhealthy": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "http_statuses": {
+                          "elements": {
+                            "between": [
+                              100,
+                              999
+                            ],
+                            "type": "integer"
+                          },
+                          "default": [
+                            429,
+                            404,
+                            500,
+                            501,
+                            502,
+                            503,
+                            504,
+                            505
+                          ],
+                          "type": "array"
+                        }
+                      },
+                      {
+                        "tcp_failures": {
+                          "between": [
+                            0,
+                            2147483648
+                          ],
+                          "default": 0,
+                          "type": "integer"
+                        }
+                      },
+                      {
+                        "timeouts": {
+                          "between": [
+                            0,
+                            2147483648
+                          ],
+                          "default": 0,
+                          "type": "integer"
+                        }
+                      },
+                      {
+                        "http_failures": {
+                          "between": [
+                            0,
+                            2147483648
+                          ],
+                          "default": 0,
+                          "type": "integer"
+                        }
+                      },
+                      {
+                        "interval": {
+                          "between": [
+                            0,
+                            65535
+                          ],
+                          "default": 0,
+                          "type": "number"
+                        }
+                      }
+                    ],
+                    "default": {
+                      "http_statuses": [
+                        429,
+                        404,
+                        500,
+                        501,
+                        502,
+                        503,
+                        504,
+                        505
+                      ],
+                      "tcp_failures": 0,
+                      "timeouts": 0,
+                      "http_failures": 0,
+                      "interval": 0
+                    },
+                    "required": true
+                  }
+                },
+                {
+                  "http_path": {
+                    "match_none": [
+                      {
+                        "err": "must not have empty segments",
+                        "pattern": "//"
+                      }
+                    ],
+                    "starts_with": "/",
+                    "default": "/",
+                    "type": "string"
+                  }
+                },
+                {
+                  "timeout": {
+                    "between": [
+                      0,
+                      65535
+                    ],
+                    "default": 1,
+                    "type": "number"
+                  }
+                },
+                {
+                  "healthy": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "http_statuses": {
+                          "elements": {
+                            "between": [
+                              100,
+                              999
+                            ],
+                            "type": "integer"
+                          },
+                          "default": [
+                            200,
+                            302
+                          ],
+                          "type": "array"
+                        }
+                      },
+                      {
+                        "interval": {
+                          "between": [
+                            0,
+                            65535
+                          ],
+                          "default": 0,
+                          "type": "number"
+                        }
+                      },
+                      {
+                        "successes": {
+                          "between": [
+                            0,
+                            2147483648
+                          ],
+                          "default": 0,
+                          "type": "integer"
+                        }
+                      }
+                    ],
+                    "default": {
+                      "http_statuses": [
+                        200,
+                        302
+                      ],
+                      "interval": 0,
+                      "successes": 0
+                    },
+                    "required": true
+                  }
+                },
+                {
+                  "https_sni": {
+                    "type": "string",
+                    "required": false
+                  }
+                },
+                {
+                  "concurrency": {
+                    "between": [
+                      1,
+                      2147483648
+                    ],
+                    "default": 10,
+                    "type": "integer"
+                  }
+                },
+                {
+                  "type": {
+                    "one_of": [
+                      "tcp",
+                      "http",
+                      "https",
+                      "grpc",
+                      "grpcs"
+                    ],
+                    "default": "http",
+                    "type": "string"
+                  }
+                }
+              ],
+              "default": {
+                "https_verify_certificate": true,
+                "http_path": "/",
+                "timeout": 1,
+                "concurrency": 10,
+                "healthy": {
+                  "http_statuses": [
+                    200,
+                    302
+                  ],
+                  "interval": 0,
+                  "successes": 0
+                },
+                "unhealthy": {
+                  "http_statuses": [
+                    429,
+                    404,
+                    500,
+                    501,
+                    502,
+                    503,
+                    504,
+                    505
+                  ],
+                  "tcp_failures": 0,
+                  "timeouts": 0,
+                  "http_failures": 0,
+                  "interval": 0
+                },
+                "type": "http"
+              },
+              "required": true
+            }
+          },
+          {
+            "passive": {
+              "type": "record",
+              "fields": [
+                {
+                  "unhealthy": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "http_failures": {
+                          "between": [
+                            0,
+                            2147483648
+                          ],
+                          "default": 0,
+                          "type": "integer"
+                        }
+                      },
+                      {
+                        "http_statuses": {
+                          "elements": {
+                            "between": [
+                              100,
+                              999
+                            ],
+                            "type": "integer"
+                          },
+                          "default": [
+                            429,
+                            500,
+                            503
+                          ],
+                          "type": "array"
+                        }
+                      },
+                      {
+                        "tcp_failures": {
+                          "between": [
+                            0,
+                            2147483648
+                          ],
+                          "default": 0,
+                          "type": "integer"
+                        }
+                      },
+                      {
+                        "timeouts": {
+                          "between": [
+                            0,
+                            2147483648
+                          ],
+                          "default": 0,
+                          "type": "integer"
+                        }
+                      }
+                    ],
+                    "default": {
+                      "http_failures": 0,
+                      "http_statuses": [
+                        429,
+                        500,
+                        503
+                      ],
+                      "tcp_failures": 0,
+                      "timeouts": 0
+                    },
+                    "required": true
+                  }
+                },
+                {
+                  "type": {
+                    "one_of": [
+                      "tcp",
+                      "http",
+                      "https",
+                      "grpc",
+                      "grpcs"
+                    ],
+                    "default": "http",
+                    "type": "string"
+                  }
+                },
+                {
+                  "healthy": {
+                    "type": "record",
+                    "fields": [
+                      {
+                        "successes": {
+                          "between": [
+                            0,
+                            2147483648
+                          ],
+                          "default": 0,
+                          "type": "integer"
+                        }
+                      },
+                      {
+                        "http_statuses": {
+                          "elements": {
+                            "between": [
+                              100,
+                              999
+                            ],
+                            "type": "integer"
+                          },
+                          "default": [
+                            200,
+                            201,
+                            202,
+                            203,
+                            204,
+                            205,
+                            206,
+                            207,
+                            208,
+                            226,
+                            300,
+                            301,
+                            302,
+                            303,
+                            304,
+                            305,
+                            306,
+                            307,
+                            308
+                          ],
+                          "type": "array"
+                        }
+                      }
+                    ],
+                    "default": {
+                      "successes": 0,
+                      "http_statuses": [
+                        200,
+                        201,
+                        202,
+                        203,
+                        204,
+                        205,
+                        206,
+                        207,
+                        208,
+                        226,
+                        300,
+                        301,
+                        302,
+                        303,
+                        304,
+                        305,
+                        306,
+                        307,
+                        308
+                      ]
+                    },
+                    "required": true
+                  }
+                }
+              ],
+              "default": {
+                "unhealthy": {
+                  "http_failures": 0,
+                  "http_statuses": [
+                    429,
+                    500,
+                    503
+                  ],
+                  "tcp_failures": 0,
+                  "timeouts": 0
+                },
+                "type": "http",
+                "healthy": {
+                  "successes": 0,
+                  "http_statuses": [
+                    200,
+                    201,
+                    202,
+                    203,
+                    204,
+                    205,
+                    206,
+                    207,
+                    208,
+                    226,
+                    300,
+                    301,
+                    302,
+                    303,
+                    304,
+                    305,
+                    306,
+                    307,
+                    308
+                  ]
+                }
+              },
+              "required": true
+            }
+          }
+        ],
+        "default": {
+          "active": {
+            "https_verify_certificate": true,
+            "http_path": "/",
+            "timeout": 1,
+            "concurrency": 10,
+            "healthy": {
+              "http_statuses": [
+                200,
+                302
+              ],
+              "interval": 0,
+              "successes": 0
+            },
+            "unhealthy": {
+              "http_statuses": [
+                429,
+                404,
+                500,
+                501,
+                502,
+                503,
+                504,
+                505
+              ],
+              "tcp_failures": 0,
+              "timeouts": 0,
+              "http_failures": 0,
+              "interval": 0
+            },
+            "type": "http"
+          },
+          "passive": {
+            "unhealthy": {
+              "http_failures": 0,
+              "http_statuses": [
+                429,
+                500,
+                503
+              ],
+              "tcp_failures": 0,
+              "timeouts": 0
+            },
+            "type": "http",
+            "healthy": {
+              "successes": 0,
+              "http_statuses": [
+                200,
+                201,
+                202,
+                203,
+                204,
+                205,
+                206,
+                207,
+                208,
+                226,
+                300,
+                301,
+                302,
+                303,
+                304,
+                305,
+                306,
+                307,
+                308
+              ]
+            }
+          }
+        },
+        "required": true
+      }
+    },
+    {
+      "tags": {
+        "elements": {
+          "type": "string",
+          "required": true,
+          "match": "^[%w%.%-%_~]+$"
+        },
+        "type": "set"
+      }
+    }
+  ]
+}

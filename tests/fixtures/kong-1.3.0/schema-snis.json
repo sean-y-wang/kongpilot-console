@@ -1,0 +1,42 @@
+{
+  "fields": [
+    {
+      "id": {
+        "auto": true,
+        "uuid": true,
+        "type": "string"
+      }
+    },
+    {
+      "name": {
+        "unique": true,
+        "type": "string",
+        "required": true
+      }
+    },
+    {
+      "created_at": {
+        "timestamp": true,
+        "auto": true,
+        "type": "integer"
+      }
+    },
+    {
+      "tags": {
+        "elements": {
+          "type": "string",
+          "required": true,
+          "match": "^[%w%.%-%_~]+$"
+        },
+        "type": "set"
+      }
+    },
+    {
+      "certificate": {
+        "required": true,
+        "reference": "certificates",
+        "type": "foreign"
+      }
+    }
+  ]
+}
