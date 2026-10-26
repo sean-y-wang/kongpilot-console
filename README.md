@@ -1,72 +1,83 @@
-# KongPilot
+<p align="center">
+  <img src="docs/design/kongpilot-logo-glass.png" alt="KongPilot" width="120">
+</p>
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+<h1 align="center">KongPilot</h1>
 
-KongPilot is a self-hosted management console for **Kong OSS 1.5.x**. A dedicated NestJS BFF sits between the browser and the Kong Admin API, so users never touch the Admin API directly. It adds multi-cluster management, workspaces (tag-based soft isolation), entity and plugin management, RBAC, approvals/change tickets, snapshots and GitOps, monitoring (Prometheus/Loki), a developer portal, audit logging and notifications.
+<p align="center"><b>A governed, auditable management console for Kong OSS 1.5.x — approvals, GitOps, RBAC and a developer portal, without touching Kong.</b></p>
 
-> Status: v1.0.0 release candidate. The UI is currently Chinese-only (`zh-CN`); an English locale is planned. KongPilot does not modify Kong and does not connect to Kong's database.
+<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
+
+<p align="center">
+  <a href="https://github.com/sean-y-wang/kongpilot-console/actions/workflows/quality.yml"><img alt="CI" src="https://github.com/sean-y-wang/kongpilot-console/actions/workflows/quality.yml/badge.svg?branch=main"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
+  <a href="https://github.com/sean-y-wang/kongpilot-console/releases"><img alt="Release" src="https://img.shields.io/github/v/release/sean-y-wang/kongpilot-console?include_prereleases&sort=semver"></a>
+  <img alt="Kong" src="https://img.shields.io/badge/Kong%20OSS-1.5.x-003459.svg">
+  <img alt="Node" src="https://img.shields.io/badge/node-22.x-339933.svg?logo=node.js&logoColor=white">
+</p>
+
+<p align="center">
+  <img src="docs/manuals/shots/U-vitals-overview.png" alt="KongPilot console" width="860">
+</p>
+
+## Why KongPilot
+
+Kong OSS 1.5 ships without a management UI. KongPilot gives teams a safe one: every change is a reviewable ticket, every write is audited in a hash chain, and only a dedicated BFF ever talks to the Kong Admin API. It does not modify Kong and never connects to Kong's database.
+
+> **Status:** v1.0.0 release candidate (`v1.0.0-rc.2`). The UI is Chinese-only today; an English locale is on the [roadmap](ROADMAP.md).
 
 ## Features
 
-- Clusters & environments, Kong 1.5 compatibility layer, rate limiting / circuit breaking / locks
-- Services, Routes, Upstreams/Targets, Consumers, Certificates, SNIs, six credential types, recycle bin with object-graph restore
-- Plugin center with dynamic schemas, binding, enable/disable and priority view
-- Users / teams / roles, four-dimension RBAC, sessions, secret reveal with audit
-- Multi-stage / co-sign approvals, scheduled changes, diff / execute / rollback
-- Config snapshots, YAML import/export, decK-compatible GitOps
-- Vitals: traffic, latency and bandwidth via Prometheus/Loki
-- Developer portal: docs, apps, credential request and lifecycle
-- Append-only audit trail, event subscriptions and delivery (webhook / SMTP)
+| | | |
+|---|---|---|
+| 🗂 **Entities** — Services, Routes, Upstreams/Targets, Consumers, Certificates, SNIs, six credential types | 🧩 **Plugin center** — dynamic schema forms, binding, enable/disable, priority view | 🌐 **Multi-cluster** — environments, Kong 1.5 compatibility layer, cluster-level write locks |
+| ✅ **Approvals** — multi-stage / co-sign tickets, scheduled changes, diff / execute / rollback, explicit *unknown* results | 🔁 **GitOps** — snapshots, YAML import/export, decK 1.x-compatible | 🔐 **RBAC** — users, teams, four-dimension permissions, sessions, audited secret reveal |
+| 📈 **Vitals** — traffic, latency and bandwidth via Prometheus / Loki | 🧑‍💻 **Developer portal** — docs, apps, credential requests and lifecycle | 🧾 **Audit & events** — append-only hash-chained log, webhook / SMTP delivery |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Browser[Operators] --> Web[KongPilot Console]
-  Developer[Developers] --> Portal[KongPilot Portal]
-  Web --> BFF[NestJS BFF]
+  Ops[Operators] --> Web[console-web]
+  Dev[Developers] --> Portal[portal-web]
+  Web --> BFF[console-api · NestJS BFF]
   Portal --> BFF
-  BFF --> DB[(PostgreSQL)]
+  BFF --> PG[(PostgreSQL)]
   BFF --> Redis[(Redis)]
-  BFF --> Adapter[Kong 1.5 adapter]
-  Adapter --> Admin[Existing Kong Admin API]
-  BFF --> Prom[Prometheus]
-  BFF --> Loki[Loki]
+  BFF --> Kong[Kong OSS 1.5.x Admin API]
+  BFF -.-> Obs[Prometheus / Loki]
 ```
 
-## Quick start
+Data-plane traffic goes straight through Kong; KongPilot only handles configuration, approvals and audit. More in [docs/architecture](docs/architecture/README.md).
 
-See [docs/quickstart.md](docs/quickstart.md) for a Docker Compose demo (Kong 1.5.1 + KongPilot). In short:
+## Quickstart
 
 ```bash
-node deploy/scripts/generate-env.mjs .env   # random secrets, never commit .env
-docker compose up -d --build
-# console: http://127.0.0.1:8080  portal: http://127.0.0.1:8082
+git clone https://github.com/sean-y-wang/kongpilot-console.git && cd kongpilot-console
+node deploy/scripts/generate-env.mjs .env   # random secrets — never commit .env
+docker compose up -d --build                # console :8080, portal :8082
 ```
 
-## Development
-
-Requires Node.js (see `.node-version`) and npm.
-
-```bash
-npm ci
-npm run typecheck
-npm test          # vitest unit/security/integration suites
-npm run build
-```
-
-Run locally with `npm run dev:api`, `npm run dev:web`, `npm run dev:portal` against your own PostgreSQL and Redis. The route simulator uses a native PCRE1 helper built from source (`apps/console-api/native-bin/`, not committed).
+Then open <http://127.0.0.1:8080>. Full walkthrough: [Quickstart](docs/getting-started/quickstart.md).
 
 ## Documentation
 
-- [Quick start](docs/quickstart.md)
-- [Manuals (zh-CN)](docs/manuals/README.md): operations guide, user guide, recovery runbook
-- [Kong 1.5 compatibility](docs/kong-1.5-compatibility.md) / [decK compatibility](docs/deck-1.5-compatibility.md)
+- [Docs index](docs/README.md) — getting started, user guide, operations, architecture, reference, development
+- [Architecture decisions](docs/decisions/README.md) · [Project history](docs/project-history/README.md) · [Changelog](CHANGELOG.md)
+- [Kong 1.5 compatibility](docs/reference/kong-1.5-compatibility.md) · [decK compatibility](docs/reference/deck-1.5-compatibility.md)
 
-## Contributing & security
+## Roadmap
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+English UI locale, in-product reconcile for uncertain create operations, chunked large promotions — see [ROADMAP.md](ROADMAP.md).
+
+## Contributing
+
+Contributions are welcome! Read [CONTRIBUTING.md](CONTRIBUTING.md), the [development guide](docs/development/README.md) and our [Code of Conduct](CODE_OF_CONDUCT.md). Questions: [SUPPORT.md](SUPPORT.md). Governance: [GOVERNANCE.md](GOVERNANCE.md).
+
+## Security
+
+Please report vulnerabilities privately via GitHub's private vulnerability reporting — see [SECURITY.md](SECURITY.md).
 
 ## License
 
-[Apache License 2.0](LICENSE). Kong is a trademark of Kong Inc.; KongPilot is an independent project and is not affiliated with or endorsed by Kong Inc. Bundled third-party notices: [NOTICE](NOTICE), [docs/licenses](docs/licenses/).
+[Apache License 2.0](LICENSE). Kong is a trademark of Kong Inc.; KongPilot is an independent project, not affiliated with or endorsed by Kong Inc. Third-party notices: [NOTICE](NOTICE), [docs/licenses](docs/licenses/).

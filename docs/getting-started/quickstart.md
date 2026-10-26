@@ -1,6 +1,6 @@
 # Quick start (Docker Compose demo)
 
-This brings up a **local demo**: Kong 1.5.1 with its own PostgreSQL, the KongPilot BFF, console and developer portal, Redis, Prometheus and Loki. It is not a production topology; for production see [docs/manuals/production-operations-guide.md](manuals/production-operations-guide.md) (`deploy/compose.production.yml`, and `deploy/compose.external-kong.yml` to manage an existing Kong).
+This brings up a **local demo**: Kong 1.5.1 with its own PostgreSQL, the KongPilot BFF, console and developer portal, Redis, Prometheus and Loki. It is not a production topology; for production see [docs/manuals/production-operations-guide.md](../manuals/production-operations-guide.md) (`deploy/compose.production.yml`, and `deploy/compose.external-kong.yml` to manage an existing Kong).
 
 ## Prerequisites
 - Docker Engine with Compose v2.24.4+

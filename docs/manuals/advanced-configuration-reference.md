@@ -192,7 +192,7 @@ Kong 1.5 OSS 没有原生 Workspaces。控制台维护工作区元数据，并�
 | CA Certificate | 独立 CA 对象的 PEM cert 和 schema 允许的 tags | 核对 CA 证书内容及实际 schema；Kong 1.5.1 Service 不提供 CA 引用字段 |
 | SNI | name、certificate、tags | TLS 名称与目标 Certificate 绑定 |
 
-算法和字段选项以当前 1.5 schema 为准，不把其他版本的字段当作本集群能力。Kong 1.5.1 Service 不支持 `tls_verify`、`tls_verify_depth`、`ca_certificates`，客户端证书引用使用 `client_certificate`；参见 [Kong 1.5 兼容性契约](../kong-1.5-compatibility.md)。表单支持开关、数字、文本、数组增删、record、map、枚举及嵌套数组记录。
+算法和字段选项以当前 1.5 schema 为准，不把其他版本的字段当作本集群能力。Kong 1.5.1 Service 不支持 `tls_verify`、`tls_verify_depth`、`ca_certificates`，客户端证书引用使用 `client_certificate`；参见 [Kong 1.5 兼容性契约](../reference/kong-1.5-compatibility.md)。表单支持开关、数字、文本、数组增删、record、map、枚举及嵌套数组记录。
 
 ### 6.3 Route 请求头与秘密字段
 

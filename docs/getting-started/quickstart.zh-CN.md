@@ -1,6 +1,6 @@
 # 快速开始（Docker Compose 演示）
 
-本流程启动**本地演示环境**：Kong 1.5.1 及其 PostgreSQL、KongPilot BFF、控制台、开发者门户、Redis、Prometheus、Loki。不是生产拓扑；生产部署见 [部署与运维手册](manuals/production-operations-guide.md)（`deploy/compose.production.yml`，接入已有 Kong 追加 `deploy/compose.external-kong.yml`）。
+本流程启动**本地演示环境**：Kong 1.5.1 及其 PostgreSQL、KongPilot BFF、控制台、开发者门户、Redis、Prometheus、Loki。不是生产拓扑；生产部署见 [部署与运维手册](../manuals/production-operations-guide.md)（`deploy/compose.production.yml`，接入已有 Kong 追加 `deploy/compose.external-kong.yml`）。
 
 ## 前置条件
 - Docker Engine 与 Compose v2.24.4+
