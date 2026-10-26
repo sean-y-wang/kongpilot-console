@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, Select, Space, Typography } from 'antd';
+import { abbreviateId, entityOptionLabel } from '../lib/abbreviate-id';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { QueryError } from '../components/Shared';
@@ -29,7 +30,7 @@ export function WorkflowApproverLookup({ resource, value = [], onChange, label, 
     setState(previous => ({ binding, search: current.search, cursor: current.cursor,
       options: [...new Map([...(previous.binding === binding ? previous.options : []), ...loaded].map(option => [option.value, option])).values()] }));
   }, [query.data, binding, current.search, current.cursor]);
-  const options = [...current.options, ...value.filter(id => !current.options.some(option => option.value === id)).map(id => ({ value: id, label: `已选${{ users: '用户', teams: '团队', roles: '角色' }[resource]} · ${id.slice(0, 8)}` }))];
+  const options = [...current.options, ...value.filter(id => !current.options.some(option => option.value === id)).map(id => ({ value: id, label: `已选${{ users: '用户', teams: '团队', roles: '角色' }[resource]} · ${abbreviateId(id)}` }))];
   return <><Space.Compact block><Select aria-label={`${label}范围`} value={realm} disabled={disabled} style={{ width: 135, flexShrink: 0 }}
     onChange={setRealm} options={[{ value: 'workspace', label: '当前工作区' }, { value: 'cluster', label: '当前集群' }, { value: 'global', label: '全局目录' }]} />
     <Select mode="multiple" aria-label={label} value={value} disabled={disabled} style={{ width: '100%' }} showSearch maxCount={100} filterOption={false}

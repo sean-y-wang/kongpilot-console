@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, App, Button, Card, Collapse, Descriptions, Form, Input, Segmented, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { abbreviateId, entityOptionLabel } from '../lib/abbreviate-id';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError, getApiActorId } from '../api/client';
@@ -50,7 +51,7 @@ function WorkflowOrders() {
     <Segmented aria-label="工单展示方式" value={display} onChange={value => setDisplay(value as 'table' | 'board')} options={[{ value: 'table', label: '列表' }, { value: 'board', label: '看板' }]} />
     </Space>{query.error && <QueryError error={query.error} />}
     {display === 'table' ? <Table data-testid="workflow-list" rowKey="id" pagination={false} loading={query.isFetching} dataSource={query.data?.items ?? []} scroll={{ x: 900 }} columns={[
-      { title: '工单', render: (_, row) => <Link to={`/workflows/${row.id}`}>{workflowKindLabels[row.kind] ?? row.name} · {row.id.slice(0, 8)}</Link> },
+      { title: '工单', render: (_, row) => <Link to={`/workflows/${row.id}`}>{workflowKindLabels[row.kind] ?? row.name} · <span className="mono" title={row.id}>{abbreviateId(row.id)}</span></Link> },
       { title: '执行模式', render: (_, row) => row.approvalRequired ? '工单审批' : '直接执行' },
       { title: '状态', render: (_, row) => <Space size={4}><Tag>{portalStateLabels[row.state] ?? row.state}</Tag>{workflowOverdue(row, now) && <Tag color="warning">已逾期</Tag>}</Space> },
       { title: '审批进度', render: (_, row) => { const stage = row.approval?.stages?.find(item => item.state === 'active'); return stage ? `${stage.name} · ${stage.votes}/${stage.threshold}` : row.approval?.stages?.length ? `${row.approval.stages.filter(item => item.state === 'approved').length}/${row.approval.stages.length} 阶段通过` : '—'; } },
@@ -63,7 +64,7 @@ function WorkflowOrders() {
           return <Card key={column.key} size="small" title={<Space>{column.title}<Tag>{rows.length}</Tag></Space>}>
             <div className="workflow-board-column-list" tabIndex={0} aria-label={`${column.title}工单列表`}><Space direction="vertical" size={12} style={{ width: '100%' }}>
               {rows.map(row => <Card key={row.id} size="small">
-                <Link to={`/workflows/${row.id}`}>{workflowKindLabels[row.kind] ?? row.name} · {row.id.slice(0, 8)}</Link>
+                <Link to={`/workflows/${row.id}`}>{workflowKindLabels[row.kind] ?? row.name} · <span className="mono" title={row.id}>{abbreviateId(row.id)}</span></Link>
                 <div style={{ marginTop: 8 }}><Tag>{portalStateLabels[row.state] ?? row.state}</Tag>{workflowOverdue(row, now) && <Tag color="warning">已逾期</Tag>}</div>
                 <Typography.Text type="secondary">{formatTime(row.createdAt)}</Typography.Text>
               </Card>)}

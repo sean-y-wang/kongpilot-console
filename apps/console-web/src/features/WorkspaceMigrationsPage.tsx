@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, App, Button, Card, Descriptions, Form, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { abbreviateId, entityOptionLabel } from '../lib/abbreviate-id';
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -33,7 +34,7 @@ function NestedLookup({ type, parentId, kind, value, onChange }: { type: string;
   const path = type === 'targets' ? `/clusters/${clusterId}/upstreams/${parentId}/targets` : `/clusters/${clusterId}/consumers/${parentId}/credentials/${kind}`;
   const query = useQuery({ queryKey: ['migration-nested-lookup', clusterId, workspaceId, type, parentId, kind, cursor], queryFn: () => api<EntityPageData>(scopeQuery(`${path}?size=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, clusterId, workspaceId)), enabled: ready && !!parentId && (type === 'targets' || !!kind) });
   useEffect(() => { setCursor(undefined); setTerm(''); }, [clusterId, workspaceId, type, parentId, kind]);
-  const options = (query.data?.items ?? []).map(item => ({ value: item.id, label: `${entityName(item)} · ${item.id.slice(0, 8)}` }));
+  const options = (query.data?.items ?? []).map(item => ({ value: item.id, label: entityOptionLabel(entityName(item), item.id) }));
   if (canonicalId(term) && !options.some(item => item.value === term)) options.unshift({ value: term, label: `使用 ID ${term}` });
   if (value && !options.some(item => item.value === value)) options.unshift({ value, label: value });
   return <><Select aria-label="id" value={value} options={options} showSearch allowClear disabled={!parentId} loading={query.isFetching} placeholder="选择当前页对象，或输入完整 UUID" onSearch={setTerm} onChange={onChange} filterOption={(input, option) => String(option?.label).toLowerCase().includes(input.toLowerCase())} popupRender={menu => <>{menu}{query.data?.nextCursor && <Button block type="text" onMouseDown={event => event.preventDefault()} onClick={() => setCursor(query.data!.nextCursor!)}>加载下一页</Button>}</>} /><Typography.Text type="secondary" className="small-note">按页选择；凭证秘密不会显示。也可输入从详情复制的原对象 ID。</Typography.Text>{query.isError && <QueryError error={query.error} retry={() => void query.refetch()} />}</>;
