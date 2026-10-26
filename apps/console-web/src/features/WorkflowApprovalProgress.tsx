@@ -5,10 +5,13 @@ import { workflowStageModeLabels, workflowStageStateLabels } from './workflows.m
 
 export function WorkflowApprovalProgress({ workflow }: { workflow: Workflow }) {
   const approval = workflow.approval;
-  if (!approval || !Array.isArray(approval.stages)) return null;
+  const selfApproved = (workflow as Workflow & { selfApproved?: boolean }).selfApproved === true;
+  if (!approval || !Array.isArray(approval.stages)) return selfApproved ? <Card title="审批进度" style={{ marginTop: 20 }} data-testid="workflow-approval-progress">
+    <Descriptions size="small" column={1} items={[{ key: 'self', label: '审批方式', children: <Tag color="orange">超级管理员自审批</Tag> }]} />
+  </Card> : null;
   return <Card title="审批进度" style={{ marginTop: 20 }} data-testid="workflow-approval-progress">
     <Descriptions size="small" column={{ xs: 1, md: 2 }} items={[
-      ...((workflow as Workflow & { selfApproved?: boolean }).selfApproved ? [{ key: 'self', label: '审批方式', children: <Tag color="orange">超级管理员自审批</Tag> }] : []),
+      ...(selfApproved ? [{ key: 'self', label: '审批方式', children: <Tag color="orange">超级管理员自审批</Tag> }] : []),
       { key: 'candidate', label: '候选人版本', children: approval.candidateVersion == null ? '—' : `v${approval.candidateVersion}` },
       { key: 'distinct', label: '审批人规则', children: approval.distinctAcrossStages ? '各阶段由不同审批人完成' : '允许跨阶段重复审批人' },
       ...(approval.approvalSetId ? [{ key: 'set', label: '审批记录集合', children: <EntityIdText id={approval.approvalSetId} /> }] : []),

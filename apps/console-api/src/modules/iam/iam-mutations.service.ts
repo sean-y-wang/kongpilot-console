@@ -41,7 +41,7 @@ export class IamMutationsService {
     const id=randomUUID();await tx.exec(`INSERT INTO iam_operations(id,actor_id,idempotency_key,request_hash,module,action,target_id,cluster_id,workspace_id,payload_secret)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[id,context.actor.user.id,key,hash,context.module,context.action,context.targetId??null,context.cluster_id,context.workspace_id,
         this.secrets.encrypt(context.payload,`iam:${id}:payload`)]);
-    await this.audit.append({...this.event(context),workflowId:binding.workflowId,action:`iam.${context.action}.requested`,after:context.payload,result:'pending'},tx);
+    await this.audit.append({...this.event(context),...this.workflowAuditScope(context,binding),workflowId:binding.workflowId,action:`iam.${context.action}.requested`,after:context.payload,result:'pending'},tx);
     const result=await fn(tx);await this.redis.assertLeaseOwnership();
     const after=await this.approvedPolicy.verify(originalHandle,context,'after',tx,result);
     if(after.intentId!==binding.intentId||after.workflowId!==binding.workflowId||after.executionId!==binding.executionId||after.stepId!==binding.stepId
@@ -54,13 +54,17 @@ export class IamMutationsService {
       plan_revision,plan_hash,before_permission_version,after_permission_version,before_iam_epoch,after_iam_epoch,result_hmac,workflow_cluster_id,workflow_workspace_id,execution_origin,schedule_claim_id)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,[id,binding.intentId,binding.workflowId,binding.executionId,binding.stepId,context.cluster_id,context.workspace_id,
         binding.actorId,binding.sessionId,binding.planRevision,binding.planHash,binding.permissionVersion,after.permissionVersion,binding.iamEpoch,String(epoch?.version),this.secrets.fingerprint(result),binding.clusterId,binding.workspaceId,binding.scheduledClaimId?'scheduled':'session',binding.scheduledClaimId]);
-    await this.audit.append({...this.event(context),workflowId:binding.workflowId,action:`iam.${context.action}.approved`,after:result,result:'success'},tx);
+    await this.audit.append({...this.event(context),...this.workflowAuditScope(context,binding),workflowId:binding.workflowId,action:`iam.${context.action}.approved`,after:result,result:'success'},tx);
     await this.redis.assertLeaseOwnership();return result;
   }
   private async authorize(context:IamMutation):Promise<void>{
     if(context.cluster_id)await this.authz.assertCluster(context.actor.user,context.cluster_id,context.module,context.action,context.workspace_id??undefined);
     else await this.authz.assertConsole(context.actor.user,context.module,context.action,context.targetId);
   }
+  /** Global IAM targets have no cluster/workspace, but a workflow-linked audit
+   * row must carry the workflow's own scope (audit_events_portal_workflow_scope). */
+  private workflowAuditScope(context:IamMutation,binding:{clusterId:string;workspaceId:string}){
+    return context.cluster_id&&context.workspace_id?{}:{clusterId:binding.clusterId,workspaceId:binding.workspaceId};}
   private event(context:IamMutation){return {actorId:context.actor.user.id,clusterId:context.cluster_id,workspaceId:context.workspace_id,
     entityType:context.module,entityId:context.targetId,requestId:context.actor.requestId,ip:context.actor.ip};}
   private async assertDirectScope(context:IamMutation,tx=this.db,lock=false):Promise<void>{

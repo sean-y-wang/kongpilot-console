@@ -16,6 +16,21 @@ export async function selfApprovalPermitted(tx: DbService, userId: string): Prom
   return row?.ok === true;
 }
 
+
+/** SQL052: when the requester is a permitted super-admin, feasibility counts the
+ * requester as one virtual (unsealed) reviewer slot per stage. The manifest and
+ * persisted candidates are unchanged; self votes stay marked and re-checked. */
+export async function assertFeasibleWithSelfApproval(tx: DbService, plan: WorkflowPlanV1, stages: WorkflowCandidateManifest['stages'], distinct: boolean, used: ReadonlySet<string> = new Set()): Promise<void> {
+  try { assertWorkflowCandidateFeasibility(stages, distinct, used); return; } catch (error) {
+    const requester = plan.requester;
+    if (requester?.type !== 'console' || used.has(requester.id)) throw error;
+    const permitted = await selfApprovalPermitted(tx, requester.id).catch(() => false);
+    if (!permitted) throw error;
+    const virtual = stages.map(stage => stage.candidates.some(c => c.userId === requester.id) || stage.threshold < 1 ? stage : { ...stage, candidates: [...stage.candidates, { ...(stage.candidates[0] ?? {}), userId: requester.id } as any] });
+    assertWorkflowCandidateFeasibility(virtual, distinct, used);
+  }
+}
+
 @Injectable()
 export class WorkflowApprovalAuthorityService {
   private readonly policies = new Map<WorkflowKind, WorkflowReviewerPolicy>();
@@ -118,7 +133,7 @@ export class WorkflowApprovalAuthorityService {
       const candidates = await this.candidates.resolve(plan, stage.selector, id => this.reviewer(plan, id, tx, 'vote'), tx);
       stages.push(Object.freeze({ level: stage.level, mode: stage.mode, threshold: stage.mode === 'all' ? candidates.length : stage.threshold!, candidates: Object.freeze(candidates) }));
     }
-    assertWorkflowCandidateFeasibility(stages, policy!.distinctAcrossStages);
+    await assertFeasibleWithSelfApproval(tx, plan, stages, policy!.distinctAcrossStages);
     const manifest: WorkflowCandidateManifest = { version: 1, clusterId: plan.clusterId, workspaceId: plan.workspaceId, workflowId: plan.workflowId, planRevision: plan.planRevision, planHash: hash, definitionId: plan.definition.id, definitionVersion: plan.definition.version, policyHash: plan.definition.policyHash, candidateVersion: 1, stages };
     const hmac = this.secrets.fingerprint(manifest);
     await tx.exec(`INSERT INTO workflow_candidate_versions(cluster_id,workspace_id,workflow_id,plan_revision,plan_hash,candidate_version,definition_id,definition_version,policy_hash,manifest_hmac,manifest) VALUES($1,$2,$3,$4,$5,1,$6,$7,$8,$9,$10::jsonb)`, [plan.clusterId, plan.workspaceId, plan.workflowId, plan.planRevision, hash, plan.definition.id, plan.definition.version, plan.definition.policyHash, hmac, JSON.stringify(manifest)]);
@@ -155,7 +170,7 @@ export class WorkflowApprovalAuthorityService {
       if (stage.level !== index + 1 || stage.plan_hash !== hash || stage.approval_format !== 2 || stage.candidate_version !== row.candidate_version || stage.candidate_manifest_hmac !== row.candidate_manifest_hmac
         || stage.stage_mode !== frozen.mode || frozen.mode !== definitionStage.mode || stage.required_approvals !== frozen.threshold || frozen.threshold !== (definitionStage.mode === 'all' ? frozen.candidates.length : definitionStage.threshold)) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_STAGE_INVALID' });
     }
-    assertWorkflowCandidateFeasibility(manifest.stages, policy!.distinctAcrossStages);
+    await assertFeasibleWithSelfApproval(tx, plan, manifest.stages, policy!.distinctAcrossStages);
     return { row, version, format, policy, stages, decisions, manifest };
   }
   async assertCanVote(plan: WorkflowPlanV1, input: { reviewerId: string; level: number; stageRevision: number; candidateVersion: number; decision?: 'approve' | 'reject' }, tx: DbService): Promise<void> {
@@ -178,7 +193,7 @@ export class WorkflowApprovalAuthorityService {
       const used = new Set<string>(facts.decisions.filter(vote => vote.decision === 'approve').map(vote => vote.approver_id));
       used.add(reviewerId);
       const remaining = facts.manifest!.stages.filter(stage => stage.level >= level).map(stage => ({ ...stage, threshold: stage.threshold - facts.decisions.filter(vote => vote.level === stage.level && vote.decision === 'approve').length - (stage.level === level ? 1 : 0) })).filter(stage => stage.threshold > 0);
-      if (remaining.length) assertWorkflowCandidateFeasibility(remaining, true, used);
+      if (remaining.length) await assertFeasibleWithSelfApproval(tx, plan, remaining, true, used);
     }
   }
   private async validateDecisions(plan: WorkflowPlanV1, facts: Awaited<ReturnType<WorkflowApprovalAuthorityService['facts']>>, tx: DbService, checkpoint: WorkflowApprovalCheckpoint, current = true, reviewerPolicy: boolean | 'namespace-configuration-sql' = true): Promise<void> {

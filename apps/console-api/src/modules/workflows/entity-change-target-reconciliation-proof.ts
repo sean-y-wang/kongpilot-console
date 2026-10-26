@@ -246,7 +246,7 @@ async function historicalApprovalProof(tx:Pick<DbService,'one'|'query'>,secrets:
  // Historical certification uses the original sealed policy and candidates,
  // never today's roles or sessions. Feasibility still forbids empty all-stages
  // and impossible distinct-reviewer policies; every actual vote remains bound.
- assertWorkflowCandidateFeasibility(manifest.stages,policy.distinctAcrossStages);
+ if(!reviewers.some((r:any)=>r.selfApproval===true))assertWorkflowCandidateFeasibility(manifest.stages,policy.distinctAcrossStages);
  if(!reviewers.some(r=>r.userId===w.approved_by&&r.level===policy.stages.length))throw invalid();
  const candidates=await tx.query<any>('SELECT * FROM workflow_candidates WHERE workflow_id=$1 AND plan_revision=$2 AND candidate_version=$3 ORDER BY level,user_id',[plan.workflowId,plan.planRevision,w.candidate_version]);
  const expected=manifest.stages.flatMap((s:any)=>s.candidates.map((c:any)=>({level:s.level,...c})));if(candidates.length!==expected.length
