@@ -69,6 +69,8 @@ export interface WorkflowSummary {
   id: string; kind: WorkflowKind; clusterId: string; workspaceId: string; name: string;
   /** A fixed Control metadata read selector; the actual plan anchor stays workspaceId. */
   scopeSelectorWorkspaceId?:string;
+  /** SQL052 super-admin self-approval was used for the final approval. */
+  selfApproved?: true;
   revision: number; planRevision: number; planHash: string; state: string;
   executionMode: 'direct' | 'approval'; approvalRequired: boolean;
   createdAt: string; expiresAt: string; capabilities: Readonly<{ approve: boolean; reject: boolean; cancel: boolean; execute: boolean; reconcileMetadata?: boolean; abandonRejectedIssue?: boolean;

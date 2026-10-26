@@ -236,8 +236,8 @@ async function historicalApprovalProof(tx:Pick<DbService,'one'|'query'>,secrets:
   ||new Set(votes.map(v=>`${v.level}:${v.approver_id}`)).size!==votes.length
   ||policy.distinctAcrossStages&&new Set(votes.map(v=>v.approver_id)).size!==votes.length)throw invalid();
  const reviewers=votes.map(v=>{bound(v);const stage=manifest.stages.find((s:any)=>s.level===v.level),c=stage?.candidates.find((c:any)=>c.userId===v.approver_id);
-  if(!uuid.test(v.id)||!uuid.test(v.approver_id)||v.approver_id===plan.requester.id||v.decision!=='approve'||!c||v.candidate_version!==w.candidate_version||v.candidate_manifest_hmac!==w.candidate_manifest_hmac)throw invalid();
-  return{approvalId:v.id,userId:v.approver_id,level:v.level,candidateVersion:v.candidate_version};});
+  if(!uuid.test(v.id)||!uuid.test(v.approver_id)||(v.is_self_approval===true?v.approver_id!==plan.requester.id||w.self_approved!==true:v.approver_id===plan.requester.id||!c)||v.decision!=='approve'||v.candidate_version!==w.candidate_version||v.candidate_manifest_hmac!==w.candidate_manifest_hmac)throw invalid();
+  return{approvalId:v.id,userId:v.approver_id,level:v.level,candidateVersion:v.candidate_version,...(v.is_self_approval===true?{selfApproval:true}:{})};});
  for(const[i,s]of stages.entries()){bound(s);const frozen=manifest.stages[i],p=policy.stages[i];
   if(s.level!==i+1||s.state!=='approved'||s.approval_format!==2||s.candidate_version!==w.candidate_version||s.candidate_manifest_hmac!==w.candidate_manifest_hmac
    ||s.stage_mode!==p.mode||frozen.level!==s.level||frozen.mode!==p.mode||!Array.isArray(frozen.candidates)||frozen.candidates.length>100||frozen.threshold!==(p.mode==='all'?frozen.candidates.length:p.threshold)

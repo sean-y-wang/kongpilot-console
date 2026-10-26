@@ -491,7 +491,8 @@ export class ApprovedWorkflowExecutionService implements OnModuleInit, ApprovedE
       if (approvals.length !== 1 || approvals[0].decision !== 'approve' || approvals[0].approver_id !== execution.approved_by || approvals[0].plan_hash !== execution.plan_hash
         || approvals[0].level !== 1 || stages.length !== 1 || stages[0].state !== 'approved' || stages[0].required_approvals !== 1 || stages[0].level !== 1
         || stages[0].plan_hash !== execution.plan_hash || !definition || definition.mode !== 'single' || definition.allow_self_approval !== false || definition.policy_hash !== plan.definition.policyHash
-        || workflow.requester_type === 'console' && workflow.requester_user_id === execution.approved_by) throw deny('APPROVED_DECISION_INVALID');
+        || workflow.requester_type === 'console' && workflow.requester_user_id === execution.approved_by && workflow.self_approved !== true) throw deny('APPROVED_DECISION_INVALID');
+      // SQL052: self-approved facts are re-validated (flag on + active super-admin) by verifyApprovalSet below/at seal.
     }
     if(plan.kind==='control-metadata') {
       // The fixed Native-zero handler can repair an unreachable Admin URL.
