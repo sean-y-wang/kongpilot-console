@@ -1,3 +1,4 @@
+import { EntityIdText } from '../components/EntityReference';
 import { Card, Descriptions, Table, Tag, Typography } from 'antd';
 import type { Workflow } from './portal.types';
 import { workflowStageModeLabels, workflowStageStateLabels } from './workflows.model';
@@ -9,7 +10,7 @@ export function WorkflowApprovalProgress({ workflow }: { workflow: Workflow }) {
     <Descriptions size="small" column={{ xs: 1, md: 2 }} items={[
       { key: 'candidate', label: '候选人版本', children: approval.candidateVersion == null ? '—' : `v${approval.candidateVersion}` },
       { key: 'distinct', label: '审批人规则', children: approval.distinctAcrossStages ? '各阶段由不同审批人完成' : '允许跨阶段重复审批人' },
-      ...(approval.approvalSetId ? [{ key: 'set', label: '审批记录集合', children: <Typography.Text className="mono" copyable>{approval.approvalSetId}</Typography.Text> }] : []),
+      ...(approval.approvalSetId ? [{ key: 'set', label: '审批记录集合', children: <EntityIdText id={approval.approvalSetId} /> }] : []),
     ]} />
     <Table rowKey="level" size="small" pagination={false} scroll={{ x: 640 }} dataSource={approval.stages} columns={[
       { title: '阶段', render: (_, stage) => <strong>{stage.level}. {stage.name}</strong> },

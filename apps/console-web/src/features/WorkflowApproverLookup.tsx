@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Select, Space, Typography } from 'antd';
 import { abbreviateId, entityOptionLabel } from '../lib/abbreviate-id';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { QueryError } from '../components/Shared';
 import { usePortalScope } from './portal-hooks';
@@ -30,7 +30,14 @@ export function WorkflowApproverLookup({ resource, value = [], onChange, label, 
     setState(previous => ({ binding, search: current.search, cursor: current.cursor,
       options: [...new Map([...(previous.binding === binding ? previous.options : []), ...loaded].map(option => [option.value, option])).values()] }));
   }, [query.data, binding, current.search, current.cursor]);
-  const options = [...current.options, ...value.filter(id => !current.options.some(option => option.value === id)).map(id => ({ value: id, label: `已选${{ users: '用户', teams: '团队', roles: '角色' }[resource]} · ${abbreviateId(id)}` }))];
+  const missing = value.filter(id => !current.options.some(option => option.value === id)).slice(0, 100);
+  // Resolve names for preselected ids (editing an existing policy) instead of showing raw ids.
+  const resolved = useQueries({ queries: missing.map(id => ({ queryKey: ['workflow-approver-name', scope.actor, scope.version, resource, id],
+    queryFn: ({ signal }: { signal: AbortSignal }) => api<IAMRow>(`/iam/${resource}/${encodeURIComponent(id)}`, { signal }), enabled: scope.ready, retry: false, staleTime: 60000 })) });
+  const kindLabel = { users: '用户', teams: '团队', roles: '角色' }[resource];
+  const options = [...current.options, ...missing.map((id, index) => { const row = resolved[index]?.data as any; const named = row?.user ?? row?.role ?? row?.team ?? row;
+    const name = named?.display_name ? `${named.display_name} · ${named.username}` : named?.username ?? named?.name ?? named?.code;
+    return { value: id, label: name ? entityOptionLabel(name, id) : `已选${kindLabel} · ${abbreviateId(id)}` }; })];
   return <><Space.Compact block><Select aria-label={`${label}范围`} value={realm} disabled={disabled} style={{ width: 135, flexShrink: 0 }}
     onChange={setRealm} options={[{ value: 'workspace', label: '当前工作区' }, { value: 'cluster', label: '当前集群' }, { value: 'global', label: '全局目录' }]} />
     <Select mode="multiple" aria-label={label} value={value} disabled={disabled} style={{ width: '100%' }} showSearch maxCount={100} filterOption={false}
