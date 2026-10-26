@@ -1,0 +1,114 @@
+{
+  "fields": [
+    {
+      "remove": {
+        "fields": [
+          {
+            "json": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "headers": {
+              "elements": {
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          }
+        ],
+        "required": true,
+        "type": "record"
+      }
+    },
+    {
+      "replace": {
+        "fields": [
+          {
+            "json": {
+              "elements": {
+                "match": "^[^:]+:.*$",
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "headers": {
+              "elements": {
+                "match": "^[^:]+:.*$",
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          }
+        ],
+        "required": true,
+        "type": "record"
+      }
+    },
+    {
+      "add": {
+        "fields": [
+          {
+            "json": {
+              "elements": {
+                "match": "^[^:]+:.*$",
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "headers": {
+              "elements": {
+                "match": "^[^:]+:.*$",
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          }
+        ],
+        "required": true,
+        "type": "record"
+      }
+    },
+    {
+      "append": {
+        "fields": [
+          {
+            "json": {
+              "elements": {
+                "match": "^[^:]+:.*$",
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          },
+          {
+            "headers": {
+              "elements": {
+                "match": "^[^:]+:.*$",
+                "type": "string"
+              },
+              "default": [],
+              "type": "array"
+            }
+          }
+        ],
+        "required": true,
+        "type": "record"
+      }
+    }
+  ]
+}
