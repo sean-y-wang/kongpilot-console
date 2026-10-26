@@ -8,6 +8,7 @@ import { KongService } from '../../infrastructure/kong/kong.service';
 import { KongExecutionContextService } from '../../infrastructure/kong/execution-context.service';
 import { AuthorizationService } from '../authorization/authorization.service';
 import { AuditService } from '../audit/audit.service';
+import { selfApprovalPermitted } from './workflow-approval-authority.service';
 import { EntityService } from '../entities/entities.service';
 import { type EntityActor, credentialKind, entityType, pageSize } from '../entities/entities.types';
 import { MutationService, type MutationContext } from '../mutations/mutation.service';
@@ -191,7 +192,8 @@ export class WorkflowService {
   private async summary(row:any,plan:WorkflowPlanV1,actor?:EntityActor):Promise<WorkflowSummary>{
     if(row.approval_format===2&&!this.approval)throw new ConflictException({code:'WORKFLOW_APPROVAL_AUTHORITY_UNAVAILABLE'});
     const can=async(action:'read'|'write'|'approve')=>{if(!actor)return false;try{await this.authorize(plan,actor,action);return true;}catch(error){if(error instanceof ForbiddenException)return false;throw error;}};
-    let approve=plan.approvalRequired&&row.state==='pending'&&row.requester_user_id!==actor?.user.id&&await can('approve'),reject=approve;
+    const selfRow=!!actor&&row.requester_user_id===actor.user.id;
+    let approve=plan.approvalRequired&&row.state==='pending'&&(!selfRow||await selfApprovalPermitted(this.db,actor!.user.id))&&await can('approve'),reject=approve&&!selfRow;
     if(approve&&row.approval_format===2){
       if(!this.approval)throw new ConflictException({code:'WORKFLOW_APPROVAL_AUTHORITY_UNAVAILABLE'});
       const stage=await this.db.one<any>("SELECT level,revision FROM workflow_stages WHERE workflow_id=$1 AND plan_revision=$2 AND state='active'",[row.id,row.plan_revision]);
@@ -210,7 +212,7 @@ export class WorkflowService {
     // A terminal state cannot prove a usable baseline or resolved outcomes.
     // Root's read-only verifier checks their real source/packet facts and grants.
     const rollbackPrepare=nativeWriteAllowed&&actor?(await this.entityExecutor?.canRollback(plan,actor))===true:false;
-    return{id:row.id,kind:row.kind,clusterId:row.cluster_id,workspaceId:row.workspace_id,...(plan.kind==='control-metadata'&&actor?{scopeSelectorWorkspaceId:actor.workspaceId??plan.workspaceId}:{}),name:row.kind,revision:row.revision,planRevision:row.plan_revision,planHash:row.plan_hash,state:row.state,executionMode:row.execution_mode,approvalRequired:row.approval_required,createdAt:new Date(row.created_at).toISOString(),expiresAt:new Date(row.expires_at).toISOString(),...((plan as WorkflowPlanV1&{scheduling?:unknown}).scheduling?{scheduled:true as const}:{}),...(row.approval_format===2?{approval:await this.approval!.projection(plan)}:{}),capabilities:Object.freeze({approve,reject,cancel:['pending','approved'].includes(row.state)&&row.requester_user_id===actor?.user.id,execute:plan.kind==='native-change'?nativeExecutable:executable,reconcileMetadata,abandonRejectedIssue,entityPreflight,rollbackPrepare})};
+    return{id:row.id,kind:row.kind,clusterId:row.cluster_id,workspaceId:row.workspace_id,...(row.self_approved===true?{selfApproved:true}:{}),...(plan.kind==='control-metadata'&&actor?{scopeSelectorWorkspaceId:actor.workspaceId??plan.workspaceId}:{}),name:row.kind,revision:row.revision,planRevision:row.plan_revision,planHash:row.plan_hash,state:row.state,executionMode:row.execution_mode,approvalRequired:row.approval_required,createdAt:new Date(row.created_at).toISOString(),expiresAt:new Date(row.expires_at).toISOString(),...((plan as WorkflowPlanV1&{scheduling?:unknown}).scheduling?{scheduled:true as const}:{}),...(row.approval_format===2?{approval:await this.approval!.projection(plan)}:{}),capabilities:Object.freeze({approve,reject,cancel:['pending','approved'].includes(row.state)&&row.requester_user_id===actor?.user.id,execute:plan.kind==='native-change'?nativeExecutable:executable,reconcileMetadata,abandonRejectedIssue,entityPreflight,rollbackPrepare})};
   }
   async get(cid:string,id:string,actor:EntityActor):Promise<any>{return this.withActor(cid,actor,'read',async()=>{
     const terminal=await this.db.one<any>("SELECT workspace_id FROM workflows WHERE id=$1 AND cluster_id=$2 AND kind='control-metadata' AND state='succeeded' AND requester_user_id=$3",[workflowId(id),cid,actor.user.id]);
@@ -265,7 +267,7 @@ export class WorkflowService {
           continue;
         }
         await this.authorize(plan,actor,query.view==='pending-my-approval'?'approve':'read');
-        if(query.view==='pending-my-approval'&&(row.state!=='pending'||!row.approval_required||row.requester_user_id===actor.user.id))continue;
+        if(query.view==='pending-my-approval'&&(row.state!=='pending'||!row.approval_required||row.requester_user_id===actor.user.id&&!await selfApprovalPermitted(this.db,actor.user.id)))continue;
         const item=await this.summary(row,plan,actor);if(query.view==='pending-my-approval'&&!item.capabilities.approve&&!item.capabilities.reject)continue;items.push(item);
       }catch(error){
         const response=error instanceof ConflictException?error.getResponse():null;
@@ -286,7 +288,8 @@ export class WorkflowService {
     const replayDecision=await this.db.one<any>('SELECT * FROM workflow_approvals WHERE cluster_id=$1 AND workspace_id=$2 AND approver_id=$3 AND idempotency_key=$4',[cid,ws.id,actor.user.id,key]);
     if(replayDecision){const event=await this.db.one<any>("SELECT safe_metadata FROM workflow_events WHERE workflow_id=$1 AND actor_id=$2 AND action=$3 AND safe_metadata->>'key'=$4 ORDER BY created_at DESC LIMIT 1",[id,actor.user.id,`decision.${decision}`,key]);if(replayDecision.workflow_id!==id||replayDecision.decision!==decision||event?.safe_metadata?.requestHash!==this.secrets.fingerprint(value))throw new ConflictException({code:'IDEMPOTENCY_CONFLICT'});return {entity:await this.summary(loaded.row,loaded.plan,actor),decisionCompleted:true};}
     if(typeof value.planHash!=='string'||value.planHash!==loaded.row.plan_hash||value.revision!==loaded.row.revision)throw new ConflictException({code:'WORKFLOW_PLAN_CHANGED'});
-    if(!loaded.plan.approvalRequired||loaded.row.requester_user_id===actor.user.id)throw new ForbiddenException({code:'WORKFLOW_SELF_APPROVAL_FORBIDDEN'});
+    const selfVote=loaded.row.requester_user_id===actor.user.id;
+    if(!loaded.plan.approvalRequired||selfVote&&(decision!=='approve'||!await selfApprovalPermitted(this.db,actor.user.id)))throw new ForbiddenException({code:'WORKFLOW_SELF_APPROVAL_FORBIDDEN'});
     if(loaded.plan.kind==='native-change'&&decision==='approve')await this.plans.revalidateEntityChange(loaded.plan,actor,'approve');
     const reason=typeof value.reason==='string'?value.reason.trim().slice(0,2048):'';
     await this.redis.withLock(`workflow:${id}`,()=>this.db.transaction(async tx=>{
@@ -300,7 +303,7 @@ export class WorkflowService {
         await tx.one('SELECT version FROM iam_epoch WHERE singleton=true FOR SHARE');
         const vote={reviewerId:actor.user.id,level:Number(value.level),stageRevision:Number(value.stageRevision),candidateVersion:Number(value.candidateVersion),decision};
         await this.approval.assertCanVote(loaded.plan,vote,tx);if(decision==='approve')await this.approval.assertVoteFeasible(loaded.plan,actor.user.id,vote.level,tx);
-        await tx.exec(`INSERT INTO workflow_approvals(cluster_id,workspace_id,workflow_id,plan_revision,plan_hash,level,approver_id,decision,reason,request_id,idempotency_key,candidate_version,candidate_manifest_hmac,stage_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,[cid,ws.id,id,current.plan_revision,current.plan_hash,vote.level,actor.user.id,decision,reason,actor.requestId??null,key,vote.candidateVersion,current.candidate_manifest_hmac,vote.stageRevision]);
+        await tx.exec(`INSERT INTO workflow_approvals(cluster_id,workspace_id,workflow_id,plan_revision,plan_hash,level,approver_id,decision,reason,request_id,idempotency_key,candidate_version,candidate_manifest_hmac,stage_revision,is_self_approval) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,[cid,ws.id,id,current.plan_revision,current.plan_hash,vote.level,actor.user.id,decision,reason,actor.requestId??null,key,vote.candidateVersion,current.candidate_manifest_hmac,vote.stageRevision,selfVote]);
         const stage=await tx.one<any>('SELECT required_approvals FROM workflow_stages WHERE workflow_id=$1 AND plan_revision=$2 AND level=$3 FOR UPDATE',[id,current.plan_revision,vote.level]);
         const count=await tx.one<any>("SELECT count(*)::integer AS votes FROM workflow_approvals WHERE workflow_id=$1 AND plan_revision=$2 AND level=$3 AND decision='approve'",[id,current.plan_revision,vote.level]);
         const complete=decision==='approve'&&count?.votes===stage?.required_approvals;
@@ -312,16 +315,16 @@ export class WorkflowService {
           if(next)requirePortalCas(await tx.exec("UPDATE workflow_stages SET state='active',revision=revision+1,activated_at=now(),updated_at=now() WHERE workflow_id=$1 AND plan_revision=$2 AND level=$3 AND revision=$4 AND state='pending'",[id,current.plan_revision,next.level,next.revision]));
           else{await this.approval.sealApprovalSet(loaded.plan,tx);state='approved';}
         }
-        requirePortalCas(await tx.exec('UPDATE workflows SET state=$2,approved_by=$3,approved_at=$4,revision=revision+1,updated_at=now() WHERE id=$1 AND revision=$5',[id,state,state==='approved'?actor.user.id:null,state==='approved'?new Date():null,current.revision]));
+        requirePortalCas(await tx.exec('UPDATE workflows SET state=$2,approved_by=$3,approved_at=$4,self_approved=$6,revision=revision+1,updated_at=now() WHERE id=$1 AND revision=$5',[id,state,state==='approved'?actor.user.id:null,state==='approved'?new Date():null,current.revision,state==='approved'&&selfVote]));
         decisionResultState=state;
       }else{
-      await tx.exec(`INSERT INTO workflow_approvals(cluster_id,workspace_id,workflow_id,plan_revision,plan_hash,level,approver_id,decision,reason,request_id,idempotency_key) VALUES($1,$2,$3,$4,$5,1,$6,$7,$8,$9,$10)`,[cid,ws.id,id,current.plan_revision,current.plan_hash,actor.user.id,decision,reason,actor.requestId??null,key]);
+      await tx.exec(`INSERT INTO workflow_approvals(cluster_id,workspace_id,workflow_id,plan_revision,plan_hash,level,approver_id,decision,reason,request_id,idempotency_key,is_self_approval) VALUES($1,$2,$3,$4,$5,1,$6,$7,$8,$9,$10,$11)`,[cid,ws.id,id,current.plan_revision,current.plan_hash,actor.user.id,decision,reason,actor.requestId??null,key,selfVote]);
       await tx.exec("UPDATE workflow_stages SET state=$2,completed_at=now(),updated_at=now() WHERE workflow_id=$1 AND plan_revision=$3",[id,decision==='approve'?'approved':'rejected',current.plan_revision]);
-      requirePortalCas(await tx.exec(`UPDATE workflows SET state=$2,approved_by=$3,approved_at=$4,revision=revision+1,updated_at=now() WHERE id=$1 AND revision=$5`,[id,decision==='approve'?'approved':'rejected',decision==='approve'?actor.user.id:null,decision==='approve'?new Date():null,current.revision]));
+      requirePortalCas(await tx.exec(`UPDATE workflows SET state=$2,approved_by=$3,approved_at=$4,self_approved=$6,revision=revision+1,updated_at=now() WHERE id=$1 AND revision=$5`,[id,decision==='approve'?'approved':'rejected',decision==='approve'?actor.user.id:null,decision==='approve'?new Date():null,current.revision,decision==='approve'&&selfVote]));
       }
       await tx.exec(`INSERT INTO workflow_events(cluster_id,workspace_id,workflow_id,plan_revision,plan_hash,actor_type,actor_id,action,result,safe_metadata,request_id) VALUES($1,$2,$3,$4,$5,'user',$6,$7,'success',$8::jsonb,$9)`,[cid,ws.id,id,current.plan_revision,current.plan_hash,actor.user.id,`decision.${decision}`,JSON.stringify({key,requestHash:this.secrets.fingerprint(value)}),actor.requestId??null]);
       const action=current.approval_format===2&&decision==='approve'&&decisionResultState!=='approved'?'workflow.approval.progress':`workflow.${decision}`;
-      await this.audit.append({actorId:actor.user.id,clusterId:cid,workspaceId:ws.id,entityType:'workflows',entityId:id,workflowId:id,action,requestId:actor.requestId,ip:actor.ip,after:{planHash:current.plan_hash,reason,...(current.approval_format===2?{level:Number(value.level),stageState:(await tx.one<any>('SELECT state FROM workflow_stages WHERE workflow_id=$1 AND plan_revision=$2 AND level=$3',[id,current.plan_revision,Number(value.level)]))?.state,workflowState:decisionResultState}:{})},result:'success',scopeHints:this.workflowScopeHints(ws.id,id)},tx);
+      await this.audit.append({actorId:actor.user.id,clusterId:cid,workspaceId:ws.id,entityType:'workflows',entityId:id,workflowId:id,action,requestId:actor.requestId,ip:actor.ip,after:{planHash:current.plan_hash,reason,...(selfVote?{selfApproval:true,selfApprovalOverride:'super_admin'}:{}),...(current.approval_format===2?{level:Number(value.level),stageState:(await tx.one<any>('SELECT state FROM workflow_stages WHERE workflow_id=$1 AND plan_revision=$2 AND level=$3',[id,current.plan_revision,Number(value.level)]))?.state,workflowState:decisionResultState}:{})},result:'success',scopeHints:this.workflowScopeHints(ws.id,id)},tx);
       if(decision==='reject'&&decisionResultState==='rejected')await restoreUnusedPortalCredentialChange(tx,{clusterId:cid,workspaceId:ws.id,workflowId:id,kind:loaded.plan.kind,workflowTerminal:'rejected'});
     }));
     const updated=await this.plans.load(cid,ws.id,id);if(decision==='approve'&&value.execute===true&&updated.row.state==='approved'&&!(updated.plan as WorkflowPlanV1 & {scheduling?:unknown}).scheduling)return this.execute(cid,id,{revision:updated.row.revision,planHash:updated.row.plan_hash,confirmed:true,confirm_name:updated.row.kind},{...actor,idempotencyKey:`execute-${this.secrets.fingerprint({key,id}).slice(0,48)}`});return{entity:await this.summary(updated.row,updated.plan,actor)};

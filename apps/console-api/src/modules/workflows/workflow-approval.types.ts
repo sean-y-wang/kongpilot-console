@@ -47,7 +47,7 @@ export interface WorkflowApprovalSet {
   readonly policyHash: string;
   readonly setId: string | null;
   readonly setHmac: string | null;
-  readonly reviewers: readonly Readonly<{ approvalId: string; userId: string; level: number; candidateVersion: number | null }>[];
+  readonly reviewers: readonly Readonly<{ approvalId: string; userId: string; level: number; candidateVersion: number | null; selfApproval?: true }>[];
 }
 export interface WorkflowCandidateProvenance {
   readonly kind: 'user' | 'team' | 'role';

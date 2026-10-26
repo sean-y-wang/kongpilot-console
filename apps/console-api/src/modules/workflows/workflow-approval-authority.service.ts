@@ -10,6 +10,12 @@ import type { WorkflowKind, WorkflowPlanV1 } from './workflow.types';
 
 /** Immutable approval facts and current reviewer eligibility. This service
  * neither installs execution contexts nor creates native write authority. */
+/** SQL052 platform override; evaluated inside the caller's transaction. */
+export async function selfApprovalPermitted(tx: DbService, userId: string): Promise<boolean> {
+  const row = await tx.one<{ ok: boolean }>('SELECT m11_self_approval_permitted($1) AS ok', [userId]);
+  return row?.ok === true;
+}
+
 @Injectable()
 export class WorkflowApprovalAuthorityService {
   private readonly policies = new Map<WorkflowKind, WorkflowReviewerPolicy>();
@@ -158,9 +164,12 @@ export class WorkflowApprovalAuthorityService {
     const stage = facts.stages.find(stage => stage.level === input.level);
     if (!stage || stage.state !== 'active' || stage.revision !== input.stageRevision || facts.stages.some(previous => previous.level < stage.level && previous.state !== 'approved')) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_STAGE_CHANGED' });
     const frozen = facts.manifest!.stages.find(stage => stage.level === input.level)!, candidate = frozen.candidates.find(candidate => candidate.userId === input.reviewerId);
-    if (!candidate || plan.requester.type === 'console' && input.reviewerId === plan.requester.id) throw new ForbiddenException({ code: 'WORKFLOW_APPROVAL_CANDIDATE_REQUIRED' });
+    const self = plan.requester.type === 'console' && input.reviewerId === plan.requester.id;
+    // Super-admin self-approval (SQL052): the requester is never a frozen candidate; the platform override replaces candidacy.
+    if (self && (input.decision === 'reject' || !await selfApprovalPermitted(tx, input.reviewerId))) throw new ForbiddenException({ code: 'WORKFLOW_SELF_APPROVAL_FORBIDDEN' });
+    if (!self && !candidate) throw new ForbiddenException({ code: 'WORKFLOW_APPROVAL_CANDIDATE_REQUIRED' });
     if (facts.decisions.some(vote => vote.approver_id === input.reviewerId && (vote.level === input.level || facts.policy!.distinctAcrossStages))) throw new ConflictException({ code: 'WORKFLOW_APPROVER_ALREADY_DECIDED' });
-    await this.candidates.assertCurrent(plan, candidate, tx); await this.reviewer(plan, input.reviewerId, tx, 'vote');
+    if (!self) await this.candidates.assertCurrent(plan, candidate!, tx); await this.reviewer(plan, input.reviewerId, tx, 'vote');
     await this.validateDecisions(plan, facts, tx, 'vote', input.decision !== 'reject');
   }
   async assertVoteFeasible(plan: WorkflowPlanV1, reviewerId: string, level: number, tx: DbService): Promise<void> {
@@ -176,9 +185,13 @@ export class WorkflowApprovalAuthorityService {
     const used = new Set<string>();
     for (const vote of facts.decisions) {
       const stage = facts.manifest!.stages.find(stage => stage.level === vote.level), candidate = stage?.candidates.find(candidate => candidate.userId === vote.approver_id);
-      if (!stage || !candidate || vote.plan_hash !== facts.row.plan_hash || vote.candidate_version !== facts.row.candidate_version || vote.candidate_manifest_hmac !== facts.row.candidate_manifest_hmac
-        || plan.requester.type === 'console' && vote.approver_id === plan.requester.id || facts.policy!.distinctAcrossStages && used.has(vote.approver_id)) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_FACT_INVALID' });
-      used.add(vote.approver_id); if (current) { await this.candidates.assertCurrent(plan, candidate, tx);
+      const self = vote.is_self_approval === true;
+      const selfValid = self && plan.requester.type === 'console' && vote.approver_id === plan.requester.id && vote.decision === 'approve';
+      if (!stage || (self ? !selfValid : !candidate) || vote.plan_hash !== facts.row.plan_hash || vote.candidate_version !== facts.row.candidate_version || vote.candidate_manifest_hmac !== facts.row.candidate_manifest_hmac
+        || !self && plan.requester.type === 'console' && vote.approver_id === plan.requester.id || facts.policy!.distinctAcrossStages && used.has(vote.approver_id)) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_FACT_INVALID' });
+      // Re-check the override on every current checkpoint (seal / execute): switching it off or demoting the super-admin blocks execution.
+      if (self && current && !await selfApprovalPermitted(tx, vote.approver_id)) throw new ConflictException({ code: 'WORKFLOW_SELF_APPROVAL_REVOKED' });
+      used.add(vote.approver_id); if (current) { if (!self) await this.candidates.assertCurrent(plan, candidate!, tx);
         if (reviewerPolicy === 'namespace-configuration-sql') await this.scheduledConfigurationSql!.verifyCurrent(vote.approver_id, plan, tx);
         else if (reviewerPolicy) await this.reviewer(plan, vote.approver_id, tx, checkpoint); }
     }
@@ -188,7 +201,7 @@ export class WorkflowApprovalAuthorityService {
     if (facts.format !== 2 || !plan.approvalRequired) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_SET_INVALID' });
     await this.validateDecisions(plan, facts, tx, 'seal');
     if (facts.decisions.some(vote => vote.decision !== 'approve') || facts.stages.some(stage => stage.state !== 'approved' || facts.decisions.filter(vote => vote.level === stage.level).length !== stage.required_approvals)) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_SET_INCOMPLETE' });
-    const reviewers = facts.decisions.map(vote => Object.freeze({ approvalId: vote.id, userId: vote.approver_id, level: vote.level, candidateVersion: vote.candidate_version }));
+    const reviewers = facts.decisions.map(vote => Object.freeze({ approvalId: vote.id, userId: vote.approver_id, level: vote.level, candidateVersion: vote.candidate_version, ...(vote.is_self_approval === true ? { selfApproval: true as const } : {}) }));
     const setId = randomUUID(), material = { version: 1, clusterId: plan.clusterId, workspaceId: plan.workspaceId, workflowId: plan.workflowId, planRevision: plan.planRevision, planHash: facts.row.plan_hash, policyHash: plan.definition.policyHash, candidateVersion: facts.row.candidate_version, candidateManifestHmac: facts.row.candidate_manifest_hmac, reviewers }, setHmac = this.secrets.fingerprint(material);
     await tx.exec(`INSERT INTO workflow_approval_sets(id,cluster_id,workspace_id,workflow_id,plan_revision,plan_hash,policy_hash,candidate_version,candidate_manifest_hmac,set_hmac,manifest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)`, [setId, plan.clusterId, plan.workspaceId, plan.workflowId, plan.planRevision, facts.row.plan_hash, plan.definition.policyHash, facts.row.candidate_version, facts.row.candidate_manifest_hmac, setHmac, JSON.stringify(material)]);
     for (const reviewer of reviewers) await tx.exec(`INSERT INTO workflow_approval_set_members(cluster_id,workspace_id,set_id,set_hmac,workflow_id,plan_revision,plan_hash,approval_id,level,user_id,candidate_version,candidate_manifest_hmac) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [plan.clusterId, plan.workspaceId, setId, setHmac, plan.workflowId, plan.planRevision, facts.row.plan_hash, reviewer.approvalId, reviewer.level, reviewer.userId, reviewer.candidateVersion, facts.row.candidate_manifest_hmac]);
@@ -214,16 +227,18 @@ export class WorkflowApprovalAuthorityService {
     const empty = Object.freeze({ format: facts.format, policyHash: plan.definition.policyHash, setId: null, setHmac: null, reviewers: Object.freeze([]) });
     if (!plan.approvalRequired) return empty;
     if (facts.format === 1) {
-      if (facts.stages.length !== 1 || facts.stages[0].plan_hash !== facts.row.plan_hash || facts.stages[0].level !== 1 || facts.stages[0].required_approvals !== 1 || facts.stages[0].state !== 'approved' || facts.decisions.length !== 1 || facts.decisions[0].plan_hash !== facts.row.plan_hash || facts.decisions[0].decision !== 'approve' || facts.decisions[0].level !== 1 || facts.decisions[0].approver_id !== facts.row.approved_by || facts.row.approved_by === facts.row.requester_user_id) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_SET_INCOMPLETE' });
+      if (facts.stages.length !== 1 || facts.stages[0].plan_hash !== facts.row.plan_hash || facts.stages[0].level !== 1 || facts.stages[0].required_approvals !== 1 || facts.stages[0].state !== 'approved' || facts.decisions.length !== 1 || facts.decisions[0].plan_hash !== facts.row.plan_hash || facts.decisions[0].decision !== 'approve' || facts.decisions[0].level !== 1 || facts.decisions[0].approver_id !== facts.row.approved_by || facts.row.approved_by === facts.row.requester_user_id && !(facts.row.self_approved === true && facts.decisions[0].is_self_approval === true)) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_SET_INCOMPLETE' });
+      const selfV1 = facts.row.self_approved === true && facts.decisions[0].is_self_approval === true;
+      if (selfV1 && !await selfApprovalPermitted(tx, facts.row.approved_by)) throw new ConflictException({ code: 'WORKFLOW_SELF_APPROVAL_REVOKED' });
       await this.reviewer(plan, facts.row.approved_by, tx, input.checkpoint, false);
-      return Object.freeze({ ...empty, reviewers: Object.freeze([Object.freeze({ approvalId: facts.decisions[0].id, userId: facts.row.approved_by, level: 1, candidateVersion: null })]) });
+      return Object.freeze({ ...empty, reviewers: Object.freeze([Object.freeze({ approvalId: facts.decisions[0].id, userId: facts.row.approved_by, level: 1, candidateVersion: null, ...(selfV1 ? { selfApproval: true as const } : {}) })]) });
     }
     if (mode !== 'full' && !this.policies.has(plan.kind)) throw new ConflictException({ code: 'WORKFLOW_REVIEWER_POLICY_UNAVAILABLE' });
     if (mode === 'namespace-configuration-sql' && !this.scheduledConfigurationSql) throw new ConflictException({ code: 'WORKFLOW_SCHEDULE_CONFIGURATION_SQL_POLICY_UNAVAILABLE' });
     await this.validateDecisions(plan, facts, tx, input.checkpoint, true, mode === 'namespace-configuration-sql' ? mode : mode === 'full');
     if (facts.decisions.some(vote => vote.decision !== 'approve') || facts.stages.some(stage => stage.state !== 'approved' || facts.decisions.filter(vote => vote.level === stage.level).length !== stage.required_approvals)) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_SET_INCOMPLETE' });
     const set = await tx.one<any>('SELECT * FROM workflow_approval_sets WHERE id=$1 AND cluster_id=$2 AND workspace_id=$3 AND workflow_id=$4 AND plan_revision=$5 AND plan_hash=$6', [facts.row.approval_set_id, plan.clusterId, plan.workspaceId, plan.workflowId, plan.planRevision, facts.row.plan_hash]);
-    const reviewers = facts.decisions.map(vote => Object.freeze({ approvalId: vote.id, userId: vote.approver_id, level: vote.level, candidateVersion: vote.candidate_version }));
+    const reviewers = facts.decisions.map(vote => Object.freeze({ approvalId: vote.id, userId: vote.approver_id, level: vote.level, candidateVersion: vote.candidate_version, ...(vote.is_self_approval === true ? { selfApproval: true as const } : {}) }));
     const material = { version: 1, clusterId: plan.clusterId, workspaceId: plan.workspaceId, workflowId: plan.workflowId, planRevision: plan.planRevision, planHash: facts.row.plan_hash, policyHash: plan.definition.policyHash, candidateVersion: facts.row.candidate_version, candidateManifestHmac: facts.row.candidate_manifest_hmac, reviewers };
     if (!set || set.set_hmac !== facts.row.approval_set_hmac || this.secrets.fingerprint(set.manifest) !== set.set_hmac || this.secrets.fingerprint(material) !== set.set_hmac
       || !reviewers.some(reviewer => reviewer.userId === facts.row.approved_by && reviewer.level === facts.stages.length)) throw new ConflictException({ code: 'WORKFLOW_APPROVAL_SET_INVALID' });
