@@ -11,7 +11,8 @@ type Capture={readonly event:Readonly<AuditEvent>;pending?:Promise<void>;finishe
 
 /** Records HTTP failure facts, not entity outcomes or evidence of a Native
  * send. The principal is captured only after a guard authenticated it. No URL,
- * request payload, supplied tenant, exception details or credentials are read.
+ * request payload, supplied tenant, exception details or credentials are read;
+ * only the bounded error code constant chosen by the error filter is kept.
  * Global-only visibility prevents a rejected foreign-tenant request from
  * creating an audit row in an attacker-selected cluster/workspace. */
 @Injectable()
@@ -45,12 +46,15 @@ export class RequestFailureAuditService {
   /** Called after the original handler/transaction has rejected. The append
    * uses AuditService's independent transaction, never the rolled-back one.
    * A private per-request Promise deduplicates exception/finish/close races. */
-  recordFailure(request:object,status:number|'disconnected'):Promise<void> {
+  recordFailure(request:object,status:number|'disconnected',errorCode?:unknown):Promise<void> {
     const capture=this.#captured.get(request);
     if(!capture||status!=='disconnected'&&(!Number.isInteger(status)||status<400||status>599))return Promise.resolve();
     if(capture.pending)return capture.pending;
     const result=status==='disconnected'?'http_disconnected':`http_${status}`;
-    capture.pending=Promise.resolve().then(()=>this.audit.append({...capture.event,result})).then(()=>undefined).catch(()=>{
+    // Only a bounded constant error code (e.g. PROTECTED_PROXY_DESTINATION) is
+    // kept; never the message, destination, payload or exception details.
+    const code=typeof errorCode==='string'&&/^[A-Z][A-Z0-9_]{2,79}$/.test(errorCode)?errorCode:undefined;
+    capture.pending=Promise.resolve().then(()=>this.audit.append({...capture.event,result,...(code?{after:{error_code:code}}:{})})).then(()=>undefined).catch(()=>{
       // Audit storage failure must not replace the original HTTP/uncertain
       // result. This alert is truthful; it does not claim a durable audit row.
       console.error(JSON.stringify({level:'error',code:'HTTP_FAILURE_AUDIT_APPEND_FAILED',requestId:capture.event.requestId}));

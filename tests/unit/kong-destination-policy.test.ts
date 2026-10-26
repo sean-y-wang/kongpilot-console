@@ -26,6 +26,16 @@ describe('M4 protected management destinations and legitimate private upstreams'
   it.each([{ host: 'kong', port: 8001 }, { host: 'kong-secondary', port: 8001 }, { host: '172.28.11.20', port: 8001 }, { host: 'admin-alias.business', port: 8001 }, { host: 'console-api', port: 9999 }, { host: 'console-web', port: 80 }, { host: 'kong-secondary-db', port: 5432 }, { host: 'db-alias.business', port: 8080 }, { host: 'prometheus', port: 8000 }, { host: 'metadata.business', port: 80 }])('rejects configured management host/address and DNS aliases %j', async candidate => {
     await expect(assertProxyDestination(db, candidate)).rejects.toMatchObject({ status: 403 });
   });
+  it.each([
+    [{ host: '127.0.0.1', port: 8080 }, 'system-reserved'], [{ host: 'kong', port: 8001 }, 'kong-admin'], [{ host: '172.28.11.20', port: 8001 }, 'kong-admin'],
+    [{ host: 'console-db', port: 5432 }, 'console-storage'], [{ host: '172.28.11.11', port: 5432 }, 'console-storage'], [{ host: 'redis', port: 6379 }, 'console-storage'],
+    [{ host: 'console-api', port: 3000 }, 'console-component'], [{ host: 'prometheus', port: 9090 }, 'data-source'],
+  ])('reports the offending destination %o and rule category %s without echoing protected credentials', async (candidate, category) => {
+    const error: any = await assertProxyDestination(db, candidate).catch(e => e);
+    expect(error.response).toMatchObject({ code: 'PROTECTED_PROXY_DESTINATION', category, destination: `${candidate.host}:${candidate.port}` });
+    expect(error.response.message).toContain(`${candidate.host}:${candidate.port}`);
+    expect(JSON.stringify(error.response)).not.toMatch(/hidden|user:|postgresql:\/\//);
+  });
   it('allows ordinary private business destinations and Kong proxy ports', async () => {
     for (const candidate of [{ host: '10.80.1.30', port: 8001 }, { host: 'service.business', port: 8080 }, { host: 'unresolved.business', port: 443 }, { host: 'ffbusiness.example', port: 80 }, { host: 'kong', port: 8000 }, { host: 'kong-secondary', port: 9000 }]) await expect(assertProxyDestination(db, candidate)).resolves.toBeUndefined();
   });

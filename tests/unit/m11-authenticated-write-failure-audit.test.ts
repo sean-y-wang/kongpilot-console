@@ -47,7 +47,7 @@ describe('authenticated write failure facts',()=>{
  it('records prepare 500 after trusted guard authentication without inventing entity/native outcomes',async()=>{
   const f=fixture();vi.spyOn(console,'error').mockImplementation(()=>undefined);
   await f.run(async()=>{await f.guard.canActivate(f.context());await f.filter.catch(new Error(SECRET),f.host);});
-  expect(f.append).toHaveBeenCalledTimes(1);expect(f.append).toHaveBeenCalledWith({actorId:f.uid,actorType:'user',entityType:'http_requests',entityId:f.requestId,requestId:f.requestId,ip:'127.0.0.1',clusterId:null,workspaceId:null,action:'http.request.POST.failed',before:null,after:null,result:'http_500'});
+  expect(f.append).toHaveBeenCalledTimes(1);expect(f.append).toHaveBeenCalledWith({actorId:f.uid,actorType:'user',entityType:'http_requests',entityId:f.requestId,requestId:f.requestId,ip:'127.0.0.1',clusterId:null,workspaceId:null,action:'http.request.POST.failed',before:null,after:{error_code:expect.any(String)},result:'http_500'});
   const encoded=JSON.stringify(f.append.mock.calls);expect(encoded).not.toContain(SECRET);expect(encoded).not.toContain(f.req.body.clusterId);expect(encoded).not.toContain('client-forged');
   expect(f.res.status).toHaveBeenCalledWith(500);expect(f.res.json.mock.calls[0][0].error.code).toBe('INTERNAL_ERROR');
  });
@@ -69,12 +69,18 @@ describe('authenticated write failure facts',()=>{
   const committed=[business];
   await f.run(async()=>{await f.guard.canActivate(f.context());await f.filter.catch(new ServiceUnavailableException({code:'MUTATION_UNCERTAIN',message:'requires observation',operationId,entryId,state:'uncertain',payload:{password:SECRET}}),f.host);});
   expect(committed).toEqual([business]);expect(f.res.json.mock.calls[0][0].error).toEqual({code:'MUTATION_UNCERTAIN',message:'requires observation',operationId,entryId,state:'uncertain'});
-  expect(f.append.mock.calls[0][0]).toMatchObject({before:null,after:null,result:'http_503'});expect(f.append.mock.calls[0][0]).not.toHaveProperty('workflowId');
+  expect(f.append.mock.calls[0][0]).toMatchObject({before:null,after:{error_code:expect.any(String)},result:'http_503'});expect(f.append.mock.calls[0][0]).not.toHaveProperty('workflowId');
  });
  it('deduplicates concurrent exception/finish/close into one independent append',async()=>{
   const f=fixture();let release!:()=>void;f.append.mockImplementation(()=>new Promise<void>(resolve=>{release=resolve;}));
   await f.run(async()=>{await f.guard.canActivate(f.context());const a=f.audit.recordFailure(f.req,409),b=f.audit.recordFailure(f.req,500);f.res.statusCode=409;f.res.emit('finish');f.res.emit('close');await tick();expect(f.append).toHaveBeenCalledTimes(1);expect(a).toBe(b);release();await a;});
   expect(f.append.mock.calls[0][0]).toMatchObject({result:'http_409'});
+ });
+ it('keeps only a bounded error code constant for rejected requests',async()=>{
+  const f=fixture('POST');await f.run(async()=>{await f.guard.canActivate(f.context());await f.audit.recordFailure(f.req,403,'PROTECTED_PROXY_DESTINATION');});
+  expect(f.append).toHaveBeenCalledWith(expect.objectContaining({result:'http_403',after:{error_code:'PROTECTED_PROXY_DESTINATION'}}));
+  const g=fixture('POST');await g.run(async()=>{await g.guard.canActivate(g.context());await g.audit.recordFailure(g.req,403,'secret host 10.0.0.1:5432');});
+  expect(g.append.mock.calls[0][0].after).toBeNull();
  });
  it('captures explicit response failure without an exception filter',async()=>{
   const f=fixture('PATCH');await f.run(async()=>{await f.guard.canActivate(f.context());f.res.statusCode=422;f.res.emit('finish');await f.audit.recordFailure(f.req,422);});
@@ -197,7 +203,7 @@ for(const Filter of [ErrorFilter,DeckErrorFilter])describe(`safe asynchronous ${
  it('contains final JSON and destroy exceptions without losing original HTTP fact or logging transport secrets',async()=>{
   const f=fixture(),logger=vi.spyOn(console,'error').mockImplementation(()=>undefined);f.res.setHeader=vi.fn();f.res.json.mockImplementation(()=>{throw Error(SECRET);});f.res.destroy=vi.fn(()=>{throw Error(SECRET);});
   await f.run(async()=>{await f.guard.canActivate(f.context());await expect(new Filter(f.audit).catch(new BadRequestException({code:'ORIGINAL_SAFE_ERROR'}),f.host)).resolves.toBeUndefined();});
-  expect(f.append.mock.calls[0][0]).toMatchObject({result:'http_400',before:null,after:null});expect(f.res.destroy).toHaveBeenCalledTimes(1);expect(JSON.stringify(logger.mock.calls)).not.toContain(SECRET);
+  expect(f.append.mock.calls[0][0]).toMatchObject({result:'http_400',before:null});expect(f.res.destroy).toHaveBeenCalledTimes(1);expect(JSON.stringify(logger.mock.calls)).not.toContain(SECRET);
  });
 });
 

@@ -7,7 +7,19 @@ import { redisProtectedHosts } from '../redis-config';
 import { pluginMetadata } from '../../modules/plugin-center/plugin-metadata';
 
 type HostPort = { host: string; port: number };
-const prohibited = () => new ForbiddenException({ code: 'PROTECTED_PROXY_DESTINATION', message: '网关不能将请求发送至管理端、控制台存储或系统保留地址' });
+export type ProtectedDestinationCategory = 'invalid-destination' | 'system-reserved' | 'console-component' | 'console-storage' | 'kong-admin' | 'data-source' | 'configured-protected';
+const categoryLabels: Record<ProtectedDestinationCategory, string> = {
+  'invalid-destination': '目标地址格式无效', 'system-reserved': '系统保留地址（回环/链路本地/组播等）', 'console-component': '控制台内部组件',
+  'console-storage': '控制台存储', 'kong-admin': 'Kong 管理端', 'data-source': '控制台数据源', 'configured-protected': '运维配置的受保护地址',
+};
+const PROTECTED_MESSAGE = '网关不能将请求发送至管理端、控制台存储或系统保留地址';
+/** Echoes only the caller-supplied host:port and a rule category; never the
+ * protected endpoint's own URL, credentials or resolved addresses. */
+const prohibited = (category?: ProtectedDestinationCategory, target?: HostPort) => {
+  const shown = target && typeof target.host === 'string' && target.host.length <= 253 && /^[\w.:\[\]-]*$/.test(target.host) ? `${target.host}:${Number.isInteger(Number(target.port)) ? Number(target.port) : '?'}` : undefined;
+  return new ForbiddenException({ code: 'PROTECTED_PROXY_DESTINATION', category, destination: shown,
+    message: category ? `${PROTECTED_MESSAGE}（目标 ${shown ?? '—'}，命中规则：${categoryLabels[category]}）` : PROTECTED_MESSAGE });
+};
 const unavailable = () => new BadGatewayException({ code: 'DESTINATION_POLICY_UNAVAILABLE', message: '无法核验受保护目标地址，变更已停止' });
 function hostName(value: string): string {
   if (typeof value !== 'string') return '';
@@ -118,25 +130,34 @@ export async function assertProxyDestination(db: Pick<DbService, 'query'>, candi
   // OpenResty connect() also accepts Unix socket syntax. Native plugin schemas
   // can expose an unconstrained string, so DNS failure must never make a socket
   // path or authority suffix into an accepted ordinary business hostname.
-  if (!normalized || !isIP(normalized) && !/^[a-z0-9_](?:[a-z0-9_.-]{0,251}[a-z0-9_])?$/.test(normalized) || !Number.isInteger(port) || port < 1 || port > 65535 || systemAddress(normalized)) throw prohibited();
+  const shown = { host: normalized || String(candidate.host ?? '').slice(0, 253), port };
+  if (!normalized || !isIP(normalized) && !/^[a-z0-9_](?:[a-z0-9_.-]{0,251}[a-z0-9_])?$/.test(normalized) || !Number.isInteger(port) || port < 1 || port > 65535) throw prohibited('invalid-destination', shown);
+  if (systemAddress(normalized)) throw prohibited('system-reserved', shown);
   const rows = await db.query<any>('SELECT admin_url FROM clusters WHERE deleted_at IS NULL');
   const sources = await db.query<any>('SELECT base_url FROM data_sources WHERE deleted_at IS NULL');
-  const admins: HostPort[] = [], privateHosts = new Set(['console-api', 'console-web', 'console-db', 'kong-db', 'kong-secondary-db', 'redis', 'telemetry-collector', 'metrics-collector']);
+  const admins: HostPort[] = [], privateHosts = new Map<string, ProtectedDestinationCategory>();
+  const protect = (host: string, category: ProtectedDestinationCategory) => { if (!privateHosts.has(host)) privateHosts.set(host, category); };
+  for (const host of ['console-api', 'console-web', 'telemetry-collector', 'metrics-collector']) protect(host, 'console-component');
+  for (const host of ['console-db', 'kong-db', 'kong-secondary-db', 'redis']) protect(host, 'console-storage');
   try {
     for (const row of rows) admins.push(parseUrl(row.admin_url));
-    for (const row of sources) privateHosts.add(parseUrl(row.base_url).host);
-    for (const value of [process.env.DATABASE_URL ?? process.env.CONSOLE_DATABASE_URL, process.env.REDIS_URL, process.env.CONSOLE_INTERNAL_URL]) if (value) privateHosts.add(parseUrl(value).host);
-    for (const host of redisProtectedHosts()) privateHosts.add(hostName(host));
-    for (const host of (process.env.PROTECTED_DESTINATION_HOSTS || '').split(',').filter(Boolean)) privateHosts.add(hostName(host.trim()));
+    for (const value of [process.env.DATABASE_URL ?? process.env.CONSOLE_DATABASE_URL, process.env.REDIS_URL]) if (value) protect(parseUrl(value).host, 'console-storage');
+    for (const host of redisProtectedHosts()) protect(hostName(host), 'console-storage');
+    if (process.env.CONSOLE_INTERNAL_URL) protect(parseUrl(process.env.CONSOLE_INTERNAL_URL).host, 'console-component');
+    for (const row of sources) protect(parseUrl(row.base_url).host, 'data-source');
+    for (const host of (process.env.PROTECTED_DESTINATION_HOSTS || '').split(',').filter(Boolean)) protect(hostName(host.trim()), 'configured-protected');
   } catch { throw unavailable(); }
-  if (privateHosts.has(normalized) || admins.some(row => row.host === normalized && row.port === port)) throw prohibited();
+  if (privateHosts.has(normalized)) throw prohibited(privateHosts.get(normalized), shown);
+  if (admins.some(row => row.host === normalized && row.port === port)) throw prohibited('kong-admin', shown);
   const resolved = await addresses(normalized);
-  if (resolved.some(systemAddress)) throw prohibited();
+  if (resolved.some(systemAddress)) throw prohibited('system-reserved', shown);
   // Resolve protected endpoints too, so an attacker-owned DNS alias pointing
   // at their known address cannot evade the hostname comparison.
-  const protectedRows = [...admins.filter(row => row.port === port).map(row => row.host), ...privateHosts];
-  const protectedAddresses = new Set((await Promise.all(protectedRows.map(addresses))).flat());
-  if ((isIP(normalized) ? [normalized] : resolved).some(address => protectedAddresses.has(address))) throw prohibited();
+  const protectedRows: Array<[string, ProtectedDestinationCategory]> = [...admins.filter(row => row.port === port).map(row => [row.host, 'kong-admin'] as [string, ProtectedDestinationCategory]), ...privateHosts];
+  const protectedAddresses = new Map<string, ProtectedDestinationCategory>();
+  for (const [index, list] of (await Promise.all(protectedRows.map(([host]) => addresses(host)))).entries()) for (const address of list) if (!protectedAddresses.has(address)) protectedAddresses.set(address, protectedRows[index][1]);
+  const hit = (isIP(normalized) ? [normalized] : resolved).find(address => protectedAddresses.has(address));
+  if (hit) throw prohibited(protectedAddresses.get(hit), shown);
 }
 export async function assertProxyUrl(db: Pick<DbService, 'query'>, value: unknown): Promise<void> {
   if (typeof value !== 'string') throw prohibited();
