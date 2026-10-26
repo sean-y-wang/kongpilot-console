@@ -9,6 +9,7 @@ import type { AuthUser } from '../../common/auth';
 import { WorkspaceResolverService } from '../workspaces/workspace-resolver.service';
 import { workspaceIndexWhere } from '../workspaces/workspace-index-scope';
 import { KongExecutionContextService } from '../../infrastructure/kong/execution-context.service';
+import { entityMatchesSearch, entitySearchSql } from './entity-search';
 
 const kinds=['services','routes','consumers','plugins','upstreams','certificates','ca_certificates','snis'];
 type SearchOptions={search?:string;sort?:string;size?:number;cursor?:string;tags?:string;workspaceId?:string};
@@ -39,7 +40,7 @@ export class EntityIndexService implements OnModuleInit,OnModuleDestroy {
  async search(clusterId:string,entityType:string,options:SearchOptions,actor:AuthUser){
   await this.authz.assertCluster(actor,clusterId,entityType,'read');
   if(!kinds.includes(entityType))throw new BadRequestException('不支持的实体');
-  const size=Number(options.size??20),search=String(options.search??'').slice(0,128),sort=options.sort??'name:asc';
+  const size=Number(options.size??20),search=String(options.search??'').slice(0,128).trim(),sort=options.sort??'name:asc';
   if(!Number.isInteger(size)||size<1||size>100||!['name:asc','name:desc','created_at:asc','created_at:desc'].includes(sort))throw new BadRequestException('无效排序或分页参数');
   const workspace=await this.workspaces.resolve(clusterId,options.workspaceId);
   await this.authz.assertCluster(actor,clusterId,entityType,'read',workspace.id);
@@ -48,7 +49,7 @@ export class EntityIndexService implements OnModuleInit,OnModuleDestroy {
   const binding=createHash('sha256').update(JSON.stringify({clusterId,entityType,search,sort,size,scope:scope.binding,actor:actor.id,permissions:await this.authz.permissionVersion(actor)})).digest('hex');
   const previous=options.cursor?this.read(options.cursor,binding):null;
   const column=sort.startsWith('name:')?'name':'kong_created_at',direction=sort.endsWith(':asc')?'ASC':'DESC',comparison=direction==='ASC'?'>':'<';
-  const params:unknown[]=[clusterId,entityType,search],where=['cluster_id=$1','entity_type=$2',"($3='' OR position(lower($3) in lower(name))>0 OR position(lower($3) in lower(kong_id))>0)"];
+  const params:unknown[]=[clusterId,entityType,search],where=['cluster_id=$1','entity_type=$2',entitySearchSql(entityType,'$3')];
   where.push(...workspaceIndexWhere(scope,params));
   if(previous){params.push(previous.value,previous.id);where.push(`(${column},kong_id) ${comparison} ($${params.length-1},$${params.length})`);}
   params.push(Math.min(500,size*5+1));
@@ -58,8 +59,7 @@ export class EntityIndexService implements OnModuleInit,OnModuleDestroy {
    if(items.length>=size)break;consumed++;last=row;
    try{
     const entity=await this.kong.request(clusterId,'GET',`/${entityType}/${encodeURIComponent(row.kong_id)}`);
-    const actualName=String(entity.name??entity.username??entity.custom_id??entity.id).toLowerCase();
-    if(search&&!actualName.includes(search.toLowerCase())&&!String(entity.id).toLowerCase().includes(search.toLowerCase())){await this.upsert(clusterId,entityType,entity);continue;}
+    if(search&&!entityMatchesSearch(entityType,entity,search)){await this.upsert(clusterId,entityType,entity);continue;}
     if(!this.workspaces.matches(scope,entity))continue;
     const allowed=await this.authz.filterEntities(actor,clusterId,entityType,[entity],scope.workspaceId);if(!allowed.length)continue;
     await this.upsert(clusterId,entityType,entity);items.push(this.secrets.redact(entity));
@@ -97,7 +97,7 @@ export class EntityIndexService implements OnModuleInit,OnModuleDestroy {
  async refreshCluster(clusterId:string){return this.redis.withLock(`index:${clusterId}`,()=>this.sync(clusterId));}
  private async tick(){
   if(this.running)return;this.running=true;
-  try{const clusters=await this.db.query<any>("SELECT id FROM clusters WHERE deleted_at IS NULL AND status='healthy' AND version LIKE '1.5.%'");for(const c of clusters)try{await this.execution.runSystemRead(c.id,'indexer',()=>this.refreshCluster(c.id));}catch{/* A failed provider never produces synthetic inventory. */}}
+  try{const clusters=await this.db.query<any>("SELECT id FROM clusters WHERE deleted_at IS NULL AND status='healthy' AND version ~ '^1\\.[345]\\.[0-9]+$'");for(const c of clusters)try{await this.execution.runSystemRead(c.id,'indexer',()=>this.refreshCluster(c.id));}catch{/* A failed provider never produces synthetic inventory. */}}
   finally{this.running=false;}
  }
  private async sync(clusterId:string){
