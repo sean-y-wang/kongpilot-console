@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {Alert,App,Button,Card,Descriptions,Form,Input,Space,Table,Tag,Typography} from 'antd';
+import { abbreviateId, entityOptionLabel } from '../lib/abbreviate-id';
 import {useQuery} from '@tanstack/react-query';
 import type {User} from '../api/types';
 import type {Workflow} from '../features/portal.types';
@@ -91,7 +92,7 @@ export function WorkflowBusinessSchedulesPanel(props:WorkflowBusinessSchedulesPa
  return <Space direction="vertical" size={16} style={{width:'100%'}} data-testid="workflow-business-schedules-panel">
   {!!error&&<QueryError error={error}/>} {!!journalError&&<QueryError error={journalError}/>}
   {attempt&&<Alert type="warning" showIcon message="原排程请求尚未核验" description={<Space wrap><Typography.Text className="mono" copyable>{attempt.key}</Typography.Text><Button loading={busy} onClick={()=>void verifyOriginal(attempt!)}>核验原回执</Button></Space>}/>}
-  {props.workflowDetail&&businessCanAuthor(props.workflowDetail,props.actor,identity)&&<Card size="small" title="登记排程"><Descriptions size="small" column={{xs:1,md:2}} items={[{key:'workflow',label:'当前工单',children:props.workflowDetail.id.slice(0,8)},{key:'deadline',label:'窗口结束上限',children:formatTime(props.workflowDetail.expiresAt)}]}/>
+  {props.workflowDetail&&businessCanAuthor(props.workflowDetail,props.actor,identity)&&<Card size="small" title="登记排程"><Descriptions size="small" column={{xs:1,md:2}} items={[{key:'workflow',label:'当前工单',children:<span className="mono" title={props.workflowDetail.id}>{abbreviateId(props.workflowDetail.id)}</span>},{key:'deadline',label:'窗口结束上限',children:formatTime(props.workflowDetail.expiresAt)}]}/>
    <Form form={form} layout="vertical" onFinish={values=>void author(values)} style={{marginTop:16}}><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))',gap:16}}>
     {[['notBefore','执行时间（本地）'],['windowStart','窗口开始（含）'],['windowEnd','窗口结束（不含）']].map(([name,label])=><Form.Item key={name} name={name} label={label} rules={[{required:true,message:'请选择时间'}]}><Input type="datetime-local" step={1} max={deadlineMax} disabled={blocked}/></Form.Item>)}
    </div><Button type="primary" htmlType="submit" disabled={blocked} loading={busy}>登记排程</Button></Form></Card>}
@@ -100,7 +101,7 @@ export function WorkflowBusinessSchedulesPanel(props:WorkflowBusinessSchedulesPa
     {title:'类型',render:(_,row)=>businessScheduleKinds[row.kind]}, {title:'工单',render:(_,row)=><a href={`/workflows/${row.workflowId}`}>查看工单 · v{row.workflowPlanRevision}</a>},
     {title:'状态',render:(_,row)=><Tag>{businessScheduleLabels[row.state]}</Tag>}, {title:'执行时间',render:(_,row)=>formatTime(row.notBefore)},
     {title:'变更窗口',render:(_,row)=><>{formatTime(row.windowStart)}<div className="table-secondary">至 {formatTime(row.windowEnd)}</div></>},
-    {title:'执行人',render:(_,row)=><Typography.Text className="mono" copyable={{text:row.executorId}}>{row.executorId===props.actor.id?(props.actor.displayName??props.actor.username):row.executorId.slice(0,8)}</Typography.Text>}, {title:'状态原因',render:(_,row)=>row.reasonCode??'—'},
+    {title:'执行人',render:(_,row)=><Typography.Text className="mono" copyable={{text:row.executorId}}>{row.executorId===props.actor.id?(props.actor.displayName??props.actor.username):abbreviateId(row.executorId)}</Typography.Text>}, {title:'状态原因',render:(_,row)=>row.reasonCode??'—'},
     {title:'操作',render:(_,row)=><Space><Button type="link" disabled={blocked||row.state!=='pending-approval'||row.claimId!==null||!businessWholeWorkspace(props.actor,identity,row.executorId===identity.actor?'write':'approve')} onClick={()=>void command(row,'activate')}>激活</Button>
      <Button type="link" danger disabled={blocked||row.executorId!==identity.actor||!['pending-approval','active'].includes(row.state)||row.claimId!==null||!businessWholeWorkspace(props.actor,identity,'write')} onClick={()=>void command(row,'cancel')}>撤销</Button></Space>},
    ]}/><CursorPagination pages={pages} nextCursor={query.data?.nextCursor} count={query.data?.items.length??0} size={20} loading={query.isFetching}/>
