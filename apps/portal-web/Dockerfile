@@ -16,7 +16,7 @@ COPY --chown=node:node apps/portal-web apps/portal-web
 COPY --chown=node:node packages packages
 RUN npm run build -w @kongpilot/portal-web
 
-FROM nginx:stable-alpine@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951 AS runtime
+FROM nginx:stable-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949 AS runtime
 LABEL org.opencontainers.image.title="KongPilot Developer Portal" org.opencontainers.image.description="Kong 网关管理平台"
 # Runtime base digest stays frozen in deploy/images/toolchain.json. Prefer updating
 # that reviewed digest over mutable APK repositories. The temporary brotli-libs pin
